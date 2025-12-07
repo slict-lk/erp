@@ -11,7 +11,7 @@ package-lock.json
 .turbopack
 
 # Environment variables
-#.env
+.env
 .env.local
 .env.*.local
 
