@@ -38,8 +38,8 @@
     "dev:assign-settings": "echo '⚙️ Starting Settings Development...' && npm run dev",
     "ai:serve": "bash scripts/ollama-start.sh",
     "ai:pull": "ollama pull",
-  "ai:test-local": "curl -X POST http://localhost:11434/api/generate -H 'Content-Type: application/json' -d '{\"model\":\"llama2\",\"prompt\":\"Say hello\",\"stream\":false}'",
-  "groq:setup": "bash setup-groq.sh",
+    "ai:test-local": "curl -X POST http://localhost:11434/api/generate -H 'Content-Type: application/json' -d '{\"model\":\"llama2\",\"prompt\":\"Say hello\",\"stream\":false}'",
+    "groq:setup": "bash setup-groq.sh",
     "groq:validate": "ts-node scripts/validate-groq-setup.ts",
     "groq:test": "node scripts/validate-groq-setup.ts"
   },
@@ -58,6 +58,7 @@
     "@radix-ui/react-select": "^2.0.0",
     "@radix-ui/react-separator": "^1.1.8",
     "@radix-ui/react-slider": "^1.3.6",
+    "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tabs": "^1.0.4",
     "@radix-ui/react-toast": "^1.1.5",
@@ -127,10 +128,10 @@
     "typescript": "^5.4.0"
   },
   "engines": {
-    "node": "20.x",
-    "pnpm": "10.x"
+    "node": "22.x",
+    "pnpm": ">=8.0.0"
   },
-  "packageManager": "pnpm@10.0.0",
+  "packageManager": "pnpm@8.15.0",
   "pnpm": {
     "overrides": {
       "react": "^19.2.0",

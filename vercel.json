@@ -1,16 +1,18 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "buildCommand": "corepack enable && corepack prepare pnpm@10.0.0 --activate && pnpm install && pnpm prisma generate && pnpm build",
+  "buildCommand": "pnpm prisma generate && pnpm build",
   "outputDirectory": ".next",
   "devCommand": "pnpm dev",
-  "installCommand": "corepack enable && corepack prepare pnpm@10.0.0 --activate && npm install -g pnpm@10.0.0 && pnpm install",
+  "installCommand": "pnpm install",
   "framework": "nextjs",
   "regions": ["sin1"],
-  "env": {
-    "SKIP_ENV_VALIDATION": "1",
-    "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD": "1",
-    "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD": "1"
+  "build": {
+    "env": {
+      "SKIP_ENV_VALIDATION": "1",
+      "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD": "1",
+      "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD": "1"
+    }
   },
   "rewrites": [
     {
