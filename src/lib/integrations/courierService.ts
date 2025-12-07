@@ -1,4 +1,5 @@
-import { BaseIntegrationService, IntegrationHttpClient, IntegrationLogger, INTEGRATION_CONFIGS } from './base';
+import { BaseIntegrationService, IntegrationHttpClient, IntegrationLogger } from './base';
+import { INTEGRATION_CONFIGS } from './config';
 import { prisma } from '@/lib/prisma';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
 

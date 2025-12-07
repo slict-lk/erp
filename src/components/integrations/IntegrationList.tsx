@@ -18,7 +18,7 @@ import {
   Edit,
   Trash2,
 } from 'lucide-react';
-import { INTEGRATION_CONFIGS } from '@/lib/integrations/base';
+import { INTEGRATION_CONFIGS } from '@/lib/integrations/config';
 
 interface Integration {
   id: string;

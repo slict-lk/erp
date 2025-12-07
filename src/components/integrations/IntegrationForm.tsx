@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, CheckCircle, X } from 'lucide-react';
-import { INTEGRATION_CONFIGS } from '@/lib/integrations/base';
+import { INTEGRATION_CONFIGS } from '@/lib/integrations/config';
 
 const integrationSchema = z.object({
   platform: z.enum(['WHATSAPP_BUSINESS', 'FACEBOOK_MARKETPLACE', 'IKMAN_LK', 'ARAMEX', 'DHL', 'DOMEX']),
