@@ -3,7 +3,7 @@
   "version": 2,
   "buildCommand": "pnpm prisma generate && pnpm build",
   "outputDirectory": ".next",
-  "devCommand": "npm dev",
+  "devCommand": "pnpm dev",
   "installCommand": "corepack enable && corepack prepare pnpm@8.15.0 --activate && pnpm install",
   "framework": "nextjs",
   "regions": ["sin1"],
