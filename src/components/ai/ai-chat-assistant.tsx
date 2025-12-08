@@ -21,6 +21,7 @@ import {
     Plus,
     Menu,
     ChevronRight,
+    RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -302,10 +303,25 @@ export default function AIChatAssistant() {
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-lg leading-tight">AI Assistant</h3>
-                                        <p className="text-xs text-white/80 font-medium tracking-wide">Powered by Groq • Llama 3</p>
+                                        <div className="flex items-center gap-1.5 opacity-90">
+                                            <span className="relative flex h-2 w-2">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                                            </span>
+                                            <p className="text-xs font-medium tracking-wide">We're online</p>
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-1.5">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-white hover:bg-white/20 rounded-full transition-colors"
+                                        onClick={handleNewConversation}
+                                        title="Start New Chat"
+                                    >
+                                        <RefreshCw className="h-4 w-4" />
+                                    </Button>
                                     <Button
                                         variant="ghost"
                                         size="icon"
@@ -457,85 +473,118 @@ export default function AIChatAssistant() {
                                         </div>
                                     ) : (
                                         <>
-                                            {messages.map((message, idx) => (
-                                                <motion.div
-                                                    key={message.id || idx}
-                                                    initial={{ opacity: 0, y: 20 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    transition={{ duration: 0.3 }}
-                                                    onMouseEnter={() => setHoveredMessageId(message.id || idx.toString())}
-                                                    onMouseLeave={() => setHoveredMessageId(null)}
-                                                    className={cn(
-                                                        'flex gap-4 group',
-                                                        message.role === 'USER' ? 'justify-end pl-12' : 'justify-start pr-12'
-                                                    )}
-                                                >
-                                                    {message.role === 'ASSISTANT' && (
-                                                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-200 mt-1">
-                                                            <Bot className="h-6 w-6 text-white" />
-                                                        </div>
-                                                    )}
+                                            {messages.map((message, idx) => {
+                                                const isFirst = idx === 0;
+                                                const prevMessage = messages[idx - 1];
+                                                const currentDate = new Date(message.createdAt);
+                                                const prevDate = prevMessage ? new Date(prevMessage.createdAt) : null;
 
-                                                    <div className={cn("flex flex-col gap-1 min-w-0 max-w-[85%]", message.role === 'USER' ? 'items-end' : 'items-start')}>
-                                                        <div className="flex items-end gap-2 group-hover:translate-x-0 transition-transform">
-                                                            <div
-                                                                className={cn(
-                                                                    'px-5 py-3.5 shadow-sm relative text-sm leading-relaxed',
-                                                                    message.role === 'USER'
-                                                                        ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-2xl rounded-tr-sm'
-                                                                        : 'bg-white border border-gray-100 text-gray-800 rounded-2xl rounded-tl-sm hover:shadow-md hover:border-gray-200 transition-all'
-                                                                )}
-                                                            >
-                                                                <div className="whitespace-pre-wrap">{message.content}</div>
+                                                let showDateDivider = false;
+                                                let dateLabel = '';
 
-                                                                {/* Function calls badge */}
-                                                                {message.functionCalls && message.functionCalls.length > 0 && (
-                                                                    <div className="mt-3 pt-3 border-t border-dashed border-gray-300/30">
-                                                                        <div className="flex items-center gap-1.5 text-xs opacity-70">
-                                                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                                                            <span>Processed with {message.functionCalls.length} tool{message.functionCalls.length > 1 ? 's' : ''}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                )}
+                                                if (isFirst || (prevDate && currentDate.toDateString() !== prevDate.toDateString())) {
+                                                    showDateDivider = true;
+                                                    const today = new Date();
+                                                    const yesterday = new Date(today);
+                                                    yesterday.setDate(yesterday.getDate() - 1);
+
+                                                    if (currentDate.toDateString() === today.toDateString()) {
+                                                        dateLabel = 'Today';
+                                                    } else if (currentDate.toDateString() === yesterday.toDateString()) {
+                                                        dateLabel = 'Yesterday';
+                                                    } else {
+                                                        dateLabel = currentDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+                                                    }
+                                                }
+
+                                                return (
+                                                    <div key={message.id || idx}>
+                                                        {showDateDivider && (
+                                                            <div className="flex items-center justify-center my-6">
+                                                                <span className="text-[10px] font-medium text-gray-400 bg-gray-50/80 px-3 py-1 rounded-full border border-gray-100">
+                                                                    {dateLabel}
+                                                                </span>
                                                             </div>
-                                                        </div>
+                                                        )}
+                                                        <motion.div
+                                                            initial={{ opacity: 0, y: 20 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            transition={{ duration: 0.3 }}
+                                                            onMouseEnter={() => setHoveredMessageId(message.id || idx.toString())}
+                                                            onMouseLeave={() => setHoveredMessageId(null)}
+                                                            className={cn(
+                                                                'flex gap-4 group mb-6',
+                                                                message.role === 'USER' ? 'justify-end pl-12' : 'justify-start pr-12'
+                                                            )}
+                                                        >
+                                                            {message.role === 'ASSISTANT' && (
+                                                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-200 mt-1">
+                                                                    <Bot className="h-6 w-6 text-white" />
+                                                                </div>
+                                                            )}
 
-                                                        {/* Message Meta/Actions */}
-                                                        <div className={cn(
-                                                            "h-6 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity px-1",
-                                                            message.role === 'USER' ? 'flex-row-reverse' : 'flex-row'
-                                                        )}>
-                                                            <span className="text-[10px] text-gray-400 font-medium">
-                                                                {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                            </span>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-6 w-6 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600"
-                                                                onClick={() => copyToClipboard(message.content, message.id || idx.toString())}
-                                                            >
-                                                                {copiedId === (message.id || idx.toString()) ? (
-                                                                    <span className="text-xs text-green-500 font-bold">✓</span>
-                                                                ) : (
-                                                                    <Copy className="h-3 w-3" />
-                                                                )}
-                                                            </Button>
-                                                        </div>
+                                                            <div className={cn("flex flex-col gap-1 min-w-0 max-w-[85%]", message.role === 'USER' ? 'items-end' : 'items-start')}>
+                                                                <div className="flex items-end gap-2 group-hover:translate-x-0 transition-transform">
+                                                                    <div
+                                                                        className={cn(
+                                                                            'px-5 py-3.5 shadow-sm relative text-sm leading-relaxed',
+                                                                            message.role === 'USER'
+                                                                                ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-2xl rounded-tr-sm'
+                                                                                : 'bg-white border border-gray-100 text-gray-800 rounded-2xl rounded-tl-sm hover:shadow-md hover:border-gray-200 transition-all'
+                                                                        )}
+                                                                    >
+                                                                        <div className="whitespace-pre-wrap">{message.content}</div>
+
+                                                                        {/* Function calls badge */}
+                                                                        {message.functionCalls && message.functionCalls.length > 0 && (
+                                                                            <div className="mt-3 pt-3 border-t border-dashed border-gray-300/30">
+                                                                                <div className="flex items-center gap-1.5 text-xs opacity-70">
+                                                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                                                                    <span>Processed with {message.functionCalls.length} tool{message.functionCalls.length > 1 ? 's' : ''}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Message Meta/Actions */}
+                                                                <div className={cn(
+                                                                    "h-6 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity px-1",
+                                                                    message.role === 'USER' ? 'flex-row-reverse' : 'flex-row'
+                                                                )}>
+                                                                    <span className="text-[10px] text-gray-400 font-medium">
+                                                                        {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                    </span>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-6 w-6 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+                                                                        onClick={() => copyToClipboard(message.content, message.id || idx.toString())}
+                                                                    >
+                                                                        {copiedId === (message.id || idx.toString()) ? (
+                                                                            <span className="text-xs text-green-500 font-bold">✓</span>
+                                                                        ) : (
+                                                                            <Copy className="h-3 w-3" />
+                                                                        )}
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+
+                                                            {message.role === 'USER' && (
+                                                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 border border-white flex items-center justify-center flex-shrink-0 shadow-sm mt-1">
+                                                                    <User className="h-5 w-5 text-gray-500" />
+                                                                </div>
+                                                            )}
+                                                        </motion.div>
                                                     </div>
-
-                                                    {message.role === 'USER' && (
-                                                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 border border-white flex items-center justify-center flex-shrink-0 shadow-sm mt-1">
-                                                            <User className="h-5 w-5 text-gray-500" />
-                                                        </div>
-                                                    )}
-                                                </motion.div>
-                                            ))}
+                                                );
+                                            })}
 
                                             {isLoading && (
                                                 <motion.div
                                                     initial={{ opacity: 0 }}
                                                     animate={{ opacity: 1 }}
-                                                    className="flex gap-4"
+                                                    className="flex gap-4 mb-6"
                                                 >
                                                     <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-200">
                                                         <Bot className="h-6 w-6 text-white" />
@@ -554,6 +603,23 @@ export default function AIChatAssistant() {
                                                         </div>
                                                     </div>
                                                 </motion.div>
+                                            )}
+
+                                            {/* Quick Reply / Suggested Chips (Contextual Mock) */}
+                                            {messages.length > 0 && !isLoading && (
+                                                <div className="flex gap-2 overflow-x-auto pb-2 px-12 no-scrollbar mask-gradient-right">
+                                                    {suggestedQueries.slice(0, 2).map((sq, idx) => (
+                                                        <motion.button
+                                                            key={idx}
+                                                            whileHover={{ scale: 1.05 }}
+                                                            whileTap={{ scale: 0.95 }}
+                                                            onClick={() => sendMessage(sq.query)}
+                                                            className="whitespace-nowrap px-4 py-2 rounded-full bg-violet-50 text-violet-700 text-xs font-semibold border border-violet-100 hover:bg-violet-100 hover:border-violet-200 transition-all shadow-sm"
+                                                        >
+                                                            {sq.label}
+                                                        </motion.button>
+                                                    ))}
+                                                </div>
                                             )}
                                             <div ref={messagesEndRef} className="h-4" />
                                         </>
