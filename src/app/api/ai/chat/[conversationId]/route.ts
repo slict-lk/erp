@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth-options';
 import { prisma } from '@/lib/prisma';
 import { processUserMessage, ChatMessage } from '@/lib/ai/chat-agent';
 
@@ -14,9 +16,15 @@ export async function GET(
     { params }: { params: Promise<{ conversationId: string }> }
 ) {
     try {
+        const session = await getServerSession(authOptions);
         const { conversationId } = await params;
         const { searchParams } = new URL(request.url);
-        const tenantId = searchParams.get('tenantId');
+        let tenantId = searchParams.get('tenantId');
+
+        const sessionTenantId = (session as any)?.user?.tenantId;
+        if (sessionTenantId) {
+            tenantId = sessionTenantId;
+        }
 
         if (!tenantId) {
             return NextResponse.json({ error: 'Missing tenantId' }, { status: 400 });
@@ -59,9 +67,15 @@ export async function POST(
     { params }: { params: Promise<{ conversationId: string }> }
 ) {
     try {
+        const session = await getServerSession(authOptions);
         const { conversationId } = await params;
         const body = await request.json();
-        const { message, tenantId } = body;
+        let { message, tenantId } = body;
+
+        const sessionTenantId = (session as any)?.user?.tenantId;
+        if (sessionTenantId) {
+            tenantId = sessionTenantId;
+        }
 
         if (!message || !tenantId) {
             return NextResponse.json(
@@ -152,9 +166,15 @@ export async function DELETE(
     { params }: { params: Promise<{ conversationId: string }> }
 ) {
     try {
+        const session = await getServerSession(authOptions);
         const { conversationId } = await params;
         const { searchParams } = new URL(request.url);
-        const tenantId = searchParams.get('tenantId');
+        let tenantId = searchParams.get('tenantId');
+
+        const sessionTenantId = (session as any)?.user?.tenantId;
+        if (sessionTenantId) {
+            tenantId = sessionTenantId;
+        }
 
         if (!tenantId) {
             return NextResponse.json({ error: 'Missing tenantId' }, { status: 400 });

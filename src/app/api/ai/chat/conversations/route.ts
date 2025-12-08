@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     try {
         // Get authenticated session
         const session = await getServerSession(authOptions);
-        
+
         if (!session?.user?.id) {
             return NextResponse.json(
                 { error: 'Unauthorized' },
@@ -24,7 +24,14 @@ export async function GET(request: NextRequest) {
         }
 
         const { searchParams } = new URL(request.url);
-        const tenantId = searchParams.get('tenantId');
+        let tenantId = searchParams.get('tenantId');
+
+        // Use session tenantId if available to ensure we fetch the correct records
+        // even if the client sends a placeholder like 'tenant-1'
+        const sessionTenantId = (session as any)?.user?.tenantId;
+        if (sessionTenantId) {
+            tenantId = sessionTenantId;
+        }
 
         if (!tenantId) {
             return NextResponse.json(
@@ -69,7 +76,7 @@ export async function POST(request: NextRequest) {
     try {
         // Get authenticated session
         const session = await getServerSession(authOptions);
-        
+
         if (!session?.user?.id) {
             return NextResponse.json(
                 { error: 'Unauthorized' },
