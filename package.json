@@ -107,16 +107,16 @@
     "typescript": "^5.9.3",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.0.0",
-    "@types/node": "^20.19.25"
+    "@types/node": "^20.19.25",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.6"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.0.1",
     "@testing-library/user-event": "^14.6.1",
-    "@types/bcryptjs": "^2.4.6",
     "@types/google.maps": "^3.58.1",
     "@types/jest": "^30.0.0",
-    "@types/jsonwebtoken": "^9.0.6",
     "@typescript-eslint/eslint-plugin": "^7.8.0",
     "@typescript-eslint/parser": "^7.8.0",
     "baseline-browser-mapping": "^2.9.4",
