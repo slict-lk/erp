@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
         content: `You are a helpful business assistant for ${tenantId}. Help with sales, inventory, customers, and other business operations.`,
       },
       ...conversation.messages.map((msg) => ({
-        role: msg.role as 'user' | 'assistant' | 'system',
+        role: msg.role.toLowerCase() as 'user' | 'assistant' | 'system',
         content: msg.content,
       })),
       {
@@ -87,88 +87,68 @@ export async function POST(request: NextRequest) {
     let completionResponse: string;
     let engineUsed = 'unknown';
     let functionCall = null;
-    
-      // Check if Groq API key is configured
-      const groqApiKey = process.env.GROQ_API_KEY;
-      console.log('🔍 Checking Groq configuration:', {
-        hasApiKey: !!groqApiKey,
-        apiKeyLength: groqApiKey?.length || 0,
-        model: process.env.GROQ_MODEL,
-        timestamp: new Date().toISOString(),
-      });
-    
-      if (groqApiKey) {
-        try {
-          const groqEngine = getGroqEngine();
-          console.log('🚀 Initializing Groq engine...');
-          const initSuccess = await groqEngine.initialize();
-          console.log(`📊 Groq initialize result: ${initSuccess}`);
-        
-          if (initSuccess) {
-            const status = groqEngine.getStatus();
-            console.log('✅ Groq status:', JSON.stringify(status));
-          
-            if (status.available) {
-              console.log('✅ Using Groq engine for chat completion');
-              engineUsed = 'groq';
-            
-              const groqResponse = await groqEngine.generateCompletion(chatMessages, {
-                temperature: 0.7,
-                maxTokens: 2000,
-              });
-            
-              completionResponse = groqResponse.response;
-              console.log('✅ Groq response received successfully');
-            } else {
-              console.log('⚠️ Groq engine reported not available:', status.error);
-              throw new Error('Groq engine not available');
-            }
-          } else {
-            console.log('⚠️ Groq initialization failed');
-            throw new Error('Groq initialization failed');
-          }
-        } catch (groqError: any) {
-          console.error('❌ Groq error:', {
-            message: groqError?.message,
-            stack: groqError?.stack,
-          });
-          console.log('ℹ️ Groq failed, falling back to Ollama:', groqError?.message);
-          engineUsed = 'ollama-local';
-        
-          // Fallback to local AI engine
-          const engine = getLocalAIEngine();
 
-          // Generate completion with local AI
-          const completion = await engine.generateCompletion(chatMessages, {
-            model: process.env.OLLAMA_MODEL || 'llama2',
-            temperature: 0.7,
-            maxTokens: 2000,
-            functions: AGENT_FUNCTIONS,
-            functionCall: 'auto',
-          });
+    // Check if Groq API key is configured
+    const groqApiKey = process.env.GROQ_API_KEY;
+    console.log('🔍 Checking Groq configuration:', {
+      hasApiKey: !!groqApiKey,
+      apiKeyLength: groqApiKey?.length || 0,
+      model: process.env.GROQ_MODEL,
+      timestamp: new Date().toISOString(),
+    });
 
-          completionResponse = completion.response;
-          functionCall = completion.functionCall || null;
+    if (groqApiKey) {
+      try {
+        console.log('🔒 Groq API Key found (length: ' + groqApiKey.length + ')');
+        const groqEngine = getGroqEngine();
+        console.log('🚀 Initializing Groq engine...');
+        // Relaxed initialization: try to use it even if ping fails, as it might just be a timeout
+        await groqEngine.initialize();
+
+        const status = groqEngine.getStatus();
+        console.log('✅ Groq status:', JSON.stringify(status));
+
+        // Force availability if we have a key, even if strict check failed
+        if (!status.available) {
+          console.warn('⚠️ Groq reported unavailable, but key is present. Attempting to force execution.');
         }
-      } else {
-        console.log('⚠️ No Groq API key configured, using Ollama fallback');
-        engineUsed = 'ollama-local';
-      
-        // Fallback to local AI engine
-        const engine = getLocalAIEngine();
 
-        // Generate completion with local AI
-        const completion = await engine.generateCompletion(chatMessages, {
-          model: process.env.OLLAMA_MODEL || 'llama2',
+        console.log('✅ Using Groq engine for chat completion');
+        engineUsed = 'groq';
+
+        const groqResponse = await groqEngine.generateCompletion(chatMessages, {
           temperature: 0.7,
           maxTokens: 2000,
-          functions: AGENT_FUNCTIONS,
-          functionCall: 'auto',
         });
 
-        completionResponse = completion.response;
-        functionCall = completion.functionCall || null;
+        completionResponse = groqResponse.response;
+        console.log('✅ Groq response received successfully');
+      } catch (error: any) {
+        console.error('❌ Groq Execution Failed:', error);
+        return NextResponse.json(
+          { error: `Groq Error: ${error.message}` },
+          { status: 500 }
+        );
       }
+    } else {
+      console.log('⚠️ No Groq API key configured, using Ollama fallback');
+      engineUsed = 'ollama-local';
+
+      // Fallback to local AI engine
+      const engine = getLocalAIEngine();
+
+      // Generate completion with local AI
+      const completion = await engine.generateCompletion(chatMessages, {
+        model: process.env.OLLAMA_MODEL || 'llama2',
+        temperature: 0.7,
+        maxTokens: 2000,
+        functions: AGENT_FUNCTIONS,
+        functionCall: 'auto',
+      });
+
+      completionResponse = completion.response;
+      functionCall = completion.functionCall || null;
+    }
 
     // Check if response contains a function call (for Ollama)
     let functionResult = null;

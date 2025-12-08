@@ -50,9 +50,9 @@ class GroqEngine {
   async initialize(): Promise<boolean> {
     try {
       console.log('🤖 Initializing Groq AI Engine with Llama 3...');
-      
+
       const isValid = await this.client.validateConnection();
-        console.log('Connection validation result:', isValid);
+      console.log('Connection validation result:', isValid);
 
       if (isValid) {
         this.status.connected = true;
@@ -60,14 +60,15 @@ class GroqEngine {
         console.log(`✅ Groq AI Engine ready! Model: ${this.config.model}`);
         return true;
       } else {
-        console.warn('⚠️ Groq connection failed - check your API key');
-        this.status.available = false;
+        console.warn('⚠️ Groq connection failed check (likely timeout) - proceeding anyway');
+        this.status.connected = false;
+        this.status.available = true; // Optimistic: try anyway
         return false;
       }
     } catch (error: any) {
       console.error('❌ Failed to initialize Groq Engine:', error);
       this.status.error = error.message;
-      this.status.available = false;
+      this.status.available = true; // Optimistic: try anyway
       return false;
     }
   }

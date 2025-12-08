@@ -336,14 +336,52 @@ Always format numbers as currency when appropriate. Provide actionable insights 
     while (iterations < maxIterations) {
         iterations++;
 
-        const completion = await generateChatCompletion(messages, {
-            functions: AGENT_FUNCTIONS,
-            functionCall: 'auto',
-        });
+        // Check for Groq FIRST
+        const groqApiKey = process.env.GROQ_API_KEY;
+        let assistantMessage: any;
+        let finishReason = 'stop';
 
-        const choice = completion.choices[0];
-        const finishReason = choice.finish_reason;
-        const assistantMessage = choice.message;
+        if (groqApiKey) {
+            try {
+                const { getGroqEngine } = require('./groq-engine');
+                const groqEngine = getGroqEngine();
+                // Ensure initialized (optimistic)
+                await groqEngine.initialize();
+
+                // Strict sanitization: ensure lowercase roles and valid content
+                const cleanMessages = messages.map(m => ({
+                    role: m.role.toLowerCase() as 'user' | 'assistant' | 'system',
+                    content: m.content || ''
+                }));
+
+                console.log('📤 Sending sanitized messages to Groq:', JSON.stringify(cleanMessages, null, 2));
+
+                // Groq adapter returns slightly different format, we need to adapt it
+                const result = await groqEngine.generateCompletion(cleanMessages, {
+                    temperature: 0.7,
+                    maxTokens: 2000,
+                });
+
+                assistantMessage = {
+                    role: 'assistant',
+                    content: result.response,
+                    function_call: null // Groq adapter in this codebase might not standardize function calls yet
+                };
+            } catch (error: any) {
+                console.error('Groq failed in chat-agent:', error);
+                // Fallback or throw? User requested NO fallback to offline mode.
+                throw new Error(`Groq failed: ${error.message || String(error)}`);
+            }
+        } else {
+            // Default to Ollama
+            const completion = await generateChatCompletion(messages, {
+                functions: AGENT_FUNCTIONS,
+                functionCall: 'auto',
+            });
+            const choice = completion.choices[0];
+            finishReason = choice.finish_reason;
+            assistantMessage = choice.message;
+        }
 
         if (finishReason === 'function_call' && assistantMessage.function_call) {
             // AI wants to call a function

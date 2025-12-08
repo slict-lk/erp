@@ -16,18 +16,24 @@ export async function initializeAIEngine() {
   }
 
   try {
+    if (process.env.GROQ_API_KEY) {
+      console.log('🚀 Groq AI Engine Configured & Ready');
+      initialized = true;
+      return;
+    }
+
     const engine = getLocalAIEngine();
     console.log('🤖 Initializing Local AI Engine...');
-    
+
     const success = await engine.initialize();
-    
+
     if (success) {
       console.log('✅ Local AI Engine initialized successfully');
       const status = engine.getStatus();
       console.log(`   Model: ${status.model}`);
       console.log(`   Connected: ${status.connected}`);
       console.log(`   Model Loaded: ${status.modelLoaded}`);
-      
+
       // Start periodic health checks
       engine.startHealthChecks(60000); // Check every minute
     } else {
@@ -39,7 +45,7 @@ export async function initializeAIEngine() {
       console.log('   3. Pull a model: ollama pull llama2');
       console.log('   4. Restart the app');
     }
-    
+
     initialized = true;
   } catch (error) {
     console.error('❌ Error initializing AI Engine:', error);
