@@ -348,7 +348,7 @@ export default function AIChatAssistant() {
                                 {sidebarOpen && (
                                     <motion.div
                                         initial={{ width: 0, opacity: 0 }}
-                                        animate={{ width: "100%", opacity: 1 }}
+                                        animate={{ width: 280, opacity: 1 }}
                                         exit={{ width: 0, opacity: 0 }}
                                         className="absolute inset-y-0 left-0 z-30 w-full md:relative md:w-[280px] border-r border-gray-100 bg-white/95 backdrop-blur-xl md:bg-gray-50/50 flex flex-col overflow-hidden"
                                     >
@@ -376,12 +376,12 @@ export default function AIChatAssistant() {
                                                 </div>
                                             ) : (
                                                 conversations.map((conv) => (
-                                                    <motion.button
+                                                    <motion.div
                                                         key={conv.id}
                                                         layout
                                                         onClick={() => fetchConversation(conv.id)}
                                                         className={cn(
-                                                            'w-full text-left px-3 py-3 rounded-xl text-sm transition-all flex items-start gap-3 group relative overflow-hidden',
+                                                            'w-full text-left px-3 py-3 rounded-xl text-sm transition-all flex items-start gap-3 group relative overflow-hidden cursor-pointer',
                                                             currentConversation?.id === conv.id
                                                                 ? 'bg-white shadow-md text-violet-900 ring-1 ring-violet-100'
                                                                 : 'text-gray-600 hover:bg-white hover:shadow-sm hover:text-gray-900'
@@ -409,7 +409,7 @@ export default function AIChatAssistant() {
                                                         >
                                                             <Trash2 className="h-3 w-3" />
                                                         </Button>
-                                                    </motion.button>
+                                                    </motion.div>
                                                 ))
                                             )}
                                         </div>
