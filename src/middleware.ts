@@ -104,6 +104,7 @@ export const config = {
     // 4. /login (Public login page)
     // 5. /register (Public register page - if enabled)
     // 6. all root files inside /public (e.g. /favicon.ico)
-    '/((?!api/auth|_next/|_static/|login|register|favicon.ico).*)',
+    // 7. ROOT PATH / (Landing Page)
+    '/((?!api/auth|_next/|_static/|login|register|favicon.ico|$).*)',
   ],
 };
