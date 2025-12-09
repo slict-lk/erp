@@ -4,6 +4,7 @@ import './globals.css';
 import 'leaflet/dist/leaflet.css';
 import { SessionProvider } from '@/components/providers/SessionProvider';
 import { AIEngineInitializer } from '@/components/ai/ai-engine-initializer';
+import { Toaster } from 'sonner';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -22,6 +23,7 @@ export default function RootLayout({
       <body className={`${inter.className} antialiased h-full`} suppressHydrationWarning>
         <AIEngineInitializer />
         <SessionProvider>{children}</SessionProvider>
+        <Toaster richColors position="top-center" />
       </body>
     </html>
   );
