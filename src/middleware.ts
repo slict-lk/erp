@@ -99,12 +99,13 @@ export const config = {
   matcher: [
     // Match all request paths except:
     // 1. /api/auth (NextAuth)
+    // 1b. /api/public (Public APIs)
     // 2. /_next (Next.js internals)
     // 3. /_static (inside /public)
     // 4. /login (Public login page)
     // 5. /register (Public register page - if enabled)
     // 6. all root files inside /public (e.g. /favicon.ico)
     // 7. ROOT PATH / (Landing Page)
-    '/((?!api/auth|_next/|_static/|login|register|favicon.ico|$).*)',
+    '/((?!api/auth|api/public|_next/|_static/|login|register|favicon.ico|$).*)',
   ],
 };
