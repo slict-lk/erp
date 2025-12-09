@@ -8,6 +8,7 @@ const createCorsHeaders = (origin?: string | null) => {
   const allowedOrigins = [
     'https://properties.slict.lk',
     'https://property.slict.lk',
+    'https://erp-git-apiconnect-slictteam.vercel.app', // Production Deployment
     'http://localhost:63342',  // JetBrains IDE server
     'http://localhost:3000',
     'http://127.0.0.1:63342',
