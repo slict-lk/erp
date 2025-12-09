@@ -126,29 +126,7 @@ export async function generateChatCompletion(
         console.error('Ollama API Error:', error);
 
         // Fallback to simple response if Ollama is not running
-        if (error.message.includes('ECONNREFUSED') || error.message.includes('fetch failed')) {
-            console.warn('⚠️ Ollama is not running. Using fallback response.');
-            console.warn('💡 Install Ollama from https://ollama.ai and run: ollama pull llama2');
-
-            return {
-                choices: [
-                    {
-                        message: {
-                            role: 'assistant',
-                            content: `I'm currently running in offline mode. To enable AI features:
-
-1. Install Ollama: https://ollama.ai
-2. Run: ollama pull llama2
-3. Restart this application
-
-For now, I can help you with basic queries, but AI-powered insights are limited.`,
-                            function_call: null,
-                        },
-                        finish_reason: 'stop',
-                    },
-                ],
-            };
-        }
+        throw new Error('Ollama is not running. Please install Ollama or configure Groq API.');
 
         throw new Error(`Failed to generate completion: ${error.message}`);
     }

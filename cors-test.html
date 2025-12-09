@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔥 INSTANT CORS TEST</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #1e3c72;
+        }
+        .status {
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+        }
+        .loading {
+            background: #fff3cd;
+            color: #856404;
+            animation: pulse 2s infinite;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 3px solid #28a745;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 3px solid #dc3545;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .details {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .property {
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 4px solid #667eea;
+        }
+        .price {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            margin: 10px 0;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        .icon { font-size: 48px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon" id="icon">⏳</div>
+        <h1>CORS Connection Test</h1>
+        <p style="color: #666; margin-bottom: 20px;">Testing: <code>http://localhost:3000/api/public/real-estate/properties</code></p>
+
+        <div id="warning" style="background: #fff3cd; color: #856404; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none;">
+            <strong>⚠️ File Protocol Detected!</strong><br>
+            You're opening this file directly from the file system (<code>file://</code>).<br>
+            <strong>Solution:</strong> Right-click this file in IntelliJ → "Open in Browser" to use the IDE's web server.
+        </div>
+
+        <div id="status" class="status loading">
+            🔄 Testing connection...
+        </div>
+
+        <div id="details"></div>
+        <div id="properties"></div>
+
+        <button onclick="runTest()">🔄 Test Again</button>
+    </div>
+
+    <script>
+        const API = 'http://localhost:3000/api/public/real-estate/properties';
+
+        async function runTest() {
+            const statusDiv = document.getElementById('status');
+            const detailsDiv = document.getElementById('details');
+            const propertiesDiv = document.getElementById('properties');
+            const iconDiv = document.getElementById('icon');
+            const warningDiv = document.getElementById('warning');
+
+            // Check if running from file://
+            if (window.location.protocol === 'file:') {
+                warningDiv.style.display = 'block';
+            }
+
+            statusDiv.className = 'status loading';
+            statusDiv.innerHTML = '🔄 Testing connection...';
+            detailsDiv.innerHTML = '';
+            propertiesDiv.innerHTML = '';
+            iconDiv.innerHTML = '⏳';
+
+            try {
+                const startTime = performance.now();
+                const response = await fetch(API, {
+                    method: 'GET',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const endTime = performance.now();
+
+                const corsHeader = response.headers.get('Access-Control-Allow-Origin');
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                // SUCCESS!
+                statusDiv.className = 'status success';
+                statusDiv.innerHTML = '✅ CONNECTION SUCCESSFUL!';
+                iconDiv.innerHTML = '🎉';
+
+                detailsDiv.innerHTML = `
+                    <div class="details">
+                        <strong>✅ Test Results:</strong><br>
+                        • Response Time: ${Math.round(endTime - startTime)}ms<br>
+                        • HTTP Status: ${response.status} ${response.statusText}<br>
+                        • CORS Header: <code>${corsHeader || 'NOT SET'}</code><br>
+                        • Your Origin: <code>${window.location.origin}</code><br>
+                        • Properties Found: ${data.length}
+                    </div>
+                `;
+
+                if (data.length > 0) {
+                    propertiesDiv.innerHTML = '<h3 style="margin-top: 20px; color: #1e3c72;">📋 Properties:</h3>';
+                    data.forEach((prop, i) => {
+                        propertiesDiv.innerHTML += `
+                            <div class="property">
+                                <strong>${i + 1}. ${prop.title || 'Untitled'}</strong>
+                                <div class="price">LKR ${(prop.price || 0).toLocaleString()}</div>
+                                <div style="font-size: 14px; color: #666;">
+                                    📍 ${prop.city || 'N/A'} •
+                                    🏠 ${prop.propertyType || 'N/A'} •
+                                    🛏️ ${prop.bedrooms || 0} BR •
+                                    🚿 ${prop.bathrooms || 0} BA
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    propertiesDiv.innerHTML = '<div class="details">ℹ️ No properties in database yet.</div>';
+                }
+
+            } catch (error) {
+                // FAILED!
+                statusDiv.className = 'status error';
+                statusDiv.innerHTML = '❌ CONNECTION FAILED';
+                iconDiv.innerHTML = '🚫';
+
+                let diagnosis = '';
+
+                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    diagnosis = `
+                        <div class="details">
+                            <strong>❌ CORS Policy Error Detected!</strong><br><br>
+                            <strong>Problem:</strong><br>
+                            The browser blocked the request due to CORS policy.<br><br>
+                            <strong>Your Origin:</strong> <code>${window.location.origin}</code><br>
+                            <strong>API Endpoint:</strong> <code>${API}</code><br><br>
+                            <strong>✅ Solution (Do This Now):</strong><br>
+                            1. Go to your terminal where Next.js is running<br>
+                            2. Press <kbd>Ctrl+C</kbd> to stop the server<br>
+                            3. Type: <code>npm run dev</code><br>
+                            4. Wait for "✓ Ready" message<br>
+                            5. Click "Test Again" button above<br><br>
+                            <strong>⚠️ Common Issue:</strong><br>
+                            The server must be RESTARTED after code changes!
+                        </div>
+                    `;
+                } else if (error.message.includes('HTTP 404')) {
+                    diagnosis = `
+                        <div class="details">
+                            <strong>❌ 404 Not Found</strong><br><br>
+                            The API route doesn't exist. Check:<br>
+                            • File exists at: <code>src/app/api/public/real-estate/properties/route.ts</code><br>
+                            • Server is running on port 3000<br>
+                            • Route is properly exported
+                        </div>
+                    `;
+                } else if (error.message.includes('HTTP 500')) {
+                    diagnosis = `
+                        <div class="details">
+                            <strong>❌ Server Error (500)</strong><br><br>
+                            The server encountered an error. Check:<br>
+                            • Database connection is working<br>
+                            • Prisma schema is up to date<br>
+                            • Check server logs in terminal
+                        </div>
+                    `;
+                } else {
+                    diagnosis = `
+                        <div class="details">
+                            <strong>Error:</strong> ${error.message}<br><br>
+                            <strong>Debug Steps:</strong><br>
+                            1. Check if server is running: <code>http://localhost:3000</code><br>
+                            2. Try opening API in new tab: <a href="${API}" target="_blank">Open API</a><br>
+                            3. Check browser console (F12) for details
+                        </div>
+                    `;
+                }
+
+                detailsDiv.innerHTML = diagnosis;
+            }
+        }
+
+        // Auto-run on page load
+        window.addEventListener('load', () => {
+            setTimeout(runTest, 500);
+        });
+    </script>
+</body>
+</html>
+
