@@ -15,7 +15,7 @@ export default function InspectionsPage() {
                 const res = await fetch('/api/quality/inspections');
                 if (res.ok) {
                     const data = await res.json();
-                    setInspections(data);
+                    setInspections(data.inspections || []);
                 }
             } catch (error) {
                 console.error('Failed to fetch inspections:', error);

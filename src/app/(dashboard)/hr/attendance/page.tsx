@@ -45,7 +45,20 @@ export default function AttendancePage() {
             const res = await fetch(`/api/hr/attendance?date=${filterDate}`);
             if (res.ok) {
                 const data = await res.json();
-                setAttendance(data);
+                const mappedAttendance = (data.data || []).map((record: any) => ({
+                    id: record.id,
+                    employeeId: record.employee?.employeeId,
+                    employeeName: `${record.employee?.firstName} ${record.employee?.lastName}`,
+                    date: record.date,
+                    checkIn: record.checkIn ? new Date(record.checkIn).toLocaleTimeString() : '-',
+                    checkOut: record.checkOut ? new Date(record.checkOut).toLocaleTimeString() : '-',
+                    status: record.status,
+                    workHours: record.checkIn && record.checkOut
+                        ? (new Date(record.checkOut).getTime() - new Date(record.checkIn).getTime()) / (1000 * 60 * 60)
+                        : 0,
+                    department: record.employee?.department?.name || 'Unassigned'
+                }));
+                setAttendance(mappedAttendance);
             }
         } catch (error) {
             console.error('Failed to fetch attendance:', error);

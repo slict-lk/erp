@@ -47,7 +47,7 @@ export default function VendorsPage() {
       const response = await fetch('/api/purchasing/vendors');
       if (response.ok) {
         const data = await response.json();
-        setVendors(data);
+        setVendors(data.data || []);
       }
     } catch (error) {
       console.error('Failed to load vendors:', error);

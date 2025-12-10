@@ -58,7 +58,20 @@ export default function LeaveRequestsPage() {
             const res = await fetch('/api/hr/leave-requests');
             if (res.ok) {
                 const data = await res.json();
-                setRequests(data);
+                const mappedRequests = (data.data || []).map((req: any) => ({
+                    id: req.id,
+                    employeeId: req.employeeId,
+                    employeeName: req.employee ? `${req.employee.firstName} ${req.employee.lastName}` : 'Unknown',
+                    leaveType: req.leaveType,
+                    startDate: req.startDate,
+                    endDate: req.endDate,
+                    days: req.days,
+                    reason: req.reason,
+                    status: req.status,
+                    appliedOn: req.createdAt,
+                    department: req.employee?.department?.name || 'Unassigned'
+                }));
+                setRequests(mappedRequests);
             }
         } catch (error) {
             console.error('Failed to fetch leave requests:', error);

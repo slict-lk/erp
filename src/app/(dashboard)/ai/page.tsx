@@ -39,7 +39,15 @@ export default function AIPage() {
         fetch('/api/ai/insights'),
       ]);
 
-      if (forecastRes.ok) setForecasts((await forecastRes.json()) ?? []);
+      if (forecastRes.ok) {
+        const data = await forecastRes.json();
+        const mappedForecasts = (data.predictions || []).map((p: any) => ({
+          period: p.period,
+          prediction: p.value,
+          confidence: p.confidence
+        }));
+        setForecasts(mappedForecasts);
+      }
       if (insightsRes.ok) setInsights((await insightsRes.json()) ?? []);
     } catch (error) {
       console.error(error);
@@ -129,16 +137,14 @@ export default function AIPage() {
                 <div className="space-y-3">
                   {insights.map((insight) => (
                     <div key={insight.id} className="flex items-start gap-3 rounded-lg border border-gray-100 p-3 hover:bg-gray-50">
-                      <div className={`rounded-lg p-2 ${
-                        insight.severity === 'HIGH' ? 'bg-red-100' :
-                        insight.severity === 'MEDIUM' ? 'bg-amber-100' :
-                        'bg-blue-100'
-                      }`}>
-                        <AlertCircle className={`h-4 w-4 ${
-                          insight.severity === 'HIGH' ? 'text-red-600' :
-                          insight.severity === 'MEDIUM' ? 'text-amber-600' :
-                          'text-blue-600'
-                        }`} />
+                      <div className={`rounded-lg p-2 ${insight.severity === 'HIGH' ? 'bg-red-100' :
+                          insight.severity === 'MEDIUM' ? 'bg-amber-100' :
+                            'bg-blue-100'
+                        }`}>
+                        <AlertCircle className={`h-4 w-4 ${insight.severity === 'HIGH' ? 'text-red-600' :
+                            insight.severity === 'MEDIUM' ? 'text-amber-600' :
+                              'text-blue-600'
+                          }`} />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-start justify-between">
