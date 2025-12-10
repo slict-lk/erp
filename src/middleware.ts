@@ -100,6 +100,7 @@ export const config = {
     // Match all request paths except:
     // 1. /api/auth (NextAuth)
     // 1b. /api/public (Public APIs)
+    // 1c. /api/public/hotel (Specific bypass just in case regex is tricky)
     // 2. /_next (Next.js internals)
     // 3. /_static (inside /public)
     // 4. /login (Public login page)
