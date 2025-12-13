@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import 'leaflet/dist/leaflet.css';
 import { SessionProvider } from '@/components/providers/SessionProvider';
+import { SettingsProvider } from '@/components/providers/SettingsProvider';
 import { AIEngineInitializer } from '@/components/ai/ai-engine-initializer';
 import { Toaster } from 'sonner';
 
@@ -22,7 +23,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className="h-full">
       <body className={`${inter.className} antialiased h-full`} suppressHydrationWarning>
         <AIEngineInitializer />
-        <SessionProvider>{children}</SessionProvider>
+        <SettingsProvider>
+          <SessionProvider>{children}</SessionProvider>
+        </SettingsProvider>
         <Toaster richColors position="top-center" />
       </body>
     </html>

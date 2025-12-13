@@ -29,35 +29,30 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    // TODO: Vendor model needs to be created in Prisma schema
-    const vendors: any[] = [];
-    const total = 0;
-    
-    // Temporary fix until Vendor model is added to schema
-    // const [vendors, total] = await Promise.all([
-    //   prisma.vendor.findMany({
-    //     where,
-    //     include: {
-    //       purchaseOrders: {
-    //         select: {
-    //           id: true,
-    //           orderNumber: true,
-    //           status: true,
-    //           total: true,
-    //         },
-    //       },
-    //       _count: {
-    //         select: {
-    //           purchaseOrders: true,
-    //         },
-    //       },
-    //     },
-    //     skip,
-    //     take: limit,
-    //     orderBy: { createdAt: 'desc' },
-    //   }),
-    //   prisma.vendor.count({ where }),
-    // ]);
+    const [vendors, total] = await Promise.all([
+      (prisma as any).vendor.findMany({
+        where,
+        include: {
+          purchaseOrders: {
+            select: {
+              id: true,
+              orderNumber: true,
+              status: true,
+              total: true,
+            },
+          },
+          _count: {
+            select: {
+              purchaseOrders: true,
+            },
+          },
+        },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      (prisma as any).vendor.count({ where }),
+    ]);
 
     return NextResponse.json(
       formatPaginatedResponse(vendors, page, limit, total)
@@ -78,58 +73,60 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Vendor model needs to be created in Prisma schema
-    return NextResponse.json(
-      { error: 'Vendor model not yet implemented in schema' },
-      { status: 501 }
-    );
-
     // Check if vendor with this email already exists
-    // const existingVendor = await prisma.vendor.findFirst({
-    //   where: {
-    //     email: body.email,
-    //     tenantId: tenant.id,
-    //   },
-    // });
+    if (body.email) {
+      const existingVendor = await (prisma as any).vendor.findFirst({
+        where: {
+          email: body.email,
+          tenantId: tenant.id,
+        },
+      });
 
-    // if (existingVendor) {
-    //   return NextResponse.json(
-    //     { error: 'Vendor with this email already exists' },
-    //     { status: 409 }
-    //   );
-    // }
+      if (existingVendor) {
+        return NextResponse.json(
+          { error: 'Vendor with this email already exists' },
+          { status: 409 }
+        );
+      }
+    }
 
-    // const vendor = await prisma.vendor.create({
-    //   data: {
-    //     name: body.name,
-    //     email: body.email,
-    //     phone: body.phone,
-    //     website: body.website,
-    //     taxId: body.taxId,
-    //     paymentTerms: body.paymentTerms,
-    //     creditLimit: body.creditLimit,
-    //     street: body.street,
-    //     city: body.city,
-    //     state: body.state,
-    //     zipCode: body.zipCode,
-    //     country: body.country || 'US',
-    //     notes: body.notes,
-    //     tenantId: tenant.id,
-    //   },
-    //   include: {
-    //     purchaseOrders: true,
-    //     _count: {
-    //       select: {
-    //         purchaseOrders: true,
-    //       },
-    //     },
-    //   },
-    // });
+    const vendor = await (prisma as any).vendor.create({
+      data: {
+        name: body.name,
+        email: body.email,
+        phone: body.phone,
+        website: body.website,
+        taxId: body.taxId,
+        paymentTerms: body.paymentTerms,
+        creditLimit: body.creditLimit ? parseFloat(body.creditLimit) : null,
+        address: body.address || body.street, // Frontend might send street or address
+        city: body.city,
+        state: body.state,
+        postalCode: body.postalCode || body.zipCode, // Handle alias
+        zipCode: body.zipCode, // Keep zipCode too if schema has it, wait schema has zipCode as optional.
+        country: body.country || 'US',
 
-    // return NextResponse.json(
-    //   formatSuccessResponse(vendor, 'Vendor created successfully'),
-    //   { status: 201 }
-    // );
+        contactPerson: body.contactPerson,
+        contactPhone: body.contactPhone,
+        contactEmail: body.contactEmail,
+
+        notes: body.notes,
+        tenantId: tenant.id,
+      },
+      include: {
+        purchaseOrders: true,
+        _count: {
+          select: {
+            purchaseOrders: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json(
+      formatSuccessResponse(vendor, 'Vendor created successfully'),
+      { status: 201 }
+    );
   }, 'Failed to create vendor');
 }
 

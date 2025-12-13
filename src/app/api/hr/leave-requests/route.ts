@@ -38,7 +38,11 @@ export async function GET(request: NextRequest) {
       prisma.leaveRequest.findMany({
         where,
         include: {
-          employee: true
+          employee: {
+            include: {
+              department: true
+            }
+          }
         }
       }),
       prisma.leaveRequest.count({ where })

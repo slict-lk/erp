@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
         }
 
         const [messages, total] = await Promise.all([
-            (prisma as any).integrationMessage.findMany({
+            prisma.integrationMessage.findMany({
                 where,
                 include: {
                     customer: {
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
                 take: limit,
                 orderBy: { createdAt: 'desc' },
             }),
-            (prisma as any).integrationMessage.count({ where }),
+            prisma.integrationMessage.count({ where }),
         ]);
 
         return NextResponse.json(
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         const tenant = await getOrCreateDefaultTenant();
         const body = await request.json();
 
-        const message = await (prisma as any).integrationMessage.create({
+        const message = await prisma.integrationMessage.create({
             data: {
                 platform: body.platform,
                 direction: body.direction || 'OUTBOUND',

@@ -49,7 +49,7 @@ export default function EmployeesPage() {
       const response = await fetch('/api/hr/employees');
       if (response.ok) {
         const data = await response.json();
-        setEmployees(data);
+        setEmployees(data.data || []);
       }
     } catch (error) {
       console.error('Failed to load employees:', error);

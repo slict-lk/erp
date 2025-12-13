@@ -509,6 +509,7 @@ model Customer {
   calendarEvents CalendarEvent[]
   posOrders      POSOrder[]
   tickets        Ticket[]
+  messages       IntegrationMessage[]
 
   @@index([email])
   @@index([tenantId])
@@ -629,6 +630,7 @@ model SalesOrder {
   tenantId String
 
   invoices Invoice[]
+  messages IntegrationMessage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -729,6 +731,134 @@ model POSOrderItem {
   @@index([orderId])
   @@index([productId])
   @@index([tenantId])
+}
+
+// ============================================================================
+// INTEGRATIONS CONNECT: Messaging
+// ============================================================================
+
+model IntegrationMessage {
+  id            String   @id @default(cuid())
+  platform      String   // WHATSAPP, FACEBOOK_MESSENGER, INSTAGRAM
+  direction     String   @default("OUTBOUND") // INBOUND, OUTBOUND
+  senderId      String
+  senderName    String?
+  recipientId   String
+  recipientName String?
+  messageType   String   @default("TEXT") // TEXT, IMAGE, VIDEO, FILE
+  content       String   @db.Text
+  status        String   @default("SENT") // SENT, DELIVERED, READ, FAILED
+  readAt        DateTime?
+
+  // Relations
+  customerId    String?
+  customer      Customer? @relation(fields: [customerId], references: [id])
+  
+  salesOrderId  String?
+  salesOrder    SalesOrder? @relation(fields: [salesOrderId], references: [id])
+
+  tenantId      String
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([platform])
+  @@index([direction])
+  @@index([status])
+  @@index([customerId])
+  @@index([salesOrderId])
+}
+
+// ============================================================================
+// PURCHASING MODULE
+// ============================================================================
+
+model Vendor {
+  id            String   @id @default(cuid())
+  name          String
+  email         String?
+  phone         String?
+  website       String?
+  taxId         String?
+  paymentTerms  String?
+  creditLimit   Float?
+  
+  // Address
+  address       String?
+  city          String?
+  state         String?
+  postalCode    String?
+  zipCode       String? // Alias for postalCode to match frontend usage if needed, or just use one. Frontend says zipCode in POST.
+  country       String?
+  
+  contactPerson String?
+  contactPhone  String?
+  contactEmail  String?
+  
+  notes         String?
+  isActive      Boolean  @default(true)
+  
+  tenantId      String
+
+  purchaseOrders PurchaseOrder[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([email])
+}
+
+model PurchaseOrder {
+  id            String   @id @default(cuid())
+  orderNumber   String   @unique
+  
+  vendorId      String
+  vendor        Vendor   @relation(fields: [vendorId], references: [id])
+  
+  status        String   @default("DRAFT") // DRAFT, SENT, CONFIRMED, RECEIVED, CANCELLED
+  orderDate     DateTime @default(now())
+  expectedDate  DateTime?
+  
+  subtotal      Float
+  tax           Float    @default(0)
+  total         Float
+  
+  notes         String?
+  
+  items         PurchaseOrderItem[]
+  
+  tenantId      String
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([orderNumber])
+  @@index([vendorId])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  
+  productId       String
+  product         Product       @relation(fields: [productId], references: [id])
+  
+  quantity        Int
+  unitPrice       Float
+  total           Float
+  
+  tenantId        String
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([purchaseOrderId])
+  @@index([productId])
 }
 
 // ============================================================================
@@ -931,6 +1061,7 @@ model Product {
   invoiceLines   InvoiceLine[]
   cartItems      CartItem[]
   posOrderItems  POSOrderItem[]  @relation("POSOrderItems")
+  purchaseOrderItems PurchaseOrderItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

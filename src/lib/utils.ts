@@ -5,10 +5,25 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number, currency: string = 'USD'): string {
+export function formatCurrency(amount: number, currency?: string): string {
+  // If running on client, try to check localStorage for override if no specific currency passed
+  if (typeof window !== 'undefined' && !currency) {
+    try {
+      const settings = localStorage.getItem('systemSettings');
+      if (settings) {
+        const parsed = JSON.parse(settings);
+        if (parsed.currency) {
+          currency = parsed.currency;
+        }
+      }
+    } catch (e) {
+      // Ignore
+    }
+  }
+
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency,
+    currency: currency || 'USD',
   }).format(amount);
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCurrency } from '@/lib/utils';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -61,13 +62,7 @@ interface WarehouseData {
   isActive: boolean;
 }
 
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-  }).format(amount ?? 0);
-}
+
 
 function formatDate(date: string) {
   return new Intl.DateTimeFormat('en-US', {
@@ -122,7 +117,7 @@ export default function InventoryPage() {
       .filter((product) =>
         searchTerm
           ? product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            product.sku.toLowerCase().includes(searchTerm.toLowerCase())
+          product.sku.toLowerCase().includes(searchTerm.toLowerCase())
           : true
       )
       .filter((product) => (typeFilter === 'ALL' ? true : product.type === typeFilter))
@@ -278,11 +273,10 @@ export default function InventoryPage() {
                           </td>
                           <td className="whitespace-nowrap px-4 py-3 text-right font-medium">
                             <span
-                              className={`${
-                                product.qtyAvailable < 10 && product.type === 'STORABLE'
+                              className={`${product.qtyAvailable < 10 && product.type === 'STORABLE'
                                   ? 'text-orange-600'
                                   : 'text-gray-900'
-                              }`}
+                                }`}
                             >
                               {product.qtyAvailable}
                             </span>
@@ -364,22 +358,20 @@ export default function InventoryPage() {
                     >
                       <div className="flex items-center gap-3">
                         <div
-                          className={`rounded-lg p-2 ${
-                            move.type === 'IN'
+                          className={`rounded-lg p-2 ${move.type === 'IN'
                               ? 'bg-green-100'
                               : move.type === 'OUT'
-                              ? 'bg-red-100'
-                              : 'bg-blue-100'
-                          }`}
+                                ? 'bg-red-100'
+                                : 'bg-blue-100'
+                            }`}
                         >
                           <ArrowUpDown
-                            className={`h-4 w-4 ${
-                              move.type === 'IN'
+                            className={`h-4 w-4 ${move.type === 'IN'
                                 ? 'text-green-600'
                                 : move.type === 'OUT'
-                                ? 'text-red-600'
-                                : 'text-blue-600'
-                            }`}
+                                  ? 'text-red-600'
+                                  : 'text-blue-600'
+                              }`}
                           />
                         </div>
                         <div>

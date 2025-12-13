@@ -3,7 +3,6 @@
 Multi-tenant SaaS ERP system built with Next.js, TypeScript, Prisma and Tailwind CSS.
 
 This repository contains a large, modular ERP application with multiple sub-apps and features (accounting, sales, inventory, HR, projects, real-estate, etc.). The README below documents how to get started, common scripts, database setup, testing, and troubleshooting.
-
 ## Table of contents
 
 - About

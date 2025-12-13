@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { tenantId, roomNumber, roomType, floor, bedType, maxOccupancy, amenities, basePrice } = body;
+    const { tenantId, roomNumber, roomType, floor, bedType, maxOccupancy, amenities, basePrice, description, images } = body;
 
     if (!tenantId || !roomNumber || !roomType || !basePrice) {
       return NextResponse.json({ error: 'Required fields missing' }, { status: 400 });
@@ -54,6 +54,8 @@ export async function POST(request: NextRequest) {
         tenantId, roomNumber, roomType, floor: floor || 1,
         bedType: bedType || 'Queen', maxOccupancy: maxOccupancy || 2,
         amenities: amenities || [], basePrice,
+        description,
+        images: images || [],
         status: 'AVAILABLE',
       },
     });

@@ -25,7 +25,7 @@ interface Message {
   };
   salesOrder?: {
     id: string;
-    orderNumber: string;
+    number: string;
   };
   createdAt: string;
 }
@@ -175,7 +175,7 @@ export default function MarketplaceMessagesPage() {
                           </div>
                           <div className="text-sm text-gray-500">
                             {message.customer?.name && `Customer: ${message.customer.name}`}
-                            {message.salesOrder && ` • Order: ${message.salesOrder.orderNumber}`}
+                            {message.salesOrder && ` • Order: ${message.salesOrder.number}`}
                           </div>
                         </div>
                       </div>
@@ -267,7 +267,7 @@ export default function MarketplaceMessagesPage() {
                   {selectedMessage.salesOrder && (
                     <div className="text-sm">
                       <span className="text-gray-500">Order:</span>
-                      <div className="font-medium">{selectedMessage.salesOrder.orderNumber}</div>
+                      <div className="font-medium">{selectedMessage.salesOrder.number}</div>
                     </div>
                   )}
 

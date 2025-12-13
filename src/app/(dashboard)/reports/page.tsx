@@ -3,16 +3,17 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  FileText, 
-  TrendingUp, 
-  Package, 
-  Users, 
+import {
+  FileText,
+  TrendingUp,
+  Package,
+  Users,
   DollarSign,
   ShoppingCart,
   Download,
   Calendar
 } from 'lucide-react';
+import { ReportDialog } from '@/components/reports/report-dialog';
 
 interface ReportCard {
   id: string;
@@ -24,6 +25,8 @@ interface ReportCard {
 
 export default function ReportsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedReport, setSelectedReport] = useState<ReportCard | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const reports: ReportCard[] = [
     // Financial Reports
@@ -55,7 +58,7 @@ export default function ReportsPage() {
       category: 'financial',
       icon: DollarSign,
     },
-    
+
     // Sales Reports
     {
       id: 'sales-analysis',
@@ -85,7 +88,7 @@ export default function ReportsPage() {
       category: 'sales',
       icon: TrendingUp,
     },
-    
+
     // Inventory Reports
     {
       id: 'stock-valuation',
@@ -115,7 +118,7 @@ export default function ReportsPage() {
       category: 'inventory',
       icon: Package,
     },
-    
+
     // HR Reports
     {
       id: 'attendance-summary',
@@ -147,13 +150,13 @@ export default function ReportsPage() {
     },
   ];
 
-  const filteredReports = selectedCategory === 'all' 
-    ? reports 
+  const filteredReports = selectedCategory === 'all'
+    ? reports
     : reports.filter(r => r.category === selectedCategory);
 
-  const handleGenerateReport = (reportId: string) => {
-    console.log('Generating report:', reportId);
-    alert(`Generating ${reportId} report... This would connect to the backend API.`);
+  const handleGenerateReport = (report: ReportCard) => {
+    setSelectedReport(report);
+    setDialogOpen(true);
   };
 
   const getCategoryColor = (category: string) => {
@@ -236,7 +239,7 @@ export default function ReportsPage() {
                   <Button
                     size="sm"
                     className="flex-1"
-                    onClick={() => handleGenerateReport(report.id)}
+                    onClick={() => handleGenerateReport(report)}
                   >
                     <FileText className="h-3 w-3 mr-2" />
                     Generate
@@ -244,7 +247,7 @@ export default function ReportsPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => handleGenerateReport(report.id)}
+                    onClick={() => handleGenerateReport(report)}
                   >
                     <Download className="h-3 w-3" />
                   </Button>
@@ -292,7 +295,14 @@ export default function ReportsPage() {
             </div>
           </div>
         </CardContent>
+
       </Card>
-    </div>
+
+      <ReportDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        report={selectedReport}
+      />
+    </div >
   );
 }
