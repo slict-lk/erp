@@ -166,6 +166,7 @@ export default function SystemSettingsPage() {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    <SelectItem value="Asia/Colombo">Asia/Colombo (SLST)</SelectItem>
                                     <SelectItem value="Asia/Kolkata">Asia/Kolkata (IST)</SelectItem>
                                     <SelectItem value="UTC">UTC</SelectItem>
                                     <SelectItem value="America/New_York">America/New York (EST)</SelectItem>
@@ -196,6 +197,7 @@ export default function SystemSettingsPage() {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    <SelectItem value="LKR">LKR - Sri Lankan Rupee</SelectItem>
                                     <SelectItem value="INR">INR - Indian Rupee</SelectItem>
                                     <SelectItem value="USD">USD - US Dollar</SelectItem>
                                     <SelectItem value="EUR">EUR - Euro</SelectItem>
@@ -205,6 +207,7 @@ export default function SystemSettingsPage() {
                             </Select>
                         </div>
                     </div>
+
                 </CardContent>
             </Card>
 

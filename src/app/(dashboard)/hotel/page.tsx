@@ -24,6 +24,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Hotel as HotelIcon, Plus, Users, Bed, Calendar, Check, X, Trash2, Edit } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
+import { useSettings } from '@/components/providers/SettingsProvider';
 
 // Types
 interface Room {
@@ -50,6 +52,8 @@ interface Booking {
 }
 
 export default function HotelPage() {
+  const { settings } = useSettings();
+  const currency = settings.currency;
   const [rooms, setRooms] = useState<Room[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -176,10 +180,10 @@ export default function HotelPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                <span className="text-muted-foreground">$</span>
+                <span className="text-muted-foreground">{currency}</span>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${stats.revenue.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{formatCurrency(stats.revenue)}</div>
               </CardContent>
             </Card>
             <Card>
@@ -231,7 +235,7 @@ export default function HotelPage() {
                     </div>
                     <div className="flex justify-between">
                       <span>Price</span>
-                      <span className="font-medium text-foreground">${room.basePrice}/night</span>
+                      <span className="font-medium text-foreground">{formatCurrency(room.basePrice)}/night</span>
                     </div>
                     <div className="flex items-center gap-2 mt-2">
                       <Users className="h-3 w-3" /> {room.maxOccupancy} Guests
@@ -292,7 +296,7 @@ export default function HotelPage() {
                           <Badge variant="outline" className={getStatusColor(booking.status)}>{booking.status}</Badge>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
-                          ${booking.totalAmount}
+                          {formatCurrency(booking.totalAmount)}
                         </td>
                       </tr>
                     ))}
@@ -338,7 +342,7 @@ export default function HotelPage() {
             <div className="grid grid-cols-4 items-center gap-4">
               <Label className="text-right">Price</Label>
               <div className="col-span-3 relative">
-                <span className="absolute left-3 top-2.5 text-gray-500">$</span>
+                <span className="absolute left-3 top-2.5 text-gray-500">{currency}</span>
                 <Input
                   type="number"
                   className="pl-8"

@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { formatCurrency } from '@/lib/utils';
 import {
   TrendingUp,
   DollarSign,
@@ -103,11 +104,7 @@ const QUICK_LINKS = [
 
 // --- Helper Functions ---
 
-const formatCurrency = (value?: number) =>
-  `$${Number(value ?? 0).toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+
 
 const formatNumber = (value?: number) => Number(value ?? 0).toLocaleString('en-US');
 
@@ -157,7 +154,7 @@ export default function DashboardPage() {
     () => [
       {
         title: 'Total Revenue',
-        value: formatCurrency(stats.totalRevenue),
+        value: formatCurrency(stats.totalRevenue ?? 0),
         change: stats.revenueChange,
         icon: DollarSign,
         color: 'text-emerald-600',

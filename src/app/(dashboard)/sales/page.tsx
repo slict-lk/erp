@@ -25,6 +25,7 @@ import {
   Phone,
   Mail,
 } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
 
 interface Lead {
   id: string;
@@ -76,13 +77,7 @@ interface SalesStats {
   quoteToOrder: number;
 }
 
-function formatCurrency(amount: number, currency = 'USD') {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 0,
-  }).format(amount ?? 0);
-}
+
 
 function formatDate(date?: string | null) {
   if (!date) return '—';
