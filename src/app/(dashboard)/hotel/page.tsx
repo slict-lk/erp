@@ -169,8 +169,20 @@ export default function HotelPage() {
     totalRooms: rooms.length,
     occupied: rooms.filter(r => r.status === 'OCCUPIED' || r.status === 'RESERVED').length,
     available: rooms.filter(r => r.status === 'AVAILABLE').length,
-    revenue: bookings.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0)
+    revenue: bookings.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0),
+    // ADR = Revenue / Occupied Rooms (Sold)
+    adr: 0,
+    // RevPAR = Revenue / Total Rooms
+    revPar: 0,
   };
+
+  // Avoid division by zero
+  if (stats.occupied > 0) {
+    stats.adr = stats.revenue / stats.occupied;
+  }
+  if (stats.totalRooms > 0) {
+    stats.revPar = stats.revenue / stats.totalRooms;
+  }
 
   return (
     <div className="p-8 space-y-8">
@@ -219,28 +231,37 @@ export default function HotelPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                <span className="text-muted-foreground">{currency}</span>
+                <div className="h-4 w-4 text-muted-foreground font-mono">$</div>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{formatCurrency(stats.revenue)}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  RevPAR: {formatCurrency(stats.revPar)}
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Rooms</CardTitle>
-                <HotelIcon className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">ADR</CardTitle>
+                <div className="h-4 w-4 text-muted-foreground font-mono">AVG</div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.totalRooms}</div>
+                <div className="text-2xl font-bold">{formatCurrency(stats.adr)}</div>
+                <p className="text-xs text-muted-foreground mt-1">Average Daily Rate</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Occupied</CardTitle>
+                <CardTitle className="text-sm font-medium">Occupancy</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.occupied}</div>
+                <div className="text-2xl font-bold">
+                  {stats.totalRooms > 0 ? Math.round((stats.occupied / stats.totalRooms) * 100) : 0}%
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {stats.occupied} / {stats.totalRooms} rooms
+                </p>
               </CardContent>
             </Card>
             <Card>
@@ -250,6 +271,7 @@ export default function HotelPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.available}</div>
+                <p className="text-xs text-muted-foreground mt-1">Ready for check-in</p>
               </CardContent>
             </Card>
           </div>
