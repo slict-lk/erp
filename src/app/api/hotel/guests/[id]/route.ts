@@ -3,11 +3,12 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const guest = await prisma.guestProfile.findUnique({
-            where: { id: params.id },
+            where: { id },
             include: {
                 bookings: {
                     take: 5,
@@ -37,13 +38,14 @@ export async function GET(
 
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const body = await request.json();
 
         const guest = await prisma.guestProfile.update({
-            where: { id: params.id },
+            where: { id },
             data: {
                 firstName: body.firstName,
                 lastName: body.lastName,

@@ -4,10 +4,10 @@ import { differenceInDays } from 'date-fns';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = params;
+        const { id } = await params;
 
         const booking = await prisma.hotelBooking.findUnique({
             where: { id },
@@ -42,10 +42,10 @@ export async function GET(
 
 export async function POST(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = params;
+        const { id } = await params;
         const body = await request.json();
         const { type, description, amount, quantity } = body;
 

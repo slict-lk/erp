@@ -3,9 +3,10 @@ import { prisma } from '@/lib/prisma';
 
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const body = await request.json();
         const { status, updatedBy } = body;
 
@@ -19,7 +20,7 @@ export async function PUT(
         }
 
         const room = await prisma.hotelRoom.update({
-            where: { id: params.id },
+            where: { id },
             data: {
                 housekeepingStatus: status as any,
                 lastCleanedAt: status === 'CLEAN' ? new Date() : undefined,
@@ -32,7 +33,7 @@ export async function PUT(
         if (status === 'DIRTY') {
             await prisma.housekeepingTask.create({
                 data: {
-                    roomId: params.id,
+                    roomId: id,
                     taskType: 'STAYOVER', // Default to stayover if manually marked dirty
                     status: 'PENDING',
                     tenantId: room.tenantId,
