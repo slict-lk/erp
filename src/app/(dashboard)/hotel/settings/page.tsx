@@ -20,7 +20,8 @@ import {
     Search,
     Save,
     Loader2,
-    ArrowLeft
+    ArrowLeft,
+    FolderOpen
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -203,8 +204,8 @@ export default function HotelSettingsPage() {
             {/* Save Message */}
             {saveMessage && (
                 <div className={`p-4 rounded-lg ${saveMessage.type === 'success'
-                        ? 'bg-green-50 text-green-800 border border-green-200'
-                        : 'bg-red-50 text-red-800 border border-red-200'
+                    ? 'bg-green-50 text-green-800 border border-green-200'
+                    : 'bg-red-50 text-red-800 border border-red-200'
                     }`}>
                     {saveMessage.text}
                 </div>
@@ -213,7 +214,7 @@ export default function HotelSettingsPage() {
             {/* Form */}
             <form onSubmit={form.handleSubmit(onSubmit)}>
                 <Tabs defaultValue="branding" className="space-y-6">
-                    <TabsList className="grid w-full grid-cols-4">
+                    <TabsList className="grid w-full grid-cols-5">
                         <TabsTrigger value="branding" className="flex items-center gap-2">
                             <Palette className="h-4 w-4" />
                             Branding
@@ -221,6 +222,10 @@ export default function HotelSettingsPage() {
                         <TabsTrigger value="hero" className="flex items-center gap-2">
                             <ImageIcon className="h-4 w-4" />
                             Hero
+                        </TabsTrigger>
+                        <TabsTrigger value="assets" className="flex items-center gap-2">
+                            <FolderOpen className="h-4 w-4" />
+                            Assets
                         </TabsTrigger>
                         <TabsTrigger value="contact" className="flex items-center gap-2">
                             <Mail className="h-4 w-4" />
@@ -395,6 +400,149 @@ export default function HotelSettingsPage() {
                                             placeholder="e.g. Experience the ultimate beachfront luxury"
                                             rows={2}
                                         />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* ASSETS TAB */}
+                    <TabsContent value="assets">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Default Website Assets</CardTitle>
+                                <CardDescription>
+                                    These are the default images used on your website. Upload your own images in the relevant sections to replace them.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                {/* Info Banner */}
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+                                    <strong>💡 Tip:</strong> Replace these placeholder images with your own high-quality photos to make your website unique.
+                                    Use the <strong>Hero</strong> and <strong>Branding</strong> tabs to upload your custom images.
+                                </div>
+
+                                {/* Hero Images */}
+                                <div>
+                                    <Label className="text-base font-medium">Hero Background Images</Label>
+                                    <p className="text-sm text-muted-foreground mb-4">
+                                        Large banner images displayed on the homepage. Recommended size: 1920x1080
+                                    </p>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        {[
+                                            { src: 'hero_4.jpg', label: 'Hero 1 (Main)' },
+                                            { src: 'hero_1.jpg', label: 'Hero 2' },
+                                            { src: 'hero_2.jpg', label: 'Hero 3' },
+                                            { src: 'hero_3.jpg', label: 'Hero 4' },
+                                        ].map((img, i) => (
+                                            <div key={i} className="space-y-2">
+                                                <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden border">
+                                                    <img
+                                                        src={`http://127.0.0.1:5500/hotel/images/${img.src}`}
+                                                        alt={img.label}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="112" viewBox="0 0 200 112"><rect fill="%23f3f4f6" width="200" height="112"/><text x="50%" y="50%" fill="%239ca3af" font-size="14" text-anchor="middle" dominant-baseline="middle">Image</text></svg>';
+                                                        }}
+                                                    />
+                                                </div>
+                                                <p className="text-xs text-center text-muted-foreground">{img.label}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <Separator />
+
+                                {/* Room Images */}
+                                <div>
+                                    <Label className="text-base font-medium">Room Images</Label>
+                                    <p className="text-sm text-muted-foreground mb-4">
+                                        Sample room photos used in listings. Replace when adding your own rooms.
+                                    </p>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        {[
+                                            { src: 'img_1.jpg', label: 'Room 1' },
+                                            { src: 'img_2.jpg', label: 'Room 2' },
+                                            { src: 'img_3.jpg', label: 'Room 3' },
+                                            { src: 'img_4.jpg', label: 'Room 4' },
+                                        ].map((img, i) => (
+                                            <div key={i} className="space-y-2">
+                                                <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden border">
+                                                    <img
+                                                        src={`http://127.0.0.1:5500/hotel/images/${img.src}`}
+                                                        alt={img.label}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="112" viewBox="0 0 200 112"><rect fill="%23f3f4f6" width="200" height="112"/><text x="50%" y="50%" fill="%239ca3af" font-size="14" text-anchor="middle" dominant-baseline="middle">Image</text></svg>';
+                                                        }}
+                                                    />
+                                                </div>
+                                                <p className="text-xs text-center text-muted-foreground">{img.label}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <Separator />
+
+                                {/* Gallery Images */}
+                                <div>
+                                    <Label className="text-base font-medium">Gallery & Amenities</Label>
+                                    <p className="text-sm text-muted-foreground mb-4">
+                                        Photos for the gallery section showing hotel amenities and facilities.
+                                    </p>
+                                    <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+                                        {[
+                                            { src: 'f_img_1.jpg', label: 'Pool' },
+                                            { src: 'f_img_2.jpg', label: 'Spa' },
+                                            { src: 'f_img_3.jpg', label: 'Restaurant' },
+                                            { src: 'f_img_4.jpg', label: 'Lobby' },
+                                            { src: 'f_img_5.jpg', label: 'Beach' },
+                                            { src: 'f_img_6.jpg', label: 'Garden' },
+                                        ].map((img, i) => (
+                                            <div key={i} className="space-y-1">
+                                                <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border">
+                                                    <img
+                                                        src={`http://127.0.0.1:5500/hotel/images/${img.src}`}
+                                                        alt={img.label}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect fill="%23f3f4f6" width="100" height="100"/><text x="50%" y="50%" fill="%239ca3af" font-size="12" text-anchor="middle" dominant-baseline="middle">Image</text></svg>';
+                                                        }}
+                                                    />
+                                                </div>
+                                                <p className="text-xs text-center text-muted-foreground">{img.label}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <Separator />
+
+                                {/* Image Guidelines */}
+                                <div className="bg-gray-50 rounded-lg p-4">
+                                    <Label className="text-base font-medium">📸 Image Guidelines</Label>
+                                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                        <div>
+                                            <p className="font-medium text-gray-700">Recommended Sizes:</p>
+                                            <ul className="mt-1 space-y-1 text-muted-foreground">
+                                                <li>• Hero Images: 1920 × 1080 px</li>
+                                                <li>• Room Photos: 800 × 600 px</li>
+                                                <li>• Gallery: 600 × 600 px (square)</li>
+                                                <li>• Logo: 200 × 60 px (PNG with transparency)</li>
+                                                <li>• Favicon: 32 × 32 px (ICO or PNG)</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-gray-700">Best Practices:</p>
+                                            <ul className="mt-1 space-y-1 text-muted-foreground">
+                                                <li>• Use high-quality, professional photos</li>
+                                                <li>• Optimize images for web (under 500KB)</li>
+                                                <li>• Ensure good lighting and composition</li>
+                                                <li>• Use JPEG for photos, PNG for logos</li>
+                                            </ul>
+                                        </div>
                                     </div>
                                 </div>
                             </CardContent>

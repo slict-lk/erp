@@ -191,6 +191,11 @@ export default function HotelPage() {
           )}
           <Button variant="outline" onClick={fetchData}>{tc('refresh')}</Button>
           <Button variant="outline" asChild>
+            <a href="/hotel/branches">
+              <HotelIcon className="mr-2 h-4 w-4" /> Branches
+            </a>
+          </Button>
+          <Button variant="outline" asChild>
             <a href="/hotel/settings">
               <Settings className="mr-2 h-4 w-4" /> {t('settings')}
             </a>

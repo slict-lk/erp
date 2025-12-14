@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const tenantId = searchParams.get('tenantId');
+        const branchId = searchParams.get('branchId'); // Optional branch filter
         const checkIn = searchParams.get('checkIn');
         const checkOut = searchParams.get('checkOut');
         const guests = parseInt(searchParams.get('guests') || '1');
@@ -37,13 +38,20 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // 1. Fetch Rooms that match capacity
+        // Build room filter (optionally filter by branch)
+        const roomFilter: any = {
+            tenantId,
+            maxOccupancy: { gte: guests },
+            status: 'AVAILABLE',
+        };
+
+        if (branchId) {
+            roomFilter.branchId = branchId;
+        }
+
+        // 1. Fetch Rooms that match capacity (optionally filtered by branch)
         const allRooms = await prisma.hotelRoom.findMany({
-            where: {
-                tenantId,
-                maxOccupancy: { gte: guests },
-                status: 'AVAILABLE',
-            },
+            where: roomFilter,
         });
 
         // 2. Check Availability (Exclude booked rooms)

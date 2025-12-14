@@ -1963,6 +1963,10 @@ model HotelRoom {
 
   tenantId String
 
+  // Multi-branch support (optional for backward compatibility)
+  branchId String?
+  branch   HotelBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
   bookings HotelBooking[]
 
   createdAt DateTime @default(now())
@@ -1972,6 +1976,7 @@ model HotelRoom {
   @@index([status])
   @@index([roomType])
   @@index([tenantId])
+  @@index([branchId])
 }
 
 model HotelBooking {
@@ -1999,6 +2004,10 @@ model HotelBooking {
 
   tenantId String
 
+  // Multi-branch support (optional for backward compatibility)
+  branchId String?
+  branch   HotelBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2007,6 +2016,7 @@ model HotelBooking {
   @@index([checkIn])
   @@index([checkOut])
   @@index([tenantId])
+  @@index([branchId])
 }
 
 // ============================================================================
@@ -2059,6 +2069,101 @@ model HotelConfig {
   updatedAt DateTime @updatedAt
 
   @@index([tenantId])
+}
+
+// ============================================================================
+// HOTEL BRANCH (Multi-Location Support)
+// ============================================================================
+
+model HotelBranch {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // --- Branch Identity ---
+  name     String // "SLICT Hotel Colombo"
+  code     String // "SLICT-CMB" (unique per tenant)
+
+  // --- Location ---
+  country   String
+  city      String
+  address   String?  @db.Text
+  timezone  String   @default("Asia/Colombo")
+  latitude  Float?
+  longitude Float?
+
+  // --- Pricing & Currency ---
+  currency String @default("LKR")
+  taxRate  Float  @default(0)
+
+  // --- Contact ---
+  phone String?
+  email String?
+
+  // --- Config ---
+  isDefault Boolean @default(false) // Default branch for new rooms
+  isActive  Boolean @default(true)
+
+  // --- Relations ---
+  rooms    HotelRoom[]
+  bookings HotelBooking[]
+  config   HotelBranchConfig?
+  pricing  PricingRule[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([isActive])
+}
+
+model HotelBranchConfig {
+  id       String      @id @default(cuid())
+  branchId String      @unique
+  branch   HotelBranch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  // --- Branding (override parent tenant) ---
+  hotelName    String?
+  tagline      String?
+  logoUrl      String?
+  primaryColor String?
+
+  // --- Hero Section ---
+  heroImageUrl String?
+  heroTitle    String?
+  heroSubtitle String?
+
+  // --- Content ---
+  aboutUs String? @db.Text
+
+  // --- SEO ---
+  metaTitle       String?
+  metaDescription String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Seasonal/Dynamic Pricing Rules
+model PricingRule {
+  id       String      @id @default(cuid())
+  branchId String
+  branch   HotelBranch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  name        String // "Peak Season", "Holiday Rate"
+  roomType    String? // null = applies to all room types
+  startDate   DateTime
+  endDate     DateTime
+  multiplier  Float   @default(1.0) // 1.5 = 50% increase
+  fixedPrice  Float? // Override base price entirely
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([branchId])
+  @@index([startDate, endDate])
 }
 
 // ============================================================================
