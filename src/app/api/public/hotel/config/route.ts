@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
                 secondaryColor: config.secondaryColor,
                 accentColor: config.accentColor,
                 fontFamily: config.fontFamily,
+                currency: (config as any).currency || 'LKR', // Currency for prices
                 heroImageUrl: config.heroImageUrl,
                 heroTitle: config.heroTitle,
                 heroSubtitle: config.heroSubtitle,

@@ -94,6 +94,7 @@ export async function POST(req: Request) {
                         manufacturing: { enabled: true, read: true, write: true },
                         projects: { enabled: true, read: true, write: true },
                         settings: { enabled: true, read: true, write: true },
+                        hotel: { enabled: true, read: true, write: true },
                     }
                 }
             });

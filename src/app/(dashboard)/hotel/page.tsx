@@ -1,42 +1,30 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Hotel as HotelIcon, Plus, Users, Bed, Calendar, Check, X, Trash2, Edit } from 'lucide-react';
+import { Hotel as HotelIcon, Plus, Users, Bed, Check, Trash2, Edit, Settings, Loader2, ExternalLink } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { useSettings } from '@/components/providers/SettingsProvider';
+import { RoomFormSheet } from '@/components/hotel/room-form-sheet';
+import { useTranslations } from 'next-intl';
 
 // Types
 interface Room {
   id: string;
   roomNumber: string;
   roomType: string;
+  floor?: number;
   status: string;
   basePrice: number;
   maxOccupancy: number;
-  bedType: string;
+  bedType?: string;
   amenities: string[];
+  images: string[];
+  description?: string;
   bookings: any[];
 }
 
@@ -52,36 +40,67 @@ interface Booking {
 }
 
 export default function HotelPage() {
+  const t = useTranslations('hotel');
+  const tc = useTranslations('common');
+  const { data: session, status: sessionStatus } = useSession();
+  const tenantId = (session?.user as any)?.tenantId;
+
   const { settings } = useSettings();
   const currency = settings.currency;
   const [rooms, setRooms] = useState<Room[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Dialog States
-  const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
-  const [isEditRoomOpen, setIsEditRoomOpen] = useState(false);
+  // Sheet States
+  const [isRoomSheetOpen, setIsRoomSheetOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [tenantSubdomain, setTenantSubdomain] = useState<string | null>(null);
 
-  // Form States
-  const [formData, setFormData] = useState({
-    roomNumber: '',
-    roomType: 'DELUXE',
-    basePrice: '',
-    maxOccupancy: '2',
-    bedType: 'QUEEN',
-    description: '',
-    imageUrl: '',
-    tenantId: 'ceylon-paradise' // Matches frontend spec
-  });
+  // Fetch tenant subdomain
+  useEffect(() => {
+    if (tenantId) {
+      fetchTenantSubdomain();
+    }
+  }, [tenantId]);
+
+  const fetchTenantSubdomain = async () => {
+    try {
+      const res = await fetch(`/api/tenant?tenantId=${tenantId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTenantSubdomain(data.subdomain);
+      }
+    } catch (error) {
+      console.error('Failed to fetch tenant subdomain:', error);
+    }
+  };
+
+  // Generate frontend URL based on environment
+  const getFrontendUrl = () => {
+    if (!tenantSubdomain) return null;
+
+    const isLocal = typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+    if (isLocal) {
+      // Local development: use Live Server URL with subdomain param
+      return `http://127.0.0.1:5500/hotel/index.html?subdomain=${tenantSubdomain}`;
+    } else {
+      // Production: use subdomain-based URL
+      return `https://${tenantSubdomain}.hotels.slict.lk/`;
+    }
+  };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (tenantId) {
+      fetchData();
+    }
+  }, [tenantId]);
 
   const fetchData = async () => {
+    if (!tenantId) return;
+
     try {
-      const tenantId = 'ceylon-paradise';
       const [roomsRes, bookingsRes] = await Promise.all([
         fetch(`/api/hotel/rooms?tenantId=${tenantId}`),
         fetch(`/api/hotel/bookings?tenantId=${tenantId}`)
@@ -97,31 +116,22 @@ export default function HotelPage() {
     }
   };
 
-  const handleCreateRoom = async () => {
-    try {
-      const res = await fetch('/api/hotel/rooms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          basePrice: parseFloat(formData.basePrice),
-          maxOccupancy: parseInt(formData.maxOccupancy),
-          amenities: ['Wifi', 'AC'], // Default for now
-          description: formData.description || `A ${formData.roomType.toLowerCase()} room.`,
-          images: formData.imageUrl ? [formData.imageUrl] : []
-        }),
-      });
+  // Show loading while session is loading
+  if (sessionStatus === 'loading') {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
-      if (res.ok) {
-        setIsAddRoomOpen(false);
-        fetchData();
-        // Reset form
-        setFormData({ ...formData, roomNumber: '', basePrice: '' });
-      }
-    } catch (error) {
-      console.error('Failed to create room:', error);
-    }
-  };
+  if (!tenantId) {
+    return (
+      <div className="p-8 text-center text-muted-foreground">
+        No tenant found. Please contact your administrator.
+      </div>
+    );
+  }
 
   const handleDeleteRoom = async (id: string) => {
     if (!confirm('Are you sure you want to delete this room?')) return;
@@ -132,7 +142,17 @@ export default function HotelPage() {
     } catch (error) {
       console.error('Failed to delete room:', error);
     }
-  }
+  };
+
+  const handleEditRoom = (room: Room) => {
+    setSelectedRoom(room);
+    setIsRoomSheetOpen(true);
+  };
+
+  const handleAddRoom = () => {
+    setSelectedRoom(null);
+    setIsRoomSheetOpen(true);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -156,22 +176,36 @@ export default function HotelPage() {
     <div className="p-8 space-y-8">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Hotel Management</h1>
-          <p className="text-muted-foreground mt-2">Manage properties, rooms, and reservations.</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t('title')}</h1>
+          <p className="text-muted-foreground mt-2">{t('subtitle')}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={fetchData}>Refresh</Button>
-          <Button onClick={() => setIsAddRoomOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" /> Add Room
+          {tenantSubdomain && (
+            <Button
+              variant="outline"
+              onClick={() => window.open(getFrontendUrl() || '', '_blank')}
+              className="gap-2"
+            >
+              <ExternalLink className="h-4 w-4" /> View Website
+            </Button>
+          )}
+          <Button variant="outline" onClick={fetchData}>{tc('refresh')}</Button>
+          <Button variant="outline" asChild>
+            <a href="/hotel/settings">
+              <Settings className="mr-2 h-4 w-4" /> {t('settings')}
+            </a>
+          </Button>
+          <Button onClick={handleAddRoom}>
+            <Plus className="mr-2 h-4 w-4" /> {t('addRoom')}
           </Button>
         </div>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="rooms">Rooms</TabsTrigger>
-          <TabsTrigger value="bookings">Bookings</TabsTrigger>
+          <TabsTrigger value="overview">{t('overview')}</TabsTrigger>
+          <TabsTrigger value="rooms">{t('rooms')}</TabsTrigger>
+          <TabsTrigger value="bookings">{t('bookings')}</TabsTrigger>
         </TabsList>
 
         {/* OVERVIEW TAB */}
@@ -246,6 +280,9 @@ export default function HotelPage() {
 
                   {/* Hover Actions */}
                   <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleEditRoom(room)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
                     <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500" onClick={() => handleDeleteRoom(room.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -311,80 +348,14 @@ export default function HotelPage() {
         </TabsContent>
       </Tabs>
 
-      {/* ADD ROOM DIALOG */}
-      <Dialog open={isAddRoomOpen} onOpenChange={setIsAddRoomOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Room</DialogTitle>
-            <DialogDescription>Create a new room in the system.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Number</Label>
-              <Input
-                value={formData.roomNumber}
-                onChange={(e) => setFormData({ ...formData, roomNumber: e.target.value })}
-                className="col-span-3" placeholder="e.g. 101"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Type</Label>
-              <Select onValueChange={(val) => setFormData({ ...formData, roomType: val })} defaultValue={formData.roomType}>
-                <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="SINGLE">Single</SelectItem>
-                  <SelectItem value="DOUBLE">Double</SelectItem>
-                  <SelectItem value="SUITE">Suite</SelectItem>
-                  <SelectItem value="DELUXE">Deluxe</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Price</Label>
-              <div className="col-span-3 relative">
-                <span className="absolute left-3 top-2.5 text-gray-500">{currency}</span>
-                <Input
-                  type="number"
-                  className="pl-8"
-                  value={formData.basePrice}
-                  onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Capacity</Label>
-              <Input
-                type="number"
-                value={formData.maxOccupancy}
-                onChange={(e) => setFormData({ ...formData, maxOccupancy: e.target.value })}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Description</Label>
-              <Input
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="col-span-3"
-                placeholder="e.g. Ocean view suite..."
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Image URL</Label>
-              <Input
-                value={formData.imageUrl}
-                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                className="col-span-3"
-                placeholder="https://example.com/room.jpg"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddRoomOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateRoom}>Create Room</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* ROOM FORM SHEET */}
+      <RoomFormSheet
+        open={isRoomSheetOpen}
+        onOpenChange={setIsRoomSheetOpen}
+        room={selectedRoom}
+        tenantId={tenantId}
+        onSuccess={fetchData}
+      />
     </div>
   );
 }

@@ -2028,6 +2028,7 @@ model HotelConfig {
   secondaryColor  String    @default("#202124")
   accentColor     String    @default("#f59e0b")
   fontFamily      String    @default("Inter, sans-serif")
+  currency        String    @default("LKR") // Currency code (LKR, USD, EUR, etc.)
   
   // --- Hero Section ---
   heroImageUrl    String?
