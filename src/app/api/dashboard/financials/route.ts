@@ -5,7 +5,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import { startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 
-import { AVAILABLE_MODULES } from '@/lib/modules';
+
 
 export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions);

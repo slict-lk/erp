@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
         if (roomId) where.roomId = roomId;
         if (status) where.status = status;
 
+
         const bookings = await prisma.hotelBooking.findMany({
             where,
             include: {
@@ -31,6 +32,64 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json(bookings);
     } catch (error: any) {
+        console.error('Error fetching bookings:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+
+export async function POST(request: NextRequest) {
+    try {
+        const body = await request.json();
+        const {
+            tenantId,
+            roomId,
+            guestName,
+            guestEmail,
+            guestPhone,
+            checkIn,
+            checkOut,
+            totalAmount,
+            depositAmount,
+            status
+        } = body;
+
+        // Basic validation
+        if (!tenantId || !roomId || !guestName || !checkIn || !checkOut) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        }
+
+        // Calculate nights
+        const start = new Date(checkIn);
+        const end = new Date(checkOut);
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+
+        // Create the booking
+        const booking = await prisma.hotelBooking.create({
+            data: {
+                tenantId,
+                bookingNumber: `BK-${Date.now().toString().slice(-6)}`,
+                // Use connect for relation
+                room: { connect: { id: roomId } },
+                guestName,
+                guestEmail: guestEmail || '',
+                guestPhone,
+                checkIn: start,
+                checkOut: end,
+                nights: diffDays,
+                totalAmount: Number(totalAmount) || 0,
+                status: status || 'CONFIRMED',
+                depositAmount: Number(depositAmount) || 0,
+                guests: 1, // Default
+            },
+            include: {
+                room: true
+            }
+        });
+
+        return NextResponse.json(booking);
+    } catch (error: any) {
+        console.error('Error creating booking:', error);
+        return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 });
     }
 }

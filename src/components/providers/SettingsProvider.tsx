@@ -24,6 +24,8 @@ interface SettingsContextType {
     updateSettings: (newSettings: Partial<SystemSettings>) => void;
     formatCurrency: (amount: number) => string;
     formatDate: (date: Date | string) => string;
+    currentBranchId: string | null;
+    setCurrentBranchId: (id: string) => void;
 }
 
 const defaultSettings: SystemSettings = {
@@ -47,6 +49,7 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
     const [settings, setSettings] = useState<SystemSettings>(defaultSettings);
+    const [currentBranchId, setCurrentBranchIdState] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
@@ -57,6 +60,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
                 if (saved) {
                     const parsed = JSON.parse(saved);
                     setSettings({ ...defaultSettings, ...parsed });
+                }
+
+                // Load branch
+                const savedBranch = localStorage.getItem('currentBranchId');
+                if (savedBranch) {
+                    setCurrentBranchIdState(savedBranch);
                 }
             } catch (e) {
                 console.error("Failed to load settings", e);
@@ -86,6 +95,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             window.removeEventListener('settingsChanged', handleLocalSettingsChange);
         };
     }, []);
+
+    const setCurrentBranchId = (id: string) => {
+        setCurrentBranchIdState(id);
+        localStorage.setItem('currentBranchId', id);
+        // Dispatch custom event if needed, or just let context propagate
+    };
 
     const updateSettings = (newSettings: Partial<SystemSettings>) => {
         const updated = { ...settings, ...newSettings };
@@ -125,7 +140,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     };
 
     return (
-        <SettingsContext.Provider value={{ settings, updateSettings, formatCurrency, formatDate }}>
+        <SettingsContext.Provider value={{ settings, updateSettings, formatCurrency, formatDate, currentBranchId, setCurrentBranchId }}>
             {children}
         </SettingsContext.Provider>
     );

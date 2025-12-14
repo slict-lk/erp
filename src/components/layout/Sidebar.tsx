@@ -321,7 +321,15 @@ const navigation: NavigationItem[] = [
     name: 'Hotel',
     href: '/hotel',
     icon: HotelIcon,
-    moduleId: 'hotel'
+    moduleId: 'hotel',
+    children: [
+      { name: 'Dashboard', href: '/hotel', moduleId: 'hotel' },
+      { name: 'Front Desk', href: '/hotel/front-desk', moduleId: 'hotel' },
+      { name: 'Guests', href: '/hotel/guests', moduleId: 'hotel' },
+      { name: 'Housekeeping', href: '/hotel/housekeeping', moduleId: 'hotel' },
+      { name: 'Maintenance', href: '/hotel/maintenance', moduleId: 'hotel' },
+      { name: 'Branches', href: '/hotel/branches', moduleId: 'hotel' },
+    ],
   },
 
   // Analytics & Admin

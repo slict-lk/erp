@@ -1963,7 +1963,20 @@ model HotelRoom {
 
   tenantId String
 
-  bookings HotelBooking[]
+  // Multi-branch support
+  branchId String?
+  branch   HotelBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  // Housekeeping Status
+  housekeepingStatus HousekeepingStatus @default(CLEAN)
+  lastCleanedAt      DateTime?
+  lastInspectedAt    DateTime?
+  lastCleanedBy      String?
+
+  // Relations
+  bookings            HotelBooking[]
+  housekeepingTasks   HousekeepingTask[]
+  maintenanceRequests MaintenanceRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1972,6 +1985,8 @@ model HotelRoom {
   @@index([status])
   @@index([roomType])
   @@index([tenantId])
+  @@index([branchId])
+  @@index([housekeepingStatus])
 }
 
 model HotelBooking {
@@ -1999,6 +2014,27 @@ model HotelBooking {
 
   tenantId String
 
+  // Multi-branch support
+  branchId String?
+  branch   HotelBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  // Front Desk Fields
+  checkedInAt   DateTime?
+  checkedOutAt  DateTime?
+  checkedInBy   String?
+  assignedRoom  String?
+  idVerified    Boolean  @default(false)
+  paymentMethod String?
+  depositAmount Float    @default(0)
+
+  // Guest Profile Link
+  guestProfileId String?
+  guestProfile   GuestProfile? @relation(fields: [guestProfileId], references: [id], onDelete: SetNull)
+
+  // Relations
+  folioCharges   FolioCharge[]
+  frontDeskActions FrontDeskAction[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2007,6 +2043,386 @@ model HotelBooking {
   @@index([checkIn])
   @@index([checkOut])
   @@index([tenantId])
+  @@index([branchId])
+  @@index([guestProfileId])
+}
+
+// ============================================================================
+// GUEST PROFILE (CRM for Hotel Guests)
+// ============================================================================
+
+model GuestProfile {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Identity
+  email       String
+  phone       String?
+  firstName   String
+  lastName    String
+  dateOfBirth DateTime?
+  nationality String?
+  idType      String? // PASSPORT, NIC, LICENSE
+  idNumber    String?
+  avatarUrl   String?
+
+  // Preferences
+  roomPreferences     Json?   // ["high_floor", "quiet", "king_bed", "non_smoking"]
+  dietaryRestrictions String?
+  specialNotes        String? @db.Text
+
+  // VIP & Loyalty
+  isVIP         Boolean @default(false)
+  vipLevel      String? // SILVER, GOLD, PLATINUM, DIAMOND
+  loyaltyNumber String?
+  loyaltyPoints Int     @default(0)
+  loyaltyTier   String? // MEMBER, ELITE, PREMIUM
+
+  // Stats (auto-updated)
+  totalStays   Int      @default(0)
+  totalSpend   Float    @default(0)
+  lastStayDate DateTime?
+  firstStayDate DateTime?
+
+  // Relations
+  bookings HotelBooking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([lastName])
+  @@index([isVIP])
+  @@index([loyaltyTier])
+}
+
+// ============================================================================
+// FOLIO & BILLING
+// ============================================================================
+
+model FolioCharge {
+  id        String @id @default(cuid())
+  bookingId String
+  booking   HotelBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  chargeType  String // ROOM, MINIBAR, RESTAURANT, SPA, LAUNDRY, PHONE, PARKING, OTHER
+  description String
+  amount      Float
+  quantity    Int     @default(1)
+  unitPrice   Float?
+  taxAmount   Float   @default(0)
+  
+  chargedAt DateTime @default(now())
+  chargedBy String?  // Staff ID
+  
+  isVoided    Boolean  @default(false)
+  voidedAt    DateTime?
+  voidedBy    String?
+  voidReason  String?
+
+  tenantId String
+
+  @@index([bookingId])
+  @@index([chargeType])
+  @@index([tenantId])
+}
+
+// ============================================================================
+// FRONT DESK AUDIT TRAIL
+// ============================================================================
+
+model FrontDeskAction {
+  id        String @id @default(cuid())
+  bookingId String
+  booking   HotelBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  actionType  String // CHECK_IN, CHECK_OUT, ROOM_CHANGE, EARLY_CHECKOUT, LATE_CHECKOUT, EXTEND_STAY, FOLIO_CHARGE, FOLIO_VOID, PAYMENT
+  performedBy String // Staff user ID
+  details     Json?
+  notes       String?
+
+  tenantId  String
+  createdAt DateTime @default(now())
+
+  @@index([bookingId])
+  @@index([actionType])
+  @@index([tenantId])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// HOUSEKEEPING
+// ============================================================================
+
+enum HousekeepingStatus {
+  CLEAN
+  DIRTY
+  INSPECTED
+  OUT_OF_ORDER
+  IN_PROGRESS
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum HkTaskStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  VERIFIED
+  CANCELLED
+}
+
+model HousekeepingTask {
+  id     String @id @default(cuid())
+  roomId String
+  room   HotelRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  taskType    String       // CHECKOUT_CLEAN, STAYOVER, TURNDOWN, DEEP_CLEAN, INSPECTION
+  priority    TaskPriority @default(NORMAL)
+  status      HkTaskStatus @default(PENDING)
+  
+  assignedTo  String?      // Staff user ID
+  assignedAt  DateTime?
+  notes       String?
+  
+  scheduledFor DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  
+  verifiedBy   String?
+  verifiedAt   DateTime?
+  
+  // Checklist items (JSON array)
+  checklist    Json?  // [{"item": "Make bed", "done": true}, ...]
+
+  tenantId String
+  branchId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roomId])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedTo])
+  @@index([tenantId])
+  @@index([scheduledFor])
+}
+
+// ============================================================================
+// MAINTENANCE
+// ============================================================================
+
+enum MaintenanceCategory {
+  PLUMBING
+  ELECTRICAL
+  HVAC
+  FURNITURE
+  APPLIANCE
+  STRUCTURAL
+  SAFETY
+  OTHER
+}
+
+enum MaintenanceStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  ON_HOLD
+  RESOLVED
+  CLOSED
+}
+
+model MaintenanceRequest {
+  id     String     @id @default(cuid())
+  roomId String?
+  room   HotelRoom? @relation(fields: [roomId], references: [id], onDelete: SetNull)
+
+  location    String? // For non-room issues: "Lobby", "Pool Area", etc.
+  category    MaintenanceCategory @default(OTHER)
+  description String  @db.Text
+  priority    TaskPriority @default(NORMAL)
+  status      MaintenanceStatus @default(OPEN)
+
+  reportedBy  String  // Guest name or "Staff: [name]"
+  assignedTo  String? // Maintenance staff ID
+  assignedAt  DateTime?
+  
+  estimatedCost Float?
+  actualCost    Float?
+  
+  startedAt   DateTime?
+  resolvedAt  DateTime?
+  resolution  String?  @db.Text
+  
+  // Photos
+  photos      String[] @default([])
+
+  tenantId String
+  branchId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roomId])
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+  @@index([tenantId])
+}
+
+// ============================================================================
+// HOTEL CONFIGURATION (White-Label CMS)
+// ============================================================================
+
+model HotelConfig {
+  id        String @id @default(cuid())
+  tenantId  String @unique // One config per Tenant
+  
+  // --- Branding ---
+  hotelName       String    @default("My Hotel")
+  tagline         String?
+  logoUrl         String?
+  faviconUrl      String?
+  
+  // --- Theme ---
+  primaryColor    String    @default("#1a73e8")
+  secondaryColor  String    @default("#202124")
+  accentColor     String    @default("#f59e0b")
+  fontFamily      String    @default("Inter, sans-serif")
+  currency        String    @default("LKR") // Currency code (LKR, USD, EUR, etc.)
+  
+  // --- Hero Section ---
+  heroImageUrl    String?
+  heroTitle       String?
+  heroSubtitle    String?
+  
+  // --- Content ---
+  aboutUs         String?   @db.Text
+  contactEmail    String?
+  contactPhone    String?
+  address         String?   @db.Text
+  mapEmbedUrl     String?
+  
+  // --- Social ---
+  facebookUrl     String?
+  instagramUrl    String?
+  twitterUrl      String?
+  youtubeUrl      String?
+  
+  // --- Footer ---
+  footerText      String?
+  
+  // --- SEO ---
+  metaTitle       String?
+  metaDescription String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+// ============================================================================
+// HOTEL BRANCH (Multi-Location Support)
+// ============================================================================
+
+model HotelBranch {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // --- Branch Identity ---
+  name     String // "SLICT Hotel Colombo"
+  code     String // "SLICT-CMB" (unique per tenant)
+
+  // --- Location ---
+  country   String
+  city      String
+  address   String?  @db.Text
+  timezone  String   @default("Asia/Colombo")
+  latitude  Float?
+  longitude Float?
+
+  // --- Pricing & Currency ---
+  currency String @default("LKR")
+  taxRate  Float  @default(0)
+
+  // --- Contact ---
+  phone String?
+  email String?
+
+  // --- Config ---
+  isDefault Boolean @default(false) // Default branch for new rooms
+  isActive  Boolean @default(true)
+
+  // --- Relations ---
+  rooms    HotelRoom[]
+  bookings HotelBooking[]
+  config   HotelBranchConfig?
+  pricing  PricingRule[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([isActive])
+}
+
+model HotelBranchConfig {
+  id       String      @id @default(cuid())
+  branchId String      @unique
+  branch   HotelBranch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  // --- Branding (override parent tenant) ---
+  hotelName    String?
+  tagline      String?
+  logoUrl      String?
+  primaryColor String?
+
+  // --- Hero Section ---
+  heroImageUrl String?
+  heroTitle    String?
+  heroSubtitle String?
+
+  // --- Content ---
+  aboutUs String? @db.Text
+
+  // --- SEO ---
+  metaTitle       String?
+  metaDescription String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Seasonal/Dynamic Pricing Rules
+model PricingRule {
+  id       String      @id @default(cuid())
+  branchId String
+  branch   HotelBranch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  name        String // "Peak Season", "Holiday Rate"
+  roomType    String? // null = applies to all room types
+  startDate   DateTime
+  endDate     DateTime
+  multiplier  Float   @default(1.0) // 1.5 = 50% increase
+  fixedPrice  Float? // Override base price entirely
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([branchId])
+  @@index([startDate, endDate])
 }
 
 // ============================================================================
