@@ -83,6 +83,7 @@ class GroqEngine {
     response: string;
     tokens: number;
     model: string;
+    functionCall?: any;
   }> {
     if (!this.status.available) {
       throw new Error('Groq engine is not available. Call initialize() first.');

@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { formatCurrency } from '@/lib/utils';
 import {
   TrendingUp,
   DollarSign,
@@ -43,6 +44,7 @@ import {
   BarChart,
   Bar
 } from 'recharts';
+import { FinancialOverview } from '@/components/dashboard/financial-overview';
 
 // --- Types ---
 
@@ -103,11 +105,7 @@ const QUICK_LINKS = [
 
 // --- Helper Functions ---
 
-const formatCurrency = (value?: number) =>
-  `$${Number(value ?? 0).toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+
 
 const formatNumber = (value?: number) => Number(value ?? 0).toLocaleString('en-US');
 
@@ -157,7 +155,7 @@ export default function DashboardPage() {
     () => [
       {
         title: 'Total Revenue',
-        value: formatCurrency(stats.totalRevenue),
+        value: formatCurrency(stats.totalRevenue ?? 0),
         change: stats.revenueChange,
         icon: DollarSign,
         color: 'text-emerald-600',
@@ -381,6 +379,22 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+
+      </div>
+
+      {/* Financial Overview */}
+      <div className="grid grid-cols-12 gap-8">
+        <FinancialOverview />
+
+        {/* We can move Recent Orders here to sit next to Financials if we want, 
+            but for now let's keep the existing layout structure and just insert this 
+            as a new full-width or partial section. 
+            However, user asked for it to be part of the dashboard.
+            Let's make FinancialOverview taking full width or sharing with something.
+            The component is col-span-7 so it needs a partner col-span-5.
+            Let's move Quick Access or something else next to it, or make it standalone.
+            For "Simple but Cool", let's put it in its own row for now as it has internal grid.
+         */}
       </div>
 
       {/* Quick Access Grid */}
@@ -459,6 +473,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </div >
   );
 }

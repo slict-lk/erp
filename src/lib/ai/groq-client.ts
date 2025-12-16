@@ -5,8 +5,13 @@
  */
 
 export interface ChatMessage {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
+  role: 'user' | 'assistant' | 'system' | 'function';
+  content: string | null;
+  name?: string;
+  function_call?: {
+    name: string;
+    arguments: string;
+  };
 }
 
 export interface CompletionOptions {
@@ -62,7 +67,7 @@ class GroqClient {
 
   constructor(apiKey?: string) {
     this.apiKey = apiKey || process.env.GROQ_API_KEY || '';
-    
+
     if (!this.apiKey) {
       console.warn('⚠️ GROQ_API_KEY not found. Please set the environment variable.');
     }
@@ -82,17 +87,17 @@ class GroqClient {
         return false;
       }
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-      
-        const response = await fetch(`${this.baseUrl}/models`, {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+      const response = await fetch(`${this.baseUrl}/models`, {
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
         },
-          signal: controller.signal,
+        signal: controller.signal,
       });
-      
-        clearTimeout(timeoutId);
+
+      clearTimeout(timeoutId);
 
       if (response.ok) {
         console.log('✅ Groq API connection validated');
@@ -105,7 +110,7 @@ class GroqClient {
         return false;
       }
     } catch (error) {
-        console.error('❌ Groq validation error (may be timeout or network):', error instanceof Error ? error.message : String(error));
+      console.error('❌ Groq validation error (may be timeout or network):', error instanceof Error ? error.message : String(error));
       return false;
     }
   }
@@ -161,13 +166,16 @@ class GroqClient {
         );
       }
 
-      const content = data.choices[0]?.message?.content || '';
+      const message = data.choices[0]?.message;
+      const content = message?.content || '';
+      const functionCall = message?.function_call;
       const tokens = data.usage?.total_tokens || 0;
 
       return {
         response: content,
         tokens,
         model,
+        functionCall,
       };
     } catch (error: any) {
       console.error('Error in generateCompletion:', error);

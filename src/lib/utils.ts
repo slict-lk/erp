@@ -5,11 +5,40 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number, currency: string = 'USD'): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-  }).format(amount);
+export function formatCurrency(amount: number, currency?: string): string {
+  // If running on client, try to check localStorage for override if no specific currency passed
+  if (typeof window !== 'undefined' && !currency) {
+    try {
+      const settings = localStorage.getItem('systemSettings');
+      if (settings) {
+        const parsed = JSON.parse(settings);
+        if (parsed.currency) {
+          currency = parsed.currency;
+        }
+      }
+    } catch (e) {
+      // Ignore
+    }
+  }
+
+  // Handle common non-standard currency codes
+  if (currency === 'RS' || currency === 'Rs' || currency === 'rs') {
+    currency = 'LKR';
+  }
+
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency || 'USD',
+    }).format(amount);
+  } catch (error) {
+    // Fallback to USD if currency code is invalid
+    console.warn(`Invalid currency code: ${currency}, falling back to USD`);
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  }
 }
 
 export function formatDate(date: Date | string): string {

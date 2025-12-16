@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCurrency } from '@/lib/utils';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,13 +53,7 @@ interface Expense {
   date: string;
 }
 
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-  }).format(amount ?? 0);
-}
+
 
 function formatDate(date: string) {
   return new Intl.DateTimeFormat('en-US', {

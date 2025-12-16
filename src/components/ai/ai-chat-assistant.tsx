@@ -23,6 +23,9 @@ import {
     ChevronRight,
     RefreshCw,
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { FunctionResultRenderer } from './function-result-renderer';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -527,21 +530,34 @@ export default function AIChatAssistant() {
                                                                 <div className="flex items-end gap-2 group-hover:translate-x-0 transition-transform">
                                                                     <div
                                                                         className={cn(
-                                                                            'px-5 py-3.5 shadow-sm relative text-sm leading-relaxed',
+                                                                            'px-5 py-3.5 shadow-sm relative text-sm leading-relaxed max-w-full overflow-hidden',
                                                                             message.role === 'USER'
                                                                                 ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-2xl rounded-tr-sm'
                                                                                 : 'bg-white border border-gray-100 text-gray-800 rounded-2xl rounded-tl-sm hover:shadow-md hover:border-gray-200 transition-all'
                                                                         )}
                                                                     >
-                                                                        <div className="whitespace-pre-wrap">{message.content}</div>
-
-                                                                        {/* Function calls badge */}
+                                                                        {/* Function Results */}
                                                                         {message.functionCalls && message.functionCalls.length > 0 && (
-                                                                            <div className="mt-3 pt-3 border-t border-dashed border-gray-300/30">
-                                                                                <div className="flex items-center gap-1.5 text-xs opacity-70">
-                                                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                                                                    <span>Processed with {message.functionCalls.length} tool{message.functionCalls.length > 1 ? 's' : ''}</span>
-                                                                                </div>
+                                                                            <div className="mb-3 space-y-3 w-full">
+                                                                                {message.functionCalls.map((call, i) => (
+                                                                                    <FunctionResultRenderer
+                                                                                        key={i}
+                                                                                        functionName={call.name}
+                                                                                        result={call.result}
+                                                                                    />
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Message Content */}
+                                                                        {message.content && (
+                                                                            <div className={cn(
+                                                                                "markdown-content prose prose-sm max-w-none break-words",
+                                                                                message.role === 'USER' ? "prose-invert text-white" : "prose-violet dark:prose-invert"
+                                                                            )}>
+                                                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                                                    {message.content}
+                                                                                </ReactMarkdown>
                                                                             </div>
                                                                         )}
                                                                     </div>

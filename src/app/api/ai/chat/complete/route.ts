@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth-options';
 import { prisma } from '@/lib/prisma';
 import { getLocalAIEngine } from '@/lib/ai/local-engine';
 import { getGroqEngine } from '@/lib/ai/groq-engine';
-import { AGENT_FUNCTIONS, executeAgentFunction } from '@/lib/ai/chat-agent';
+import { AGENT_FUNCTIONS, executeAgentFunction, processUserMessage } from '@/lib/ai/chat-agent';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -67,112 +67,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build message history for context
-    const chatMessages = [
-      {
-        role: 'system' as const,
-        content: `You are a helpful business assistant for ${tenantId}. Help with sales, inventory, customers, and other business operations.`,
-      },
-      ...conversation.messages.map((msg) => ({
-        role: msg.role.toLowerCase() as 'user' | 'assistant' | 'system',
-        content: msg.content,
-      })),
-      {
-        role: 'user' as const,
-        content: message,
-      },
-    ];
+    // Build message history for context (excluding the current new message)
+    const history = conversation.messages.map((msg) => ({
+      role: msg.role.toLowerCase() as 'user' | 'assistant' | 'system',
+      content: msg.content,
+      // Include function calls in history if available
+      ...(msg.functionCalls ? { function_call: (msg.functionCalls as any)[0] } : {})
+    }));
 
-    // Try Groq first (recommended, free with API key)
-    let completionResponse: string;
-    let engineUsed = 'unknown';
-    let functionCall = null;
-
-    // Check if Groq API key is configured
-    const groqApiKey = process.env.GROQ_API_KEY;
-    console.log('🔍 Checking Groq configuration:', {
-      hasApiKey: !!groqApiKey,
-      apiKeyLength: groqApiKey?.length || 0,
-      model: process.env.GROQ_MODEL,
-      timestamp: new Date().toISOString(),
-    });
-
-    if (groqApiKey) {
-      try {
-        console.log('🔒 Groq API Key found (length: ' + groqApiKey.length + ')');
-        const groqEngine = getGroqEngine();
-        console.log('🚀 Initializing Groq engine...');
-        // Relaxed initialization: try to use it even if ping fails, as it might just be a timeout
-        await groqEngine.initialize();
-
-        const status = groqEngine.getStatus();
-        console.log('✅ Groq status:', JSON.stringify(status));
-
-        // Force availability if we have a key, even if strict check failed
-        if (!status.available) {
-          console.warn('⚠️ Groq reported unavailable, but key is present. Attempting to force execution.');
-        }
-
-        console.log('✅ Using Groq engine for chat completion');
-        engineUsed = 'groq';
-
-        const groqResponse = await groqEngine.generateCompletion(chatMessages, {
-          temperature: 0.7,
-          maxTokens: 2000,
-        });
-
-        completionResponse = groqResponse.response;
-        console.log('✅ Groq response received successfully');
-      } catch (error: any) {
-        console.error('❌ Groq Execution Failed:', error);
-        return NextResponse.json(
-          { error: `Groq Error: ${error.message}` },
-          { status: 500 }
-        );
-      }
-    } else {
-      console.log('⚠️ No Groq API key configured, using Ollama fallback');
-      engineUsed = 'ollama-local';
-
-      // Fallback to local AI engine
-      const engine = getLocalAIEngine();
-
-      // Generate completion with local AI
-      const completion = await engine.generateCompletion(chatMessages, {
-        model: process.env.OLLAMA_MODEL || 'llama2',
-        temperature: 0.7,
-        maxTokens: 2000,
-        functions: AGENT_FUNCTIONS,
-        functionCall: 'auto',
-      });
-
-      completionResponse = completion.response;
-      functionCall = completion.functionCall || null;
-    }
-
-    // Check if response contains a function call (for Ollama)
-    let functionResult = null;
-
-    if (functionCall) {
-      try {
-        functionResult = await executeAgentFunction(
-          functionCall.name,
-          functionCall.arguments,
-          userTenantId
-        );
-      } catch (error) {
-        console.error('Function execution error:', error);
-        functionResult = { error: 'Failed to execute function' };
-      }
-    }
+    // Process the message with AI Agent (handles Groq/Ollama and function calling loop)
+    const aiResponse = await processUserMessage(message, history, userTenantId);
 
     // Save assistant message to database
     const assistantMessage = await prisma.conversationMessage.create({
       data: {
         conversationId,
         role: 'ASSISTANT',
-        content: completionResponse,
-        functionCalls: functionCall ? [functionCall] : undefined,
+        content: aiResponse.response,
+        functionCalls: aiResponse.functionCalls,
         tenantId: userTenantId,
       },
     });
@@ -185,17 +97,16 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       message: assistantMessage,
-      functionCall,
-      functionResult,
+      functionCall: aiResponse.functionCalls ? aiResponse.functionCalls[0] : null,
       engineStatus: {
-        engine: engineUsed,
+        engine: 'auto',
         available: true,
       },
     });
   } catch (error: any) {
     console.error('Error in chat completion:', error);
     return NextResponse.json(
-      { error: 'Failed to generate completion' },
+      { error: `Failed to generate completion: ${error.message}` },
       { status: 500 }
     );
   }
