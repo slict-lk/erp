@@ -26,6 +26,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { FunctionResultRenderer } from './function-result-renderer';
+import ModelSelector from './model-selector';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -59,6 +60,7 @@ export default function AIChatAssistant() {
     const [isLoading, setIsLoading] = useState(false);
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+    const [selectedModelId, setSelectedModelId] = useState<string | undefined>(undefined);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -202,6 +204,18 @@ export default function AIChatAssistant() {
         setIsLoading(true);
 
         try {
+            // Get AI settings
+            const savedSettings = localStorage.getItem('systemSettings');
+            let aiConfig = {};
+            if (savedSettings) {
+                const settings = JSON.parse(savedSettings);
+                aiConfig = {
+                    provider: settings.aiProvider || 'ollama',
+                    model: settings.ollamaModel || 'qwen2.5:0.5b',
+                    apiKey: settings.groqApiKey || '',
+                };
+            }
+
             // Use new local AI engine endpoint
             const response = await fetch(`/api/ai/chat/complete`, {
                 method: 'POST',
@@ -210,6 +224,8 @@ export default function AIChatAssistant() {
                     conversationId: currentConversation.id,
                     message,
                     tenantId,
+                    aiConfig,
+                    modelId: selectedModelId, // Include selected model
                 }),
             });
 
@@ -298,8 +314,8 @@ export default function AIChatAssistant() {
                         className="fixed inset-0 md:inset-auto md:bottom-6 md:right-6 z-50 w-full h-[100dvh] md:w-[600px] lg:w-[750px] md:h-[80vh] md:max-h-[750px] flex flex-col md:rounded-3xl shadow-2xl bg-white/95 backdrop-blur-xl border-none md:border md:border-white/20 overflow-hidden ring-0 md:ring-1 md:ring-black/5"
                     >
                         {/* Header */}
-                        <div className="bg-gradient-to-r from-violet-600/95 to-indigo-600/95 backdrop-blur-md p-4 text-white shadow-sm shrink-0 z-10">
-                            <div className="flex items-center justify-between">
+                        <div className="bg-gradient-to-r from-violet-600/95 to-indigo-600/95 backdrop-blur-md text-white shadow-sm shrink-0 z-10">
+                            <div className="p-4 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30 shadow-inner">
                                         <Bot className="h-6 w-6 text-white" />
@@ -342,6 +358,17 @@ export default function AIChatAssistant() {
                                     >
                                         <X className="h-5 w-5" />
                                     </Button>
+                                </div>
+                            </div>
+                            
+                            {/* Model Selector Bar */}
+                            <div className="px-4 pb-3 border-t border-white/10">
+                                <div className="mt-3">
+                                    <ModelSelector
+                                        tenantId={tenantId}
+                                        selectedModelId={selectedModelId}
+                                        onModelChange={setSelectedModelId}
+                                    />
                                 </div>
                             </div>
                         </div>

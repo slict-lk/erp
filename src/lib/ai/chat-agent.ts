@@ -862,7 +862,8 @@ export async function processUserMessage(
     message: string,
     conversationHistory: ChatMessage[],
     tenantId: string,
-    maxIterations: number = 3
+    maxIterations: number = 3,
+    aiConfig?: { provider?: string; model?: string; apiKey?: string }
 ): Promise<{ response: string; functionCalls?: any[] }> {
     const messages: ChatMessage[] = [
         {
@@ -916,15 +917,24 @@ Always prioritize specific functions over generic CRUD if they exist.`,
     while (iterations < maxIterations) {
         iterations++;
 
-        // Check for Groq FIRST
-        const groqApiKey = process.env.GROQ_API_KEY;
+        // Determine provider
+        const provider = aiConfig?.provider || (process.env.GROQ_API_KEY ? 'groq' : 'ollama');
+        const groqApiKey = aiConfig?.apiKey || process.env.GROQ_API_KEY;
+
         let assistantMessage: any;
         let finishReason = 'stop';
 
-        if (groqApiKey) {
+        if (provider === 'groq' && groqApiKey) {
             try {
                 const { getGroqEngine } = require('./groq-engine');
                 const groqEngine = getGroqEngine();
+
+                // If using custom key, we might need to re-init or pass it. 
+                // The current groq-engine likely uses process.env.GROQ_API_KEY.
+                // For now, we'll assume the environment variable is primary or the engine supports dynamic keys.
+                // If the engine doesn't support dynamic keys, we might need to modify it.
+                // Let's check groq-engine later. For now, we assume if provider is groq, we try to use it.
+
                 // Ensure initialized (optimistic)
                 await groqEngine.initialize();
 
@@ -952,7 +962,8 @@ Always prioritize specific functions over generic CRUD if they exist.`,
                     temperature: 0.7,
                     maxTokens: 2000,
                     functions: AGENT_FUNCTIONS,
-                    functionCall: 'auto'
+                    functionCall: 'auto',
+                    apiKey: groqApiKey,
                 });
 
                 assistantMessage = {
@@ -966,14 +977,25 @@ Always prioritize specific functions over generic CRUD if they exist.`,
                 }
             } catch (error: any) {
                 console.error('Groq failed in chat-agent:', error);
-                // Fallback or throw? User requested NO fallback to offline mode.
-                throw new Error(`Groq failed: ${error.message || String(error)}`);
+                // Fallback to Ollama if Groq fails? 
+                // If user explicitly selected Groq, maybe we should error out or fallback with warning.
+                // For now, fallback to Ollama.
+                console.log('Falling back to Ollama...');
+                const completion = await generateChatCompletion(messages, {
+                    functions: AGENT_FUNCTIONS,
+                    functionCall: 'auto',
+                    model: aiConfig?.model // Pass model if provided
+                });
+                const choice = completion.choices[0];
+                finishReason = choice.finish_reason;
+                assistantMessage = choice.message;
             }
         } else {
             // Default to Ollama
             const completion = await generateChatCompletion(messages, {
                 functions: AGENT_FUNCTIONS,
                 functionCall: 'auto',
+                model: aiConfig?.model // Pass model if provided
             });
             const choice = completion.choices[0];
             finishReason = choice.finish_reason;

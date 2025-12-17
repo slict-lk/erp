@@ -18,6 +18,8 @@ import {
     Mail,
     AlertCircle,
     Save,
+    Bot,
+    Cpu,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -54,6 +56,11 @@ export default function SystemSettingsPage() {
     const [cacheTTL, setCacheTTL] = useState('3600');
     const [apiRateLimit, setApiRateLimit] = useState('100');
 
+    // AI Settings
+    const [aiProvider, setAiProvider] = useState('ollama');
+    const [ollamaModel, setOllamaModel] = useState('qwen2.5:0.5b');
+    const [groqApiKey, setGroqApiKey] = useState('');
+
     useEffect(() => {
         // Load settings from localStorage or API
         const loadSettings = () => {
@@ -74,6 +81,9 @@ export default function SystemSettingsPage() {
                 setCacheEnabled(settings.cacheEnabled !== false);
                 setCacheTTL(settings.cacheTTL || cacheTTL);
                 setApiRateLimit(settings.apiRateLimit || apiRateLimit);
+                setAiProvider(settings.aiProvider || 'ollama');
+                setOllamaModel(settings.ollamaModel || 'qwen2.5:0.5b');
+                setGroqApiKey(settings.groqApiKey || '');
             }
         };
         loadSettings();
@@ -100,6 +110,9 @@ export default function SystemSettingsPage() {
                 cacheEnabled,
                 cacheTTL,
                 apiRateLimit,
+                aiProvider,
+                ollamaModel,
+                groqApiKey,
             };
 
             // Save to localStorage (in production, this would be an API call)
@@ -440,6 +453,59 @@ export default function SystemSettingsPage() {
                             </div>
                         </div>
                     )}
+                </CardContent>
+            </Card>
+
+            {/* AI Configuration */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Bot className="h-5 w-5" />
+                        AI Configuration
+                    </CardTitle>
+                    <CardDescription>Configure AI provider and model settings</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="aiProvider">AI Provider</Label>
+                            <Select value={aiProvider} onValueChange={setAiProvider}>
+                                <SelectTrigger id="aiProvider">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ollama">Ollama (Local)</SelectItem>
+                                    <SelectItem value="groq">Groq (Cloud)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {aiProvider === 'ollama' && (
+                            <div className="space-y-2">
+                                <Label htmlFor="ollamaModel">Ollama Model</Label>
+                                <Input
+                                    id="ollamaModel"
+                                    value={ollamaModel}
+                                    onChange={(e) => setOllamaModel(e.target.value)}
+                                    placeholder="e.g., qwen2.5:0.5b"
+                                />
+                                <p className="text-xs text-gray-500">Ensure this model is pulled in Ollama</p>
+                            </div>
+                        )}
+
+                        {aiProvider === 'groq' && (
+                            <div className="space-y-2">
+                                <Label htmlFor="groqApiKey">Groq API Key</Label>
+                                <Input
+                                    id="groqApiKey"
+                                    type="password"
+                                    value={groqApiKey}
+                                    onChange={(e) => setGroqApiKey(e.target.value)}
+                                    placeholder="gsk_..."
+                                />
+                            </div>
+                        )}
+                    </div>
                 </CardContent>
             </Card>
 

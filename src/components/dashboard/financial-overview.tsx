@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
@@ -22,8 +23,6 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-
-
 
 interface SegmentData {
     module: string;
@@ -68,16 +67,13 @@ export function FinancialOverview() {
             setLoading(false);
         }
     };
+
     const getMarginColor = (margin: number) => {
         if (margin >= 50) return 'bg-emerald-100 text-emerald-800';
         if (margin >= 25) return 'bg-yellow-100 text-yellow-800';
         return 'bg-red-100 text-red-800';
     };
 
-    /**
-     * Generates a consistent color class based on the string hash.
-     * Uses a predefined palette of tailwind colors.
-     */
     const getSegmentColor = (name: string) => {
         const colors = [
             'bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-yellow-500',
@@ -94,6 +90,22 @@ export function FinancialOverview() {
 
         const index = Math.abs(hash) % colors.length;
         return colors[index];
+    };
+
+    const getModuleHref = (module: string) => {
+        const map: Record<string, string> = {
+            'Sales': '/sales',
+            'Inventory': '/inventory',
+            'HR': '/hr',
+            'Accounting': '/accounting',
+            'Manufacturing': '/manufacturing',
+            'Real Estate': '/real-estate',
+            'Hotel': '/hotel',
+            'Restaurant': '/restaurant',
+            'CRM': '/sales/leads',
+            'Purchasing': '/purchasing',
+        };
+        return map[module] || '#';
     };
 
     if (loading) {
@@ -133,38 +145,46 @@ export function FinancialOverview() {
             <CardContent className="pt-4">
                 {/* Top Level Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                    <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 shadow-sm">
-                        <p className="text-xs text-emerald-600 font-semibold uppercase tracking-wider mb-1">Total Revenue</p>
-                        <h3 className="text-2xl font-bold text-emerald-900">{formatCurrency(data.overview.revenue)}</h3>
-                        <div className="flex items-center gap-1 mt-2 text-xs text-emerald-700">
-                            <TrendingUp className="h-3 w-3" />
-                            +12.5%
+                    <Link href="/accounting/invoices" className="block">
+                        <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 shadow-sm hover:shadow-md transition-all cursor-pointer group">
+                            <p className="text-xs text-emerald-600 font-semibold uppercase tracking-wider mb-1">Total Revenue</p>
+                            <h3 className="text-2xl font-bold text-emerald-900 group-hover:text-emerald-600 transition-colors">{formatCurrency(data.overview.revenue)}</h3>
+                            <div className="flex items-center gap-1 mt-2 text-xs text-emerald-700">
+                                <TrendingUp className="h-3 w-3" />
+                                +12.5%
+                            </div>
                         </div>
-                    </div>
+                    </Link>
 
-                    <div className="p-4 rounded-xl bg-gradient-to-br from-red-50 to-white border border-red-100 shadow-sm">
-                        <p className="text-xs text-red-600 font-semibold uppercase tracking-wider mb-1">Expenses (Opex)</p>
-                        <h3 className="text-2xl font-bold text-red-900">{formatCurrency(data.overview.opex)}</h3>
-                        <div className="flex items-center gap-1 mt-2 text-xs text-red-700">
-                            <TrendingDown className="h-3 w-3" />
-                            -2.1%
+                    <Link href="/accounting/expenses" className="block">
+                        <div className="p-4 rounded-xl bg-gradient-to-br from-red-50 to-white border border-red-100 shadow-sm hover:shadow-md transition-all cursor-pointer group">
+                            <p className="text-xs text-red-600 font-semibold uppercase tracking-wider mb-1">Expenses (Opex)</p>
+                            <h3 className="text-2xl font-bold text-red-900 group-hover:text-red-600 transition-colors">{formatCurrency(data.overview.opex)}</h3>
+                            <div className="flex items-center gap-1 mt-2 text-xs text-red-700">
+                                <TrendingDown className="h-3 w-3" />
+                                -2.1%
+                            </div>
                         </div>
-                    </div>
+                    </Link>
 
-                    <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-white border border-blue-100 shadow-sm">
-                        <p className="text-xs text-blue-600 font-semibold uppercase tracking-wider mb-1">Gross Profit</p>
-                        <h3 className="text-2xl font-bold text-blue-900">{formatCurrency(data.overview.profit)}</h3>
-                        <Progress value={75} className="h-1.5 mt-2 bg-blue-100" />
-                    </div>
-
-                    <div className="p-4 rounded-xl bg-gradient-to-br from-amber-50 to-white border border-amber-100 shadow-sm">
-                        <p className="text-xs text-amber-600 font-semibold uppercase tracking-wider mb-1">Profit Margin</p>
-                        <h3 className="text-2xl font-bold text-amber-900">{data.overview.margin.toFixed(1)}%</h3>
-                        <div className="flex items-center gap-1 mt-2 text-xs text-amber-700">
-                            <Activity className="h-3 w-3" />
-                            Healthy
+                    <Link href="/reports" className="block">
+                        <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-white border border-blue-100 shadow-sm hover:shadow-md transition-all cursor-pointer group">
+                            <p className="text-xs text-blue-600 font-semibold uppercase tracking-wider mb-1">Gross Profit</p>
+                            <h3 className="text-2xl font-bold text-blue-900 group-hover:text-blue-600 transition-colors">{formatCurrency(data.overview.profit)}</h3>
+                            <Progress value={75} className="h-1.5 mt-2 bg-blue-100" />
                         </div>
-                    </div>
+                    </Link>
+
+                    <Link href="/reports" className="block">
+                        <div className="p-4 rounded-xl bg-gradient-to-br from-amber-50 to-white border border-amber-100 shadow-sm hover:shadow-md transition-all cursor-pointer group">
+                            <p className="text-xs text-amber-600 font-semibold uppercase tracking-wider mb-1">Profit Margin</p>
+                            <h3 className="text-2xl font-bold text-amber-900 group-hover:text-amber-600 transition-colors">{data.overview.margin.toFixed(1)}%</h3>
+                            <div className="flex items-center gap-1 mt-2 text-xs text-amber-700">
+                                <Activity className="h-3 w-3" />
+                                Healthy
+                            </div>
+                        </div>
+                    </Link>
                 </div>
 
                 {/* Detailed Table */}
@@ -183,9 +203,11 @@ export function FinancialOverview() {
                         <TableBody>
                             {data.segments.map((segment) => (
                                 <TableRow key={segment.module} className="hover:bg-slate-50/50 transition-colors">
-                                    <TableCell className="font-medium flex items-center gap-2">
-                                        <div className={`w-2 h-2 rounded-full ${getSegmentColor(segment.module)}`} />
-                                        {segment.module}
+                                    <TableCell className="font-medium">
+                                        <Link href={getModuleHref(segment.module)} className="flex items-center gap-2 hover:text-blue-600 transition-colors">
+                                            <div className={`w-2 h-2 rounded-full ${getSegmentColor(segment.module)}`} />
+                                            {segment.module}
+                                        </Link>
                                     </TableCell>
                                     <TableCell className="text-right font-medium text-slate-700">
                                         {formatCurrency(segment.revenue)}

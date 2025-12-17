@@ -42,7 +42,13 @@ import {
   X,
   ChevronDown,
   ChevronRight,
-  LogOut
+  LogOut,
+  HelpCircle,
+  GraduationCap,
+  Building2,
+  ChefHat,
+  LayoutGrid,
+  Megaphone
 } from 'lucide-react';
 import { useModulePermissions } from '@/hooks/useModulePermissions';
 import type { LucideIcon } from 'lucide-react';
@@ -205,10 +211,14 @@ const navigation: NavigationItem[] = [
 
   // Website & Marketing
   {
-    name: 'Website',
-    href: '/website',
-    icon: Globe,
-    moduleId: 'marketing'
+    name: 'Marketing',
+    href: '/marketing',
+    icon: Megaphone,
+    children: [
+      { name: 'Website', href: '/website', moduleId: 'marketing' },
+      { name: 'Campaigns', href: '/marketing/campaigns', moduleId: 'marketing' },
+      { name: 'Email Marketing', href: '/email-marketing', moduleId: 'marketing' },
+    ],
   },
   {
     name: 'Blog',
@@ -221,12 +231,6 @@ const navigation: NavigationItem[] = [
     href: '/courses',
     icon: BookOpen,
     moduleId: 'courses'
-  },
-  {
-    name: 'Email Marketing',
-    href: '/email-marketing',
-    icon: Mail,
-    moduleId: 'marketing'
   },
   {
     name: 'Events',
@@ -308,6 +312,7 @@ const navigation: NavigationItem[] = [
       { name: 'Home', href: '/real-estate', moduleId: 'properties' },
       { name: 'Enhanced Features', href: '/real-estate/enhanced', moduleId: 'properties' },
       { name: 'Dashboard', href: '/real-estate/dashboard', moduleId: 'properties' },
+      { name: 'Properties', href: '/real-estate/properties', moduleId: 'properties' },
       { name: 'Search Properties', href: '/real-estate/search', moduleId: 'properties' },
     ],
   },
@@ -315,7 +320,14 @@ const navigation: NavigationItem[] = [
     name: 'Restaurant',
     href: '/restaurant',
     icon: Utensils,
-    moduleId: 'restaurant'
+    moduleId: 'restaurant',
+    children: [
+      { name: 'Dashboard', href: '/restaurant', moduleId: 'restaurant' },
+      { name: 'Floor Plan', href: '/restaurant/floor-plan', moduleId: 'restaurant' },
+      { name: 'Kitchen', href: '/restaurant/kitchen', moduleId: 'restaurant' },
+      { name: 'POS', href: '/restaurant/pos', moduleId: 'restaurant' },
+      { name: 'Setup', href: '/restaurant/setup', moduleId: 'restaurant' },
+    ],
   },
   {
     name: 'Hotel',
@@ -325,11 +337,21 @@ const navigation: NavigationItem[] = [
     children: [
       { name: 'Dashboard', href: '/hotel', moduleId: 'hotel' },
       { name: 'Front Desk', href: '/hotel/front-desk', moduleId: 'hotel' },
+      { name: 'Bookings', href: '/hotel/bookings', moduleId: 'hotel' },
       { name: 'Guests', href: '/hotel/guests', moduleId: 'hotel' },
       { name: 'Housekeeping', href: '/hotel/housekeeping', moduleId: 'hotel' },
       { name: 'Maintenance', href: '/hotel/maintenance', moduleId: 'hotel' },
       { name: 'Branches', href: '/hotel/branches', moduleId: 'hotel' },
+      { name: 'Settings', href: '/hotel/settings', moduleId: 'hotel' },
     ],
+  },
+
+  // Education
+  {
+    name: 'Education',
+    href: '/education',
+    icon: GraduationCap,
+    moduleId: 'education'
   },
 
   // Analytics & Admin
@@ -338,6 +360,18 @@ const navigation: NavigationItem[] = [
     href: '/reports',
     icon: BarChart3,
     moduleId: 'audit'
+  },
+  {
+    name: 'Help & Support',
+    href: '/help',
+    icon: HelpCircle,
+    moduleId: 'help'
+  },
+  {
+    name: 'Profile',
+    href: '/profile',
+    icon: UserCircle,
+    moduleId: 'profile'
   },
   {
     name: 'Settings',
@@ -353,6 +387,7 @@ const navigation: NavigationItem[] = [
       { name: 'Appearance', href: '/settings/appearance', moduleId: 'settings' },
       { name: 'Integrations', href: '/settings/integrations', moduleId: 'settings' },
       { name: 'Notifications', href: '/settings/notifications', moduleId: 'settings' },
+      { name: 'AI Config', href: '/settings/ai-config', moduleId: 'settings' },
       { name: 'System', href: '/settings/system', moduleId: 'settings' },
     ],
   },

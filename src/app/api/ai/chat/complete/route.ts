@@ -5,6 +5,12 @@ import { prisma } from '@/lib/prisma';
 import { getLocalAIEngine } from '@/lib/ai/local-engine';
 import { getGroqEngine } from '@/lib/ai/groq-engine';
 import { AGENT_FUNCTIONS, executeAgentFunction, processUserMessage } from '@/lib/ai/chat-agent';
+import { 
+  getDefaultModel, 
+  getModelById, 
+  recordModelUsage, 
+  calculateCost 
+} from '@/lib/ai/language-model-manager';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { conversationId, message, tenantId } = body;
+    const { conversationId, message, tenantId, aiConfig, modelId } = body;
 
     if (!message || !conversationId || !tenantId) {
       return NextResponse.json(
@@ -33,6 +39,23 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Get the language model to use
+    let selectedModel;
+    if (modelId) {
+      selectedModel = await getModelById(modelId);
+    } else {
+      selectedModel = await getDefaultModel(tenantId);
+    }
+
+    if (!selectedModel) {
+      return NextResponse.json(
+        { error: 'No language model configured. Please configure a model in Settings > AI Config' },
+        { status: 400 }
+      );
+    }
+
+    console.log('Using model:', selectedModel.name, selectedModel.provider);
 
     // Get conversation to verify ownership and get context
     const conversation = await prisma.conversation.findUnique({
@@ -75,8 +98,24 @@ export async function POST(request: NextRequest) {
       ...(msg.functionCalls ? { function_call: (msg.functionCalls as any)[0] } : {})
     }));
 
+    // Merge model config with aiConfig
+    const mergedConfig = {
+      ...aiConfig,
+      provider: selectedModel.provider,
+      model: selectedModel.modelId,
+      apiEndpoint: selectedModel.apiEndpoint,
+      apiKey: selectedModel.apiKey,
+      temperature: selectedModel.temperature,
+      maxTokens: selectedModel.maxTokens,
+      topP: selectedModel.topP,
+      frequencyPenalty: selectedModel.frequencyPenalty,
+      presencePenalty: selectedModel.presencePenalty,
+    };
+
     // Process the message with AI Agent (handles Groq/Ollama and function calling loop)
-    const aiResponse = await processUserMessage(message, history, userTenantId);
+    const startTime = Date.now();
+    const aiResponse = await processUserMessage(message, history, userTenantId, 3, mergedConfig);
+    const latencyMs = Date.now() - startTime;
 
     // Save assistant message to database
     const assistantMessage = await prisma.conversationMessage.create({
@@ -95,11 +134,41 @@ export async function POST(request: NextRequest) {
       data: { updatedAt: new Date() },
     });
 
+    // Record model usage (estimate tokens if not provided)
+    const promptTokens = Math.ceil(message.length / 4); // Rough estimate
+    const completionTokens = Math.ceil(aiResponse.response.length / 4);
+    const totalTokens = promptTokens + completionTokens;
+    const cost = calculateCost(
+      selectedModel.provider as any,
+      selectedModel.modelId,
+      promptTokens,
+      completionTokens
+    );
+
+    await recordModelUsage(
+      userTenantId,
+      selectedModel.id,
+      {
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        cost,
+        latencyMs,
+      },
+      {
+        conversationId,
+        userId: session.user.id,
+        operation: 'chat',
+        success: true,
+      }
+    );
+
     return NextResponse.json({
       message: assistantMessage,
       functionCall: aiResponse.functionCalls ? aiResponse.functionCalls[0] : null,
       engineStatus: {
-        engine: 'auto',
+        engine: selectedModel.provider,
+        model: selectedModel.name,
         available: true,
       },
     });

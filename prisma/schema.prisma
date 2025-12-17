@@ -1,6 +1,3 @@
-// SLICT ERP - Multi-Tenant Database Schema
-// Complete Odoo Apps Coverage + Enhanced Features
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,9 +8,2045 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ============================================================================
-// Enums
-// ============================================================================
+model Tenant {
+  id              String          @id @default(cuid())
+  name            String
+  subdomain       String          @unique
+  domain          String?         @unique
+  status          TenantStatus    @default(ACTIVE)
+  plan            String          @default("starter")
+  settings        Json?
+  logo            String?
+  primaryColor    String          @default("#3b82f6")
+  companyName     String
+  subscriptionEnd DateTime?
+  trialEnd        DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  properties      Property[]
+  propertyAgents  PropertyAgent[]
+  users           User[]
+
+  @@index([subdomain])
+  @@index([domain])
+}
+
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  password          String
+  name              String
+  avatar            String?
+  isActive          Boolean            @default(true)
+  isSuperAdmin      Boolean            @default(false)
+  tenantId          String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  modulePermissions Json?
+  role              String?            @default("USER")
+  employeeId        String?            @unique
+  blogPosts         BlogPost[]
+  organizedEvents   CalendarEvent[]    @relation("EventOrganizer")
+  conversations     Conversation[]     @relation("UserConversations")
+  instructorCourses Course[]           @relation("CourseInstructor")
+  courseEnrollments CourseEnrollment[] @relation("CourseEnrollments")
+  eventAttendance   EventAttendee[]    @relation("EventAttendee")
+  assignedChats     LiveChatSession[]  @relation("AssignedChats")
+  propertyAgent     PropertyAgent?     @relation("AgentUser")
+  assignedTickets   Ticket[]           @relation("AssignedTickets")
+  ticketComments    TicketComment[]    @relation("TicketComments")
+  employee          Employee?          @relation(fields: [employeeId], references: [id])
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([email])
+  @@index([role])
+}
+
+model Property {
+  id             String                    @id @default(cuid())
+  title          String
+  description    String?
+  address        String
+  city           String
+  state          String
+  zipCode        String
+  country        String
+  bedrooms       Int?
+  bathrooms      Float?
+  area           Float?
+  price          Float
+  currency       String                    @default("USD")
+  images         String[]                  @default([])
+  tenantId       String
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  propertyType   String
+  listingType    String
+  status         String                    @default("AVAILABLE")
+  featured       Boolean                   @default(false)
+  latitude       Float?
+  longitude      Float?
+  verified       Boolean                   @default(false)
+  videoUrl       String?
+  viewCount      Int                       @default(0)
+  virtualTourUrl String?
+  neighborhood   NeighborhoodInsight?      @relation("PropertyNeighborhoodInsights")
+  tenant         Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agents         PropertyAgentAssignment[] @relation("PropertyAgents")
+  amenities      PropertyAmenity[]         @relation("PropertyAmenities")
+  documents      PropertyDocument[]        @relation("PropertyDocuments")
+  favorites      PropertyFavorite[]        @relation("PropertyFavorites")
+  inquiries      PropertyInquiry[]         @relation("PropertyInquiries")
+  leases         PropertyLease[]           @relation("PropertyLeases")
+  maintenances   PropertyMaintenance[]     @relation("PropertyMaintenances")
+  views          PropertyView[]            @relation("PropertyViews")
+  viewings       PropertyViewing[]
+  virtualTours   VirtualTour[]             @relation("PropertyVirtualTours")
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([city])
+  @@index([propertyType])
+  @@index([listingType])
+  @@index([price])
+  @@index([bedrooms])
+  @@index([featured])
+  @@index([createdAt])
+}
+
+model PropertyViewing {
+  id          String   @id @default(cuid())
+  propertyId  String
+  clientName  String
+  clientEmail String
+  clientPhone String?
+  scheduledAt DateTime
+  notes       String?
+  createdAt   DateTime @default(now())
+  status      String   @default("SCHEDULED")
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([scheduledAt])
+}
+
+model PropertyDocument {
+  id         String   @id @default(cuid())
+  propertyId String
+  title      String
+  fileUrl    String
+  fileType   String
+  uploadedAt DateTime @default(now())
+  property   Property @relation("PropertyDocuments", fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+}
+
+model PropertyAmenity {
+  id          String   @id @default(cuid())
+  propertyId  String
+  name        String
+  description String?
+  property    Property @relation("PropertyAmenities", fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+}
+
+model PropertyLease {
+  id              String   @id @default(cuid())
+  propertyId      String
+  tenantName      String
+  tenantEmail     String
+  tenantPhone     String?
+  startDate       DateTime
+  endDate         DateTime
+  monthlyRent     Float
+  securityDeposit Float?
+  status          String   @default("ACTIVE")
+  contractUrl     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  property        Property @relation("PropertyLeases", fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([status])
+}
+
+model PropertyMaintenance {
+  id          String    @id @default(cuid())
+  propertyId  String
+  title       String
+  description String
+  priority    Priority  @default(MEDIUM)
+  status      String    @default("PENDING")
+  assignedTo  String?
+  cost        Float?
+  reportedAt  DateTime  @default(now())
+  completedAt DateTime?
+  property    Property  @relation("PropertyMaintenances", fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([status])
+}
+
+model PropertyInquiry {
+  id         String   @id @default(cuid())
+  propertyId String
+  name       String
+  email      String
+  phone      String?
+  message    String
+  status     String   @default("NEW")
+  createdAt  DateTime @default(now())
+  property   Property @relation("PropertyInquiries", fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([status])
+}
+
+model PropertyAgent {
+  id            String                    @id @default(cuid())
+  tenantId      String
+  userId        String?                   @unique
+  name          String
+  email         String
+  phone         String
+  licenseNumber String?
+  commission    Float?
+  isActive      Boolean                   @default(true)
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  tenant        Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user          User?                     @relation("AgentUser", fields: [userId], references: [id])
+  properties    PropertyAgentAssignment[]
+
+  @@index([tenantId])
+  @@index([email])
+}
+
+model PropertyAgentAssignment {
+  id         String        @id @default(cuid())
+  propertyId String
+  agentId    String
+  role       String        @default("PRIMARY")
+  assignedAt DateTime      @default(now())
+  agent      PropertyAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  property   Property      @relation("PropertyAgents", fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([agentId])
+}
+
+model PropertyFavorite {
+  id         String   @id @default(cuid())
+  userId     String
+  propertyId String
+  createdAt  DateTime @default(now())
+  property   Property @relation("PropertyFavorites", fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, propertyId])
+  @@index([userId])
+  @@index([propertyId])
+}
+
+model SavedSearch {
+  id                 String   @id @default(cuid())
+  userId             String
+  name               String
+  criteria           Json
+  emailNotifications Boolean  @default(true)
+  frequency          String   @default("DAILY")
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isActive])
+}
+
+model VirtualTour {
+  id          String   @id @default(cuid())
+  propertyId  String
+  title       String
+  description String?
+  tourType    String
+  url         String
+  embedCode   String?
+  images      String[] @default([])
+  thumbnail   String?
+  viewCount   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  property    Property @relation("PropertyVirtualTours", fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+}
+
+model NeighborhoodInsight {
+  id               String   @id @default(cuid())
+  propertyId       String   @unique
+  walkScore        Int?
+  transitScore     Int?
+  bikeScore        Int?
+  medianIncome     Float?
+  populationCount  Int?
+  medianAge        Float?
+  crimeRate        String?
+  schools          Json?
+  amenities        Json?
+  pointsOfInterest Json?
+  publicTransport  Json?
+  additionalData   Json?
+  lastUpdated      DateTime @default(now())
+  property         Property @relation("PropertyNeighborhoodInsights", fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+}
+
+model PropertyView {
+  id         String   @id @default(cuid())
+  propertyId String
+  userId     String?
+  ipAddress  String?
+  userAgent  String?
+  source     String?
+  referrer   String?
+  sessionId  String?
+  duration   Int?
+  viewedAt   DateTime @default(now())
+  property   Property @relation("PropertyViews", fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([userId])
+  @@index([viewedAt])
+}
+
+model PropertyComparison {
+  id          String   @id @default(cuid())
+  userId      String
+  propertyIds String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Customer {
+  id             String               @id @default(cuid())
+  name           String
+  email          String
+  phone          String?
+  company        String?
+  address        String?
+  city           String?
+  state          String?
+  zipCode        String?
+  country        String?
+  type           String               @default("INDIVIDUAL")
+  status         String               @default("ACTIVE")
+  notes          String?
+  tenantId       String
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  calendarEvents CalendarEvent[]
+  messages       IntegrationMessage[]
+  invoices       Invoice[]
+  leads          Lead[]
+  posOrders      POSOrder[]
+  salesOrders    SalesOrder[]
+  tickets        Ticket[]
+
+  @@index([email])
+  @@index([tenantId])
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  company   String?
+  jobTitle  String?
+  address   String?
+  city      String?
+  state     String?
+  zipCode   String?
+  country   String?
+  type      String   @default("BUSINESS")
+  notes     String?
+  tags      String[] @default([])
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([type])
+  @@index([tenantId])
+}
+
+model Lead {
+  id         String    @id @default(cuid())
+  name       String
+  email      String
+  phone      String?
+  company    String?
+  jobTitle   String?
+  source     String?
+  status     String    @default("NEW")
+  score      Int       @default(0)
+  notes      String?
+  customerId String?
+  tenantId   String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  @@index([email])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model Opportunity {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  amount      Float
+  probability Int       @default(50)
+  stage       String    @default("PROSPECTING")
+  closeDate   DateTime?
+  customerId  String?
+  tenantId    String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([stage])
+  @@index([tenantId])
+}
+
+model Quotation {
+  id         String    @id @default(cuid())
+  number     String    @unique
+  customerId String?
+  total      Float
+  tax        Float     @default(0)
+  discount   Float     @default(0)
+  grandTotal Float
+  status     String    @default("DRAFT")
+  validUntil DateTime?
+  notes      String?
+  tenantId   String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([number])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model SalesOrder {
+  id         String               @id @default(cuid())
+  number     String               @unique
+  customerId String
+  total      Float
+  tax        Float                @default(0)
+  discount   Float                @default(0)
+  grandTotal Float
+  status     String               @default("DRAFT")
+  orderDate  DateTime             @default(now())
+  notes      String?
+  tenantId   String
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  messages   IntegrationMessage[]
+  invoices   Invoice[]
+  customer   Customer             @relation(fields: [customerId], references: [id])
+
+  @@index([number])
+  @@index([customerId])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  sessionId String     @unique
+  userId    String?
+  expiresAt DateTime
+  tenantId  String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  items     CartItem[]
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([tenantId])
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  productId String
+  quantity  Int
+  price     Float
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([cartId])
+  @@index([productId])
+  @@index([tenantId])
+}
+
+model POSOrder {
+  id            String         @id @default(cuid())
+  orderNumber   String         @unique
+  customerId    String?
+  subtotal      Float
+  tax           Float          @default(0)
+  discount      Float          @default(0)
+  total         Float
+  status        String         @default("PENDING")
+  paymentMethod String?
+  notes         String?
+  tenantId      String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  customer      Customer?      @relation(fields: [customerId], references: [id])
+  items         POSOrderItem[]
+
+  @@index([orderNumber])
+  @@index([customerId])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model POSOrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  unitPrice Float
+  total     Float
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  order     POSOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product  @relation("POSOrderItems", fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([tenantId])
+}
+
+model IntegrationMessage {
+  id            String      @id @default(cuid())
+  platform      String
+  direction     String      @default("OUTBOUND")
+  senderId      String
+  senderName    String?
+  recipientId   String
+  recipientName String?
+  messageType   String      @default("TEXT")
+  content       String
+  status        String      @default("SENT")
+  readAt        DateTime?
+  customerId    String?
+  salesOrderId  String?
+  tenantId      String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  customer      Customer?   @relation(fields: [customerId], references: [id])
+  salesOrder    SalesOrder? @relation(fields: [salesOrderId], references: [id])
+
+  @@index([tenantId])
+  @@index([platform])
+  @@index([direction])
+  @@index([status])
+  @@index([customerId])
+  @@index([salesOrderId])
+}
+
+model Vendor {
+  id             String          @id @default(cuid())
+  name           String
+  email          String?
+  phone          String?
+  website        String?
+  taxId          String?
+  paymentTerms   String?
+  creditLimit    Float?
+  address        String?
+  city           String?
+  state          String?
+  postalCode     String?
+  zipCode        String?
+  country        String?
+  contactPerson  String?
+  contactPhone   String?
+  contactEmail   String?
+  notes          String?
+  isActive       Boolean         @default(true)
+  tenantId       String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  purchaseOrders PurchaseOrder[]
+
+  @@index([tenantId])
+  @@index([email])
+}
+
+model PurchaseOrder {
+  id           String              @id @default(cuid())
+  orderNumber  String              @unique
+  vendorId     String
+  status       String              @default("DRAFT")
+  orderDate    DateTime            @default(now())
+  expectedDate DateTime?
+  subtotal     Float
+  tax          Float               @default(0)
+  total        Float
+  notes        String?
+  tenantId     String
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  vendor       Vendor              @relation(fields: [vendorId], references: [id])
+  items        PurchaseOrderItem[]
+
+  @@index([orderNumber])
+  @@index([vendorId])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  productId       String
+  quantity        Int
+  unitPrice       Float
+  total           Float
+  tenantId        String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  product         Product       @relation(fields: [productId], references: [id])
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+}
+
+model Account {
+  id        String      @id @default(cuid())
+  code      String
+  name      String
+  type      AccountType
+  currency  String      @default("USD")
+  balance   Float       @default(0)
+  parentId  String?
+  tenantId  String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  parent    Account?    @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children  Account[]   @relation("AccountHierarchy")
+
+  @@unique([code, tenantId])
+  @@index([type])
+  @@index([tenantId])
+}
+
+model Invoice {
+  id           String        @id @default(cuid())
+  number       String        @unique
+  type         InvoiceType   @default(SALES)
+  status       InvoiceStatus @default(DRAFT)
+  customerId   String
+  salesOrderId String?
+  issueDate    DateTime      @default(now())
+  dueDate      DateTime
+  subtotal     Float
+  tax          Float         @default(0)
+  discount     Float         @default(0)
+  total        Float
+  amountPaid   Float         @default(0)
+  amountDue    Float
+  notes        String?
+  terms        String?
+  tenantId     String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  customer     Customer      @relation(fields: [customerId], references: [id])
+  salesOrder   SalesOrder?   @relation(fields: [salesOrderId], references: [id])
+  lines        InvoiceLine[]
+  payments     Payment[]
+
+  @@index([number])
+  @@index([customerId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([tenantId])
+}
+
+model InvoiceLine {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  productId   String?
+  description String
+  quantity    Float
+  unitPrice   Float
+  tax         Float    @default(0)
+  discount    Float    @default(0)
+  total       Float
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product     Product? @relation(fields: [productId], references: [id])
+
+  @@index([invoiceId])
+  @@index([productId])
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  invoiceId   String
+  amount      Float
+  method      PaymentMethod @default(CASH)
+  reference   String?
+  notes       String?
+  paymentDate DateTime      @default(now())
+  tenantId    String
+  createdAt   DateTime      @default(now())
+  invoice     Invoice       @relation(fields: [invoiceId], references: [id])
+
+  @@index([invoiceId])
+  @@index([paymentDate])
+  @@index([tenantId])
+}
+
+model Expense {
+  id          String        @id @default(cuid())
+  description String
+  amount      Float
+  category    String
+  status      ExpenseStatus @default(DRAFT)
+  employeeId  String?
+  expenseDate DateTime
+  receipt     String?
+  notes       String?
+  tenantId    String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  employee    Employee?     @relation(fields: [employeeId], references: [id])
+
+  @@index([status])
+  @@index([employeeId])
+  @@index([category])
+  @@index([tenantId])
+}
+
+model Product {
+  id                 String              @id @default(cuid())
+  name               String
+  sku                String              @unique
+  barcode            String?
+  description        String?
+  type               ProductType         @default(STORABLE)
+  category           String?
+  costPrice          Float               @default(0)
+  salePrice          Float
+  stockQty           Float               @default(0)
+  minStockQty        Float               @default(0)
+  isActive           Boolean             @default(true)
+  images             String[]            @default([])
+  tenantId           String
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  cartItems          CartItem[]
+  invoiceLines       InvoiceLine[]
+  posOrderItems      POSOrderItem[]      @relation("POSOrderItems")
+  purchaseOrderItems PurchaseOrderItem[]
+  stockMovements     StockMovement[]
+
+  @@index([sku])
+  @@index([category])
+  @@index([isActive])
+  @@index([tenantId])
+}
+
+model Warehouse {
+  id             String          @id @default(cuid())
+  name           String
+  code           String          @unique
+  address        String?
+  city           String?
+  country        String?
+  isActive       Boolean         @default(true)
+  tenantId       String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  stockMovements StockMovement[]
+
+  @@index([code])
+  @@index([tenantId])
+}
+
+model StockMovement {
+  id           String       @id @default(cuid())
+  productId    String
+  warehouseId  String
+  type         MovementType
+  quantity     Float
+  reference    String?
+  notes        String?
+  movementDate DateTime     @default(now())
+  tenantId     String
+  createdAt    DateTime     @default(now())
+  product      Product      @relation(fields: [productId], references: [id])
+  warehouse    Warehouse    @relation(fields: [warehouseId], references: [id])
+
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([type])
+  @@index([movementDate])
+  @@index([tenantId])
+}
+
+model ManufacturingOrder {
+  id                String              @id @default(cuid())
+  orderNumber       String              @unique
+  productId         String?
+  productName       String
+  quantityToProduce Float
+  quantityProduced  Float               @default(0)
+  status            ManufacturingStatus @default(DRAFT)
+  startDate         DateTime?
+  endDate           DateTime?
+  notes             String?
+  tenantId          String
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([orderNumber])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model Department {
+  id          String     @id @default(cuid())
+  name        String
+  code        String     @unique
+  description String?
+  managerId   String?
+  tenantId    String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  employees   Employee[]
+
+  @@index([code])
+  @@index([tenantId])
+}
+
+model Employee {
+  id            String         @id @default(cuid())
+  firstName     String
+  lastName      String
+  email         String         @unique
+  phone         String?
+  employeeId    String         @unique
+  departmentId  String?
+  position      String
+  type          EmploymentType @default(FULL_TIME)
+  hireDate      DateTime
+  salary        Float?
+  address       String?
+  city          String?
+  state         String?
+  zipCode       String?
+  country       String?
+  isActive      Boolean        @default(true)
+  tenantId      String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  attendances   Attendance[]
+  department    Department?    @relation(fields: [departmentId], references: [id])
+  expenses      Expense[]
+  leaveRequests LeaveRequest[]
+  timesheets    Timesheet[]
+  user          User?
+
+  @@index([employeeId])
+  @@index([email])
+  @@index([departmentId])
+  @@index([isActive])
+  @@index([tenantId])
+}
+
+model Attendance {
+  id         String    @id @default(cuid())
+  employeeId String
+  date       DateTime
+  checkIn    DateTime?
+  checkOut   DateTime?
+  status     String    @default("PRESENT")
+  notes      String?
+  tenantId   String
+  createdAt  DateTime  @default(now())
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, date])
+  @@index([employeeId])
+  @@index([date])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model LeaveRequest {
+  id         String      @id @default(cuid())
+  employeeId String
+  leaveType  String
+  startDate  DateTime
+  endDate    DateTime
+  days       Float
+  reason     String?
+  status     LeaveStatus @default(PENDING)
+  approvedBy String?
+  approvedAt DateTime?
+  tenantId   String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([startDate])
+  @@index([tenantId])
+}
+
+model Timesheet {
+  id          String   @id @default(cuid())
+  employeeId  String
+  projectId   String?
+  taskId      String?
+  date        DateTime
+  hours       Float
+  description String?
+  billable    Boolean  @default(true)
+  tenantId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  project     Project? @relation(fields: [projectId], references: [id])
+  task        Task?    @relation(fields: [taskId], references: [id])
+
+  @@index([employeeId])
+  @@index([projectId])
+  @@index([taskId])
+  @@index([date])
+  @@index([tenantId])
+}
+
+model Project {
+  id             String          @id @default(cuid())
+  name           String
+  code           String          @unique
+  description    String?
+  status         ProjectStatus   @default(PLANNING)
+  startDate      DateTime?
+  endDate        DateTime?
+  budget         Float?
+  customerId     String?
+  managerId      String?
+  tenantId       String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  calendarEvents CalendarEvent[]
+  tasks          Task[]
+  timesheets     Timesheet[]
+
+  @@index([code])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model Task {
+  id             String      @id @default(cuid())
+  title          String
+  description    String?
+  status         TaskStatus  @default(TODO)
+  priority       Priority    @default(MEDIUM)
+  projectId      String
+  assigneeId     String?
+  startDate      DateTime?
+  dueDate        DateTime?
+  completedAt    DateTime?
+  estimatedHours Float?
+  actualHours    Float?
+  tenantId       String
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  project        Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  timesheets     Timesheet[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([priority])
+  @@index([assigneeId])
+  @@index([tenantId])
+}
+
+model ConstructionJob {
+  id            String                 @id @default(cuid())
+  jobNumber     String                 @unique
+  projectName   String
+  description   String?
+  siteAddress   String
+  city          String
+  state         String
+  clientName    String
+  clientEmail   String?
+  clientPhone   String?
+  startDate     DateTime
+  endDate       DateTime?
+  estimatedCost Float
+  actualCost    Float                  @default(0)
+  status        ConstructionStatus     @default(QUEUED)
+  tenantId      String
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  materials     ConstructionMaterial[]
+  subcontracts  Subcontract[]
+
+  @@index([jobNumber])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model Subcontract {
+  id              String          @id @default(cuid())
+  jobId           String
+  contractorName  String
+  contractorEmail String?
+  contractorPhone String?
+  workDescription String
+  contractValue   Float
+  paidAmount      Float           @default(0)
+  startDate       DateTime
+  endDate         DateTime?
+  status          String          @default("PENDING")
+  tenantId        String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  job             ConstructionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model ConstructionMaterial {
+  id           String          @id @default(cuid())
+  jobId        String
+  materialName String
+  quantity     Float
+  unit         String
+  unitCost     Float
+  totalCost    Float
+  supplier     String?
+  deliveryDate DateTime?
+  tenantId     String
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  job          ConstructionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([tenantId])
+}
+
+model Ticket {
+  id          String          @id @default(cuid())
+  number      String          @unique
+  subject     String
+  description String
+  status      TicketStatus    @default(NEW)
+  priority    Priority        @default(MEDIUM)
+  customerId  String?
+  assigneeId  String?
+  tenantId    String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  assignedTo  User?           @relation("AssignedTickets", fields: [assigneeId], references: [id])
+  customer    Customer?       @relation(fields: [customerId], references: [id])
+  comments    TicketComment[]
+
+  @@index([number])
+  @@index([status])
+  @@index([priority])
+  @@index([customerId])
+  @@index([assigneeId])
+  @@index([tenantId])
+}
+
+model TicketComment {
+  id         String   @id @default(cuid())
+  ticketId   String
+  comment    String
+  authorId   String?
+  isInternal Boolean  @default(false)
+  tenantId   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  author     User?    @relation("TicketComments", fields: [authorId], references: [id])
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([authorId])
+  @@index([tenantId])
+}
+
+model WebPage {
+  id             String   @id @default(cuid())
+  title          String
+  slug           String   @unique
+  content        String
+  isPublished    Boolean  @default(false)
+  seoTitle       String?
+  seoDescription String?
+  tenantId       String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([slug])
+  @@index([isPublished])
+  @@index([tenantId])
+}
+
+model BlogPost {
+  id             String    @id @default(cuid())
+  title          String
+  slug           String
+  content        String
+  excerpt        String?
+  featuredImage  String?
+  authorId       String
+  isPublished    Boolean   @default(false)
+  publishedAt    DateTime?
+  categories     String[]  @default([])
+  tags           String[]  @default([])
+  seoTitle       String?
+  seoDescription String?
+  seoKeywords    String[]  @default([])
+  viewCount      Int       @default(0)
+  tenantId       String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  author         User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([slug, tenantId])
+  @@index([authorId])
+  @@index([isPublished])
+  @@index([publishedAt])
+  @@index([tenantId])
+}
+
+model Course {
+  id           String             @id @default(cuid())
+  title        String
+  slug         String
+  description  String?
+  coverImage   String?
+  instructorId String?
+  isFree       Boolean            @default(false)
+  price        Float?
+  level        CourseLevel        @default(BEGINNER)
+  duration     Int?
+  language     String             @default("English")
+  isPublished  Boolean            @default(false)
+  publishedAt  DateTime?
+  category     String?
+  tags         String[]           @default([])
+  tenantId     String
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  instructor   User?              @relation("CourseInstructor", fields: [instructorId], references: [id])
+  enrollments  CourseEnrollment[]
+  lessons      Lesson[]
+
+  @@unique([slug, tenantId])
+  @@index([instructorId])
+  @@index([isPublished])
+  @@index([level])
+  @@index([tenantId])
+}
+
+model Lesson {
+  id          String   @id @default(cuid())
+  courseId    String
+  title       String
+  description String?
+  content     String?
+  videoUrl    String?
+  order       Int      @default(0)
+  duration    Int?
+  isFree      Boolean  @default(false)
+  isPublished Boolean  @default(false)
+  tenantId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+  @@index([order])
+  @@index([tenantId])
+}
+
+model CourseEnrollment {
+  id            String    @id @default(cuid())
+  courseId      String
+  userId        String?
+  studentName   String?
+  studentEmail  String?
+  enrolledAt    DateTime  @default(now())
+  completedAt   DateTime?
+  progress      Int       @default(0)
+  paymentStatus String    @default("PENDING")
+  amountPaid    Float?
+  tenantId      String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  course        Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user          User?     @relation("CourseEnrollments", fields: [userId], references: [id])
+
+  @@index([courseId])
+  @@index([userId])
+  @@index([paymentStatus])
+  @@index([tenantId])
+}
+
+model Survey {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  questions   Json
+  isActive    Boolean  @default(true)
+  tenantId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([tenantId])
+}
+
+model SMSCampaign {
+  id          String    @id @default(cuid())
+  name        String
+  message     String
+  status      String    @default("DRAFT")
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  recipients  String[]  @default([])
+  tenantId    String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status])
+  @@index([tenantId])
+}
+
+model MarketingEvent {
+  id            String               @id @default(cuid())
+  title         String
+  description   String?
+  location      String?
+  eventType     String?
+  startDate     DateTime
+  endDate       DateTime?
+  capacity      Int?
+  status        MarketingEventStatus @default(DRAFT)
+  coverImage    String?
+  tenantId      String
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  registrations EventRegistration[]
+
+  @@index([status])
+  @@index([startDate])
+  @@index([tenantId])
+}
+
+model EventRegistration {
+  id            String         @id @default(cuid())
+  eventId       String
+  attendeeName  String
+  attendeeEmail String
+  attendeePhone String?
+  status        String         @default("CONFIRMED")
+  registeredAt  DateTime       @default(now())
+  tenantId      String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  event         MarketingEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([status])
+  @@index([attendeeEmail])
+  @@index([tenantId])
+}
+
+model ForumTopic {
+  id          String      @id @default(cuid())
+  title       String
+  slug        String
+  description String?
+  category    String?
+  tags        String[]    @default([])
+  authorId    String?
+  authorName  String
+  authorEmail String?
+  status      TopicStatus @default(OPEN)
+  isPinned    Boolean     @default(false)
+  viewCount   Int         @default(0)
+  tenantId    String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  posts       ForumPost[]
+
+  @@unique([slug, tenantId])
+  @@index([category])
+  @@index([status])
+  @@index([isPinned])
+  @@index([tenantId])
+}
+
+model ForumPost {
+  id          String     @id @default(cuid())
+  topicId     String
+  content     String
+  authorId    String?
+  authorName  String
+  authorEmail String?
+  isAnswer    Boolean    @default(false)
+  tenantId    String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  topic       ForumTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@index([topicId])
+  @@index([isAnswer])
+  @@index([tenantId])
+}
+
+model RestaurantTable {
+  id        String      @id @default(cuid())
+  number    String
+  capacity  Int
+  status    TableStatus @default(AVAILABLE)
+  tenantId  String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@unique([number, tenantId])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model HotelRoom {
+  id                  String               @id @default(cuid())
+  roomNumber          String
+  roomType            String
+  floor               Int?
+  bedType             String?
+  maxOccupancy        Int                  @default(2)
+  amenities           String[]             @default([])
+  basePrice           Float
+  status              RoomStatus           @default(AVAILABLE)
+  description         String?
+  images              String[]             @default([])
+  tenantId            String
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  branchId            String?
+  housekeepingStatus  HousekeepingStatus   @default(CLEAN)
+  lastCleanedAt       DateTime?
+  lastCleanedBy       String?
+  lastInspectedAt     DateTime?
+  bookings            HotelBooking[]
+  branch              HotelBranch?         @relation(fields: [branchId], references: [id])
+  housekeepingTasks   HousekeepingTask[]
+  maintenanceRequests MaintenanceRequest[]
+
+  @@unique([roomNumber, tenantId])
+  @@index([status])
+  @@index([roomType])
+  @@index([tenantId])
+  @@index([branchId])
+  @@index([housekeepingStatus])
+}
+
+model HotelBooking {
+  id               String            @id @default(cuid())
+  bookingNumber    String            @unique
+  roomId           String
+  guestName        String
+  guestEmail       String
+  guestPhone       String?
+  checkIn          DateTime
+  checkOut         DateTime
+  nights           Int
+  guests           Int               @default(1)
+  totalAmount      Float
+  paidAmount       Float             @default(0)
+  status           BookingStatus     @default(CONFIRMED)
+  specialRequests  String?
+  tenantId         String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  branchId         String?
+  assignedRoom     String?
+  checkedInAt      DateTime?
+  checkedInBy      String?
+  checkedOutAt     DateTime?
+  depositAmount    Float             @default(0)
+  guestProfileId   String?
+  idVerified       Boolean           @default(false)
+  paymentMethod    String?
+  folioCharges     FolioCharge[]
+  frontDeskActions FrontDeskAction[]
+  branch           HotelBranch?      @relation(fields: [branchId], references: [id])
+  guestProfile     GuestProfile?     @relation(fields: [guestProfileId], references: [id])
+  room             HotelRoom         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@index([status])
+  @@index([checkIn])
+  @@index([checkOut])
+  @@index([tenantId])
+  @@index([branchId])
+  @@index([guestProfileId])
+}
+
+model GuestProfile {
+  id                  String         @id @default(cuid())
+  tenantId            String
+  email               String
+  phone               String?
+  firstName           String
+  lastName            String
+  dateOfBirth         DateTime?
+  nationality         String?
+  idType              String?
+  idNumber            String?
+  avatarUrl           String?
+  roomPreferences     Json?
+  dietaryRestrictions String?
+  specialNotes        String?
+  isVIP               Boolean        @default(false)
+  vipLevel            String?
+  loyaltyNumber       String?
+  loyaltyPoints       Int            @default(0)
+  loyaltyTier         String?
+  totalStays          Int            @default(0)
+  totalSpend          Float          @default(0)
+  lastStayDate        DateTime?
+  firstStayDate       DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  bookings            HotelBooking[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([lastName])
+  @@index([isVIP])
+  @@index([loyaltyTier])
+}
+
+model FolioCharge {
+  id          String       @id @default(cuid())
+  bookingId   String
+  chargeType  String
+  description String
+  amount      Float
+  quantity    Int          @default(1)
+  unitPrice   Float?
+  taxAmount   Float        @default(0)
+  chargedAt   DateTime     @default(now())
+  chargedBy   String?
+  isVoided    Boolean      @default(false)
+  voidedAt    DateTime?
+  voidedBy    String?
+  voidReason  String?
+  tenantId    String
+  booking     HotelBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([chargeType])
+  @@index([tenantId])
+}
+
+model FrontDeskAction {
+  id          String       @id @default(cuid())
+  bookingId   String
+  actionType  String
+  performedBy String
+  details     Json?
+  notes       String?
+  tenantId    String
+  createdAt   DateTime     @default(now())
+  booking     HotelBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([actionType])
+  @@index([tenantId])
+  @@index([createdAt])
+}
+
+model HousekeepingTask {
+  id           String       @id @default(cuid())
+  roomId       String
+  taskType     String
+  priority     TaskPriority @default(NORMAL)
+  status       HkTaskStatus @default(PENDING)
+  assignedTo   String?
+  assignedAt   DateTime?
+  notes        String?
+  scheduledFor DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  verifiedBy   String?
+  verifiedAt   DateTime?
+  checklist    Json?
+  tenantId     String
+  branchId     String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  room         HotelRoom    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedTo])
+  @@index([tenantId])
+  @@index([scheduledFor])
+}
+
+model MaintenanceRequest {
+  id            String              @id @default(cuid())
+  roomId        String?
+  location      String?
+  category      MaintenanceCategory @default(OTHER)
+  description   String
+  priority      TaskPriority        @default(NORMAL)
+  status        MaintenanceStatus   @default(OPEN)
+  reportedBy    String
+  assignedTo    String?
+  assignedAt    DateTime?
+  estimatedCost Float?
+  actualCost    Float?
+  startedAt     DateTime?
+  resolvedAt    DateTime?
+  resolution    String?
+  photos        String[]            @default([])
+  tenantId      String
+  branchId      String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  room          HotelRoom?          @relation(fields: [roomId], references: [id])
+
+  @@index([roomId])
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+  @@index([tenantId])
+}
+
+model HotelConfig {
+  id              String   @id @default(cuid())
+  tenantId        String   @unique
+  hotelName       String   @default("My Hotel")
+  tagline         String?
+  logoUrl         String?
+  faviconUrl      String?
+  primaryColor    String   @default("#1a73e8")
+  secondaryColor  String   @default("#202124")
+  accentColor     String   @default("#f59e0b")
+  fontFamily      String   @default("Inter, sans-serif")
+  heroImageUrl    String?
+  heroTitle       String?
+  heroSubtitle    String?
+  aboutUs         String?
+  contactEmail    String?
+  contactPhone    String?
+  address         String?
+  mapEmbedUrl     String?
+  facebookUrl     String?
+  instagramUrl    String?
+  twitterUrl      String?
+  youtubeUrl      String?
+  footerText      String?
+  metaTitle       String?
+  metaDescription String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  currency        String   @default("LKR")
+
+  @@index([tenantId])
+}
+
+model HotelBranch {
+  id        String             @id @default(cuid())
+  tenantId  String
+  name      String
+  code      String
+  country   String
+  city      String
+  address   String?
+  timezone  String             @default("Asia/Colombo")
+  latitude  Float?
+  longitude Float?
+  currency  String             @default("LKR")
+  taxRate   Float              @default(0)
+  phone     String?
+  email     String?
+  isDefault Boolean            @default(false)
+  isActive  Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  bookings  HotelBooking[]
+  config    HotelBranchConfig?
+  rooms     HotelRoom[]
+  pricing   PricingRule[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([isActive])
+}
+
+model HotelBranchConfig {
+  id              String      @id @default(cuid())
+  branchId        String      @unique
+  hotelName       String?
+  tagline         String?
+  logoUrl         String?
+  primaryColor    String?
+  heroImageUrl    String?
+  heroTitle       String?
+  heroSubtitle    String?
+  aboutUs         String?
+  metaTitle       String?
+  metaDescription String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  branch          HotelBranch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+}
+
+model PricingRule {
+  id         String      @id @default(cuid())
+  branchId   String
+  name       String
+  roomType   String?
+  startDate  DateTime
+  endDate    DateTime
+  multiplier Float       @default(1.0)
+  fixedPrice Float?
+  isActive   Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  branch     HotelBranch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([branchId])
+  @@index([startDate, endDate])
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  description String?
+  permissions Json
+  tenantId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([code])
+  @@index([tenantId])
+}
+
+model QualityCheck {
+  id          String             @id @default(cuid())
+  name        String
+  description String?
+  status      QualityCheckStatus @default(PENDING)
+  productId   String?
+  checkDate   DateTime           @default(now())
+  inspector   String?
+  results     Json?
+  tenantId    String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([status])
+  @@index([productId])
+  @@index([tenantId])
+}
+
+model AutomationRule {
+  id            String                @id @default(cuid())
+  name          String
+  description   String?
+  triggerType   TriggerType
+  triggerConfig Json
+  conditions    Json?
+  actions       Json
+  isActive      Boolean               @default(true)
+  lastRunAt     DateTime?
+  tenantId      String
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  executions    AutomationExecution[]
+
+  @@index([isActive])
+  @@index([triggerType])
+  @@index([tenantId])
+}
+
+model AutomationExecution {
+  id          String          @id @default(cuid())
+  ruleId      String
+  status      ExecutionStatus
+  triggerData Json?
+  results     Json?
+  error       String?
+  executedAt  DateTime        @default(now())
+  tenantId    String
+  rule        AutomationRule  @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+  @@index([status])
+  @@index([executedAt])
+  @@index([tenantId])
+}
+
+model IntegrationLog {
+  id           String            @id @default(cuid())
+  integration  String
+  action       String
+  status       IntegrationStatus
+  requestData  Json?
+  responseData Json?
+  errorMessage String?
+  tenantId     String
+  createdAt    DateTime          @default(now())
+
+  @@index([integration])
+  @@index([status])
+  @@index([createdAt])
+  @@index([tenantId])
+}
+
+model CalendarEvent {
+  id              String          @id @default(cuid())
+  title           String
+  description     String?
+  location        String?
+  eventType       EventType       @default(MEETING)
+  status          EventStatus     @default(SCHEDULED)
+  startTime       DateTime
+  endTime         DateTime
+  isAllDay        Boolean         @default(false)
+  organizerId     String
+  customerId      String?
+  projectId       String?
+  reminderMinutes Int?
+  notes           String?
+  tenantId        String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  customer        Customer?       @relation(fields: [customerId], references: [id])
+  organizer       User            @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  project         Project?        @relation(fields: [projectId], references: [id])
+  attendees       EventAttendee[]
+
+  @@index([organizerId])
+  @@index([customerId])
+  @@index([projectId])
+  @@index([startTime])
+  @@index([endTime])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model EventAttendee {
+  id        String        @id @default(cuid())
+  eventId   String
+  userId    String?
+  email     String?
+  name      String?
+  status    String        @default("pending")
+  tenantId  String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  event     CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User?         @relation("EventAttendee", fields: [userId], references: [id])
+
+  @@index([eventId])
+  @@index([userId])
+  @@index([tenantId])
+}
+
+model EmailCampaign {
+  id           String                   @id @default(cuid())
+  name         String
+  subject      String
+  content      String
+  htmlContent  String?
+  status       String                   @default("DRAFT")
+  sentCount    Int                      @default(0)
+  openedCount  Int                      @default(0)
+  clickedCount Int                      @default(0)
+  bouncedCount Int                      @default(0)
+  scheduledAt  DateTime?
+  sentAt       DateTime?
+  tenantId     String
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  recipients   EmailCampaignRecipient[]
+
+  @@index([tenantId])
+  @@index([status])
+}
+
+model EmailCampaignRecipient {
+  id         String        @id @default(cuid())
+  campaignId String
+  email      String
+  name       String?
+  status     String        @default("PENDING")
+  sentAt     DateTime?
+  openedAt   DateTime?
+  clickedAt  DateTime?
+  tenantId   String
+  campaign   EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([email])
+  @@index([tenantId])
+}
+
+model LiveChatSession {
+  id           String            @id @default(cuid())
+  visitorName  String?
+  visitorEmail String?
+  visitorPhone String?
+  ipAddress    String?
+  userAgent    String?
+  status       ChatStatus        @default(ACTIVE)
+  assignedToId String?
+  startedAt    DateTime          @default(now())
+  endedAt      DateTime?
+  tenantId     String
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  messages     LiveChatMessage[]
+  assignedTo   User?             @relation("AssignedChats", fields: [assignedToId], references: [id])
+
+  @@index([status])
+  @@index([assignedToId])
+  @@index([tenantId])
+}
+
+model LiveChatMessage {
+  id         String          @id @default(cuid())
+  sessionId  String
+  content    String
+  senderType String
+  senderId   String?
+  senderName String
+  isRead     Boolean         @default(false)
+  tenantId   String
+  sentAt     DateTime        @default(now())
+  session    LiveChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([tenantId])
+}
+
+model KnowledgeArticle {
+  id              String    @id @default(cuid())
+  title           String
+  slug            String
+  content         String
+  excerpt         String?
+  category        String?
+  tags            String[]  @default([])
+  isPublished     Boolean   @default(false)
+  publishedAt     DateTime?
+  authorId        String?
+  viewCount       Int       @default(0)
+  helpfulCount    Int       @default(0)
+  notHelpfulCount Int       @default(0)
+  tenantId        String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([slug, tenantId])
+  @@index([category])
+  @@index([isPublished])
+  @@index([tenantId])
+}
+
+model QualityInspection {
+  id             String   @id @default(cuid())
+  inspectionType String
+  subject        String
+  description    String?
+  productId      String?
+  orderNumber    String?
+  inspectorId    String?
+  inspectorName  String
+  status         String   @default("PENDING")
+  score          Int?
+  findings       Json?
+  passedChecks   Int      @default(0)
+  failedChecks   Int      @default(0)
+  totalChecks    Int      @default(0)
+  notes          String?
+  inspectionDate DateTime @default(now())
+  tenantId       String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status])
+  @@index([inspectionType])
+  @@index([tenantId])
+}
+
+model AIAgent {
+  id             String           @id @default(cuid())
+  tenantId       String
+  name           String
+  type           AgentType
+  description    String?
+  config         Json?
+  isActive       Boolean          @default(true)
+  tasksCompleted Int              @default(0)
+  successRate    Float?
+  lastRunAt      DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  executions     AgentExecution[]
+
+  @@index([tenantId])
+  @@index([type])
+  @@index([isActive])
+}
+
+model AgentExecution {
+  id          String               @id @default(cuid())
+  agentId     String
+  status      AgentExecutionStatus
+  input       Json?
+  output      Json?
+  error       String?
+  duration    Int?
+  tenantId    String
+  startedAt   DateTime             @default(now())
+  completedAt DateTime?
+  agent       AIAgent              @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model Conversation {
+  id        String                @id @default(cuid())
+  tenantId  String
+  userId    String
+  title     String?
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  user      User                  @relation("UserConversations", fields: [userId], references: [id], onDelete: Cascade)
+  messages  ConversationMessage[]
+  models    ConversationModel[]
+
+  @@index([tenantId])
+  @@index([userId])
+}
+
+model ConversationMessage {
+  id             String       @id @default(cuid())
+  conversationId String
+  role           String
+  content        String
+  functionCalls  Json?
+  tenantId       String
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([tenantId])
+}
+
+model AIInsight {
+  id         String    @id @default(cuid())
+  tenantId   String
+  type       String
+  category   String
+  severity   String
+  title      String
+  message    String
+  metadata   Json?
+  isRead     Boolean   @default(false)
+  isActioned Boolean   @default(false)
+  actionedBy String?
+  actionedAt DateTime?
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime?
+
+  @@index([tenantId])
+  @@index([type])
+  @@index([severity])
+  @@index([isRead])
+}
+
+model MLModel {
+  id           String       @id @default(cuid())
+  tenantId     String
+  name         String
+  type         String
+  version      String
+  modelPath    String?
+  metrics      Json?
+  trainedOn    DateTime?
+  trainingData Json?
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  predictions  Prediction[]
+
+  @@index([tenantId])
+  @@index([type])
+  @@index([isActive])
+}
+
+model Prediction {
+  id          String   @id @default(cuid())
+  modelId     String
+  entityType  String
+  entityId    String?
+  prediction  Json
+  confidence  Float?
+  actualValue Json?
+  isCorrect   Boolean?
+  tenantId    String
+  createdAt   DateTime @default(now())
+  model       MLModel  @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@index([modelId])
+  @@index([entityType])
+  @@index([tenantId])
+}
 
 enum TenantStatus {
   ACTIVE
@@ -29,7 +2062,6 @@ enum Priority {
   URGENT
 }
 
-// Additional enums used by other modules (kept minimal)
 enum PaymentMethod {
   CASH
   BANK_TRANSFER
@@ -41,858 +2073,12 @@ enum PaymentMethod {
   OTHER
 }
 
-// ============================================================================
-// CORE: Tenant & User (minimal for relations)
-// ============================================================================
-
-model Tenant {
-  id        String       @id @default(cuid())
-  name      String
-  subdomain String       @unique
-  domain    String?      @unique
-  status    TenantStatus @default(ACTIVE)
-  plan      String       @default("starter")
-  settings  Json?
-
-  logo         String?
-  primaryColor String  @default("#3b82f6")
-  companyName  String
-
-  subscriptionEnd DateTime?
-  trialEnd        DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  users          User[]
-  properties     Property[]
-  propertyAgents PropertyAgent[]
-
-  @@index([subdomain])
-  @@index([domain])
-}
-
-model User {
-  id           String  @id @default(cuid())
-  email        String  @unique
-  password     String
-  name         String
-  avatar       String?
-  isActive     Boolean @default(true)
-  isSuperAdmin Boolean @default(false)
-
-  // Role and Permissions
-  role              String? @default("USER") // ADMIN, MANAGER, USER, VIEWER
-  modulePermissions Json? // Module-level permissions
-
-  tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Real Estate relation (optional)
-  propertyAgent PropertyAgent? @relation("AgentUser")
-
-  // Blog posts relation
-  blogPosts BlogPost[]
-
-  // Calendar relations
-  organizedEvents CalendarEvent[] @relation("EventOrganizer")
-  eventAttendance EventAttendee[] @relation("EventAttendee")
-
-  // Course relations
-  instructorCourses Course[]           @relation("CourseInstructor")
-  courseEnrollments CourseEnrollment[] @relation("CourseEnrollments")
-
-  // Helpdesk relations
-  ticketComments  TicketComment[] @relation("TicketComments")
-  assignedTickets Ticket[]        @relation("AssignedTickets")
-
-  // Live Chat relations
-  assignedChats LiveChatSession[] @relation("AssignedChats")
-
-  // AI Conversations
-  conversations Conversation[] @relation("UserConversations")
-
-  // Employee relation
-  employeeId String? @unique
-  employee   Employee? @relation(fields: [employeeId], references: [id])
-
-  @@index([tenantId])
-  @@index([email])
-  @@index([role])
-}
-
-// ============================================================================
-// REAL ESTATE MODULE
-// ============================================================================
-
-model Property {
-  id           String  @id @default(cuid())
-  title        String
-  description  String?
-  propertyType String // e.g., 'APARTMENT', 'HOUSE', 'COMMERCIAL'
-  listingType  String // 'SALE' or 'RENT'
-
-  // Location
-  address String
-  city    String
-  state   String
-  zipCode String
-  country String
-
-  // Details
-  bedrooms  Int?
-  bathrooms Float?
-  area      Float? // in square feet/meters
-  price     Float
-  currency  String   @default("USD")
-  status    String   @default("AVAILABLE") // 'AVAILABLE', 'PENDING', 'SOLD', 'RENTED'
-  images    String[] @default([])
-
-  // Relations
-  tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  viewings     PropertyViewing[]
-  documents    PropertyDocument[]        @relation("PropertyDocuments")
-  amenities    PropertyAmenity[]         @relation("PropertyAmenities")
-  leases       PropertyLease[]           @relation("PropertyLeases")
-  maintenances PropertyMaintenance[]     @relation("PropertyMaintenances")
-  inquiries    PropertyInquiry[]         @relation("PropertyInquiries")
-  agents       PropertyAgentAssignment[] @relation("PropertyAgents")
-  favorites    PropertyFavorite[]        @relation("PropertyFavorites")
-  virtualTours VirtualTour[]             @relation("PropertyVirtualTours")
-  neighborhood NeighborhoodInsight?      @relation("PropertyNeighborhoodInsights")
-  views        PropertyView[]            @relation("PropertyViews")
-
-  // Additional fields for enhanced features
-  latitude       Float?
-  longitude      Float?
-  videoUrl       String?
-  virtualTourUrl String?
-  featured       Boolean @default(false)
-  verified       Boolean @default(false)
-  viewCount      Int     @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([tenantId])
-  @@index([status])
-  @@index([city])
-  @@index([propertyType])
-  @@index([listingType])
-  @@index([price])
-  @@index([bedrooms])
-  @@index([featured])
-  @@index([createdAt])
-}
-
-model PropertyViewing {
-  id String @id @default(cuid())
-
-  propertyId String
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  clientName  String
-  clientEmail String
-  clientPhone String?
-
-  scheduledAt DateTime
-  status      String   @default("SCHEDULED") // 'SCHEDULED', 'COMPLETED', 'CANCELLED', 'NO_SHOW'
-  notes       String?
-
-  createdAt DateTime @default(now())
-
-  @@index([propertyId])
-  @@index([scheduledAt])
-}
-
-model PropertyDocument {
-  id         String   @id @default(cuid())
-  propertyId String
-  property   Property @relation("PropertyDocuments", fields: [propertyId], references: [id], onDelete: Cascade)
-
-  title      String
-  fileUrl    String
-  fileType   String // 'DEED', 'INSPECTION', 'CONTRACT', 'INSURANCE', 'OTHER'
-  uploadedAt DateTime @default(now())
-
-  @@index([propertyId])
-}
-
-model PropertyAmenity {
-  id         String   @id @default(cuid())
-  propertyId String
-  property   Property @relation("PropertyAmenities", fields: [propertyId], references: [id], onDelete: Cascade)
-
-  name        String
-  description String?
-
-  @@index([propertyId])
-}
-
-model PropertyLease {
-  id         String   @id @default(cuid())
-  propertyId String
-  property   Property @relation("PropertyLeases", fields: [propertyId], references: [id], onDelete: Cascade)
-
-  tenantName  String
-  tenantEmail String
-  tenantPhone String?
-
-  startDate       DateTime
-  endDate         DateTime
-  monthlyRent     Float
-  securityDeposit Float?
-
-  status      String  @default("ACTIVE") // 'ACTIVE', 'EXPIRED', 'TERMINATED'
-  contractUrl String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([propertyId])
-  @@index([status])
-}
-
-model PropertyMaintenance {
-  id         String   @id @default(cuid())
-  propertyId String
-  property   Property @relation("PropertyMaintenances", fields: [propertyId], references: [id], onDelete: Cascade)
-
-  title       String
-  description String
-  priority    Priority @default(MEDIUM)
-  status      String   @default("PENDING") // 'PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'
-
-  assignedTo String?
-  cost       Float?
-
-  reportedAt  DateTime  @default(now())
-  completedAt DateTime?
-
-  @@index([propertyId])
-  @@index([status])
-}
-
-model PropertyInquiry {
-  id         String   @id @default(cuid())
-  propertyId String
-  property   Property @relation("PropertyInquiries", fields: [propertyId], references: [id], onDelete: Cascade)
-
-  name    String
-  email   String
-  phone   String?
-  message String
-
-  status String @default("NEW") // 'NEW', 'CONTACTED', 'CONVERTED', 'CLOSED'
-
-  createdAt DateTime @default(now())
-
-  @@index([propertyId])
-  @@index([status])
-}
-
-model PropertyAgent {
-  id       String @id @default(cuid())
-  tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  userId String? @unique
-  user   User?   @relation("AgentUser", fields: [userId], references: [id])
-
-  name          String
-  email         String
-  phone         String
-  licenseNumber String?
-
-  commission Float? // Percentage
-  isActive   Boolean @default(true)
-
-  properties PropertyAgentAssignment[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([tenantId])
-  @@index([email])
-}
-
-model PropertyAgentAssignment {
-  id         String   @id @default(cuid())
-  propertyId String
-  property   Property @relation("PropertyAgents", fields: [propertyId], references: [id], onDelete: Cascade)
-
-  agentId String
-  agent   PropertyAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
-
-  role       String   @default("PRIMARY") // 'PRIMARY', 'CO_AGENT'
-  assignedAt DateTime @default(now())
-
-  @@index([propertyId])
-  @@index([agentId])
-}
-
-// ============================================================================
-// REAL ESTATE ENHANCED FEATURES
-// ============================================================================
-
-model PropertyFavorite {
-  id         String   @id @default(cuid())
-  userId     String
-  propertyId String
-  property   Property @relation("PropertyFavorites", fields: [propertyId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-
-  @@unique([userId, propertyId])
-  @@index([userId])
-  @@index([propertyId])
-}
-
-model SavedSearch {
-  id     String @id @default(cuid())
-  userId String
-  name   String
-
-  // Search criteria stored as JSON
-  criteria Json
-
-  // Notification preferences
-  emailNotifications Boolean @default(true)
-  frequency          String  @default("DAILY") // 'DAILY', 'WEEKLY', 'INSTANT'
-
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
-  @@index([isActive])
-}
-
-model VirtualTour {
-  id         String   @id @default(cuid())
-  propertyId String
-  property   Property @relation("PropertyVirtualTours", fields: [propertyId], references: [id], onDelete: Cascade)
-
-  title       String
-  description String?
-  tourType    String // '360_IMAGE', 'VIDEO', 'MATTERPORT', 'EMBEDDED'
-
-  // URL or embed code
-  url       String
-  embedCode String?
-
-  // For 360 images - array of image URLs
-  images String[] @default([])
-
-  // Thumbnail
-  thumbnail String?
-
-  // View count
-  viewCount Int @default(0)
-
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([propertyId])
-}
-
-model NeighborhoodInsight {
-  id         String   @id @default(cuid())
-  propertyId String
-  property   Property @relation("PropertyNeighborhoodInsights", fields: [propertyId], references: [id], onDelete: Cascade)
-
-  // Location scores (0-100)
-  walkScore    Int?
-  transitScore Int?
-  bikeScore    Int?
-
-  // Demographics
-  medianIncome    Float?
-  populationCount Int?
-  medianAge       Float?
-
-  // Crime data
-  crimeRate String? // 'LOW', 'MODERATE', 'HIGH'
-
-  // Schools nearby (stored as JSON array)
-  schools Json? // [{name, rating, distance, type}]
-
-  // Amenities nearby (stored as JSON array)
-  amenities Json? // [{name, category, distance}]
-
-  // Points of Interest
-  pointsOfInterest Json? // [{name, category, distance}]
-
-  // Transportation
-  publicTransport Json? // [{type, name, distance}]
-
-  // Additional info as JSON
-  additionalData Json?
-
-  lastUpdated DateTime @default(now())
-
-  @@unique([propertyId])
-  @@index([propertyId])
-}
-
-model PropertyView {
-  id         String   @id @default(cuid())
-  propertyId String
-  property   Property @relation("PropertyViews", fields: [propertyId], references: [id], onDelete: Cascade)
-
-  userId    String?
-  ipAddress String?
-  userAgent String?
-
-  // Tracking data
-  source   String? // 'SEARCH', 'DIRECT', 'EMAIL', 'SOCIAL'
-  referrer String?
-
-  // Session info
-  sessionId String?
-  duration  Int? // in seconds
-
-  viewedAt DateTime @default(now())
-
-  @@index([propertyId])
-  @@index([userId])
-  @@index([viewedAt])
-}
-
-model PropertyComparison {
-  id     String @id @default(cuid())
-  userId String
-
-  propertyIds String[] // Array of property IDs being compared
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
-}
-
-// ============================================================================
-// SALES & CRM MODULE
-// ============================================================================
-
-model Customer {
-  id      String  @id @default(cuid())
-  name    String
-  email   String
-  phone   String?
-  company String?
-  address String?
-  city    String?
-  state   String?
-  zipCode String?
-  country String?
-
-  type   String  @default("INDIVIDUAL") // 'INDIVIDUAL', 'COMPANY'
-  status String  @default("ACTIVE") // 'ACTIVE', 'INACTIVE'
-  notes  String?
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  salesOrders    SalesOrder[]
-  invoices       Invoice[]
-  leads          Lead[]
-  calendarEvents CalendarEvent[]
-  posOrders      POSOrder[]
-  tickets        Ticket[]
-  messages       IntegrationMessage[]
-
-  @@index([email])
-  @@index([tenantId])
-}
-
-model Contact {
-  id       String  @id @default(cuid())
-  name     String
-  email    String?
-  phone    String?
-  company  String?
-  jobTitle String?
-  address  String?
-  city     String?
-  state    String?
-  zipCode  String?
-  country  String?
-
-  type  String  @default("BUSINESS") // BUSINESS, PERSONAL, VENDOR, OTHER
-  notes String? @db.Text
-
-  tags String[] @default([])
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([email])
-  @@index([type])
-  @@index([tenantId])
-}
-
-model Lead {
-  id       String  @id @default(cuid())
-  name     String
-  email    String
-  phone    String?
-  company  String?
-  jobTitle String?
-  source   String? // 'WEBSITE', 'REFERRAL', 'SOCIAL', 'CAMPAIGN'
-  status   String  @default("NEW") // 'NEW', 'CONTACTED', 'QUALIFIED', 'CONVERTED', 'LOST'
-  score    Int     @default(0)
-  notes    String?
-
-  customerId String?
-  customer   Customer? @relation(fields: [customerId], references: [id])
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([email])
-  @@index([status])
-  @@index([tenantId])
-}
-
-model Opportunity {
-  id          String    @id @default(cuid())
-  name        String
-  description String?
-  amount      Float
-  probability Int       @default(50) // 0-100
-  stage       String    @default("PROSPECTING") // 'PROSPECTING', 'QUALIFICATION', 'PROPOSAL', 'NEGOTIATION', 'CLOSED_WON', 'CLOSED_LOST'
-  closeDate   DateTime?
-
-  customerId String?
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([stage])
-  @@index([tenantId])
-}
-
-model Quotation {
-  id         String  @id @default(cuid())
-  number     String  @unique
-  customerId String?
-
-  total      Float
-  tax        Float @default(0)
-  discount   Float @default(0)
-  grandTotal Float
-
-  status     String    @default("DRAFT") // 'DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED'
-  validUntil DateTime?
-  notes      String?
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([number])
-  @@index([status])
-  @@index([tenantId])
-}
-
-model SalesOrder {
-  id         String   @id @default(cuid())
-  number     String   @unique
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
-
-  total      Float
-  tax        Float @default(0)
-  discount   Float @default(0)
-  grandTotal Float
-
-  status    String   @default("DRAFT") // 'DRAFT', 'CONFIRMED', 'PROCESSING', 'DELIVERED', 'CANCELLED'
-  orderDate DateTime @default(now())
-  notes     String?
-
-  tenantId String
-
-  invoices Invoice[]
-  messages IntegrationMessage[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([number])
-  @@index([customerId])
-  @@index([status])
-  @@index([tenantId])
-}
-
-model Cart {
-  id        String   @id @default(cuid())
-  sessionId String   @unique
-  userId    String?
-  expiresAt DateTime
-
-  tenantId String
-
-  items CartItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([sessionId])
-  @@index([userId])
-  @@index([expiresAt])
-  @@index([tenantId])
-}
-
-model CartItem {
-  id     String @id @default(cuid())
-  cartId String
-  cart   Cart   @relation(fields: [cartId], references: [id], onDelete: Cascade)
-
-  productId String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  quantity Int
-  price    Float
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([cartId])
-  @@index([productId])
-  @@index([tenantId])
-}
-
-model POSOrder {
-  id          String @id @default(cuid())
-  orderNumber String @unique
-
-  customerId String?
-  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-
-  subtotal Float
-  tax      Float @default(0)
-  discount Float @default(0)
-  total    Float
-
-  status        String  @default("PENDING") // PENDING, PAID, CANCELLED, REFUNDED
-  paymentMethod String? // CASH, CARD, ONLINE, etc.
-
-  notes String?
-
-  tenantId String
-
-  items POSOrderItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([orderNumber])
-  @@index([customerId])
-  @@index([status])
-  @@index([tenantId])
-}
-
-model POSOrderItem {
-  id      String   @id @default(cuid())
-  orderId String
-  order   POSOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
-  productId String
-  product   Product @relation("POSOrderItems", fields: [productId], references: [id], onDelete: Cascade)
-
-  quantity  Int
-  unitPrice Float
-  total     Float
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([orderId])
-  @@index([productId])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// INTEGRATIONS CONNECT: Messaging
-// ============================================================================
-
-model IntegrationMessage {
-  id            String   @id @default(cuid())
-  platform      String   // WHATSAPP, FACEBOOK_MESSENGER, INSTAGRAM
-  direction     String   @default("OUTBOUND") // INBOUND, OUTBOUND
-  senderId      String
-  senderName    String?
-  recipientId   String
-  recipientName String?
-  messageType   String   @default("TEXT") // TEXT, IMAGE, VIDEO, FILE
-  content       String   @db.Text
-  status        String   @default("SENT") // SENT, DELIVERED, READ, FAILED
-  readAt        DateTime?
-
-  // Relations
-  customerId    String?
-  customer      Customer? @relation(fields: [customerId], references: [id])
-  
-  salesOrderId  String?
-  salesOrder    SalesOrder? @relation(fields: [salesOrderId], references: [id])
-
-  tenantId      String
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([tenantId])
-  @@index([platform])
-  @@index([direction])
-  @@index([status])
-  @@index([customerId])
-  @@index([salesOrderId])
-}
-
-// ============================================================================
-// PURCHASING MODULE
-// ============================================================================
-
-model Vendor {
-  id            String   @id @default(cuid())
-  name          String
-  email         String?
-  phone         String?
-  website       String?
-  taxId         String?
-  paymentTerms  String?
-  creditLimit   Float?
-  
-  // Address
-  address       String?
-  city          String?
-  state         String?
-  postalCode    String?
-  zipCode       String? // Alias for postalCode to match frontend usage if needed, or just use one. Frontend says zipCode in POST.
-  country       String?
-  
-  contactPerson String?
-  contactPhone  String?
-  contactEmail  String?
-  
-  notes         String?
-  isActive      Boolean  @default(true)
-  
-  tenantId      String
-
-  purchaseOrders PurchaseOrder[]
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([tenantId])
-  @@index([email])
-}
-
-model PurchaseOrder {
-  id            String   @id @default(cuid())
-  orderNumber   String   @unique
-  
-  vendorId      String
-  vendor        Vendor   @relation(fields: [vendorId], references: [id])
-  
-  status        String   @default("DRAFT") // DRAFT, SENT, CONFIRMED, RECEIVED, CANCELLED
-  orderDate     DateTime @default(now())
-  expectedDate  DateTime?
-  
-  subtotal      Float
-  tax           Float    @default(0)
-  total         Float
-  
-  notes         String?
-  
-  items         PurchaseOrderItem[]
-  
-  tenantId      String
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([orderNumber])
-  @@index([vendorId])
-  @@index([status])
-  @@index([tenantId])
-}
-
-model PurchaseOrderItem {
-  id              String        @id @default(cuid())
-  purchaseOrderId String
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  
-  productId       String
-  product         Product       @relation(fields: [productId], references: [id])
-  
-  quantity        Int
-  unitPrice       Float
-  total           Float
-  
-  tenantId        String
-
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  @@index([purchaseOrderId])
-  @@index([productId])
-}
-
-// ============================================================================
-// ACCOUNTING MODULE
-// ============================================================================
-
 enum AccountType {
   ASSET
   LIABILITY
   EQUITY
   REVENUE
   EXPENSE
-}
-
-model Account {
-  id       String      @id @default(cuid())
-  code     String
-  name     String
-  type     AccountType
-  currency String      @default("USD")
-  balance  Float       @default(0)
-
-  parentId String?
-  parent   Account?  @relation("AccountHierarchy", fields: [parentId], references: [id])
-  children Account[] @relation("AccountHierarchy")
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([code, tenantId])
-  @@index([type])
-  @@index([tenantId])
 }
 
 enum InvoiceStatus {
@@ -908,86 +2094,6 @@ enum InvoiceType {
   PURCHASE
 }
 
-model Invoice {
-  id     String        @id @default(cuid())
-  number String        @unique
-  type   InvoiceType   @default(SALES)
-  status InvoiceStatus @default(DRAFT)
-
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
-
-  salesOrderId String?
-  salesOrder   SalesOrder? @relation(fields: [salesOrderId], references: [id])
-
-  issueDate DateTime @default(now())
-  dueDate   DateTime
-
-  subtotal   Float
-  tax        Float @default(0)
-  discount   Float @default(0)
-  total      Float
-  amountPaid Float @default(0)
-  amountDue  Float
-
-  notes String?
-  terms String?
-
-  tenantId String
-
-  payments Payment[]
-  lines    InvoiceLine[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([number])
-  @@index([customerId])
-  @@index([status])
-  @@index([dueDate])
-  @@index([tenantId])
-}
-
-model InvoiceLine {
-  id        String  @id @default(cuid())
-  invoiceId String
-  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-
-  productId String?
-  product   Product? @relation(fields: [productId], references: [id])
-
-  description String
-  quantity    Float
-  unitPrice   Float
-  tax         Float  @default(0)
-  discount    Float  @default(0)
-  total       Float
-
-  @@index([invoiceId])
-  @@index([productId])
-}
-
-model Payment {
-  id        String  @id @default(cuid())
-  invoiceId String
-  invoice   Invoice @relation(fields: [invoiceId], references: [id])
-
-  amount    Float
-  method    PaymentMethod @default(CASH)
-  reference String?
-  notes     String?
-
-  paymentDate DateTime @default(now())
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-
-  @@index([invoiceId])
-  @@index([paymentDate])
-  @@index([tenantId])
-}
-
 enum ExpenseStatus {
   DRAFT
   SUBMITTED
@@ -996,100 +2102,10 @@ enum ExpenseStatus {
   PAID
 }
 
-model Expense {
-  id          String        @id @default(cuid())
-  description String
-  amount      Float
-  category    String
-  status      ExpenseStatus @default(DRAFT)
-
-  employeeId String?
-  employee   Employee? @relation(fields: [employeeId], references: [id])
-
-  expenseDate DateTime
-  receipt     String?
-  notes       String?
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([status])
-  @@index([employeeId])
-  @@index([category])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// INVENTORY MODULE
-// ============================================================================
-
 enum ProductType {
   STORABLE
   CONSUMABLE
   SERVICE
-}
-
-model Product {
-  id          String      @id @default(cuid())
-  name        String
-  sku         String      @unique
-  barcode     String?
-  description String?
-  type        ProductType @default(STORABLE)
-
-  category String?
-
-  // Pricing
-  costPrice Float @default(0)
-  salePrice Float
-
-  // Stock
-  stockQty    Float @default(0)
-  minStockQty Float @default(0)
-
-  // Status
-  isActive Boolean @default(true)
-
-  // Images
-  images String[] @default([])
-
-  tenantId String
-
-  stockMovements StockMovement[]
-  invoiceLines   InvoiceLine[]
-  cartItems      CartItem[]
-  posOrderItems  POSOrderItem[]  @relation("POSOrderItems")
-  purchaseOrderItems PurchaseOrderItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([sku])
-  @@index([category])
-  @@index([isActive])
-  @@index([tenantId])
-}
-
-model Warehouse {
-  id       String  @id @default(cuid())
-  name     String
-  code     String  @unique
-  address  String?
-  city     String?
-  country  String?
-  isActive Boolean @default(true)
-
-  tenantId String
-
-  stockMovements StockMovement[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([code])
-  @@index([tenantId])
 }
 
 enum MovementType {
@@ -1099,90 +2115,12 @@ enum MovementType {
   ADJUSTMENT
 }
 
-model StockMovement {
-  id        String  @id @default(cuid())
-  productId String
-  product   Product @relation(fields: [productId], references: [id])
-
-  warehouseId String
-  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
-
-  type      MovementType
-  quantity  Float
-  reference String?
-  notes     String?
-
-  movementDate DateTime @default(now())
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-
-  @@index([productId])
-  @@index([warehouseId])
-  @@index([type])
-  @@index([movementDate])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// MANUFACTURING MODULE
-// ============================================================================
-
 enum ManufacturingStatus {
   DRAFT
   CONFIRMED
   IN_PROGRESS
   DONE
   CANCELLED
-}
-
-model ManufacturingOrder {
-  id          String  @id @default(cuid())
-  orderNumber String  @unique
-  productId   String?
-  productName String
-
-  quantityToProduce Float
-  quantityProduced  Float @default(0)
-
-  status ManufacturingStatus @default(DRAFT)
-
-  startDate DateTime?
-  endDate   DateTime?
-
-  notes String? @db.Text
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([orderNumber])
-  @@index([status])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// HR MODULE
-// ============================================================================
-
-model Department {
-  id          String  @id @default(cuid())
-  name        String
-  code        String  @unique
-  description String?
-  managerId   String?
-
-  tenantId String
-
-  employees Employee[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([code])
-  @@index([tenantId])
 }
 
 enum EmploymentType {
@@ -1192,74 +2130,6 @@ enum EmploymentType {
   INTERN
 }
 
-model Employee {
-  id        String  @id @default(cuid())
-  firstName String
-  lastName  String
-  email     String  @unique
-  phone     String?
-
-  employeeId String @unique
-  
-  user User?
-
-  departmentId String?
-  department   Department? @relation(fields: [departmentId], references: [id])
-
-  position String
-  type     EmploymentType @default(FULL_TIME)
-
-  hireDate DateTime
-  salary   Float?
-
-  address String?
-  city    String?
-  state   String?
-  zipCode String?
-  country String?
-
-  isActive Boolean @default(true)
-
-  tenantId String
-
-  expenses      Expense[]
-  attendances   Attendance[]
-  leaveRequests LeaveRequest[]
-  timesheets    Timesheet[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([employeeId])
-  @@index([email])
-  @@index([departmentId])
-  @@index([isActive])
-  @@index([tenantId])
-}
-
-model Attendance {
-  id         String   @id @default(cuid())
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id])
-
-  date     DateTime
-  checkIn  DateTime?
-  checkOut DateTime?
-
-  status String  @default("PRESENT") // 'PRESENT', 'ABSENT', 'LATE', 'HALF_DAY', 'LEAVE'
-  notes  String?
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-
-  @@unique([employeeId, date])
-  @@index([employeeId])
-  @@index([date])
-  @@index([status])
-  @@index([tenantId])
-}
-
 enum LeaveStatus {
   PENDING
   APPROVED
@@ -1267,101 +2137,12 @@ enum LeaveStatus {
   CANCELLED
 }
 
-model LeaveRequest {
-  id         String   @id @default(cuid())
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-
-  leaveType String // SICK, VACATION, PERSONAL, etc.
-  startDate DateTime
-  endDate   DateTime
-  days      Float
-
-  reason String?     @db.Text
-  status LeaveStatus @default(PENDING)
-
-  approvedBy String?
-  approvedAt DateTime?
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([employeeId])
-  @@index([status])
-  @@index([startDate])
-  @@index([tenantId])
-}
-
-model Timesheet {
-  id         String   @id @default(cuid())
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-
-  projectId String?
-  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-
-  taskId String?
-  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
-
-  date        DateTime
-  hours       Float
-  description String?  @db.Text
-
-  billable Boolean @default(true)
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([employeeId])
-  @@index([projectId])
-  @@index([taskId])
-  @@index([date])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// PROJECT MANAGEMENT MODULE
-// ============================================================================
-
 enum ProjectStatus {
   PLANNING
   IN_PROGRESS
   ON_HOLD
   COMPLETED
   CANCELLED
-}
-
-model Project {
-  id          String        @id @default(cuid())
-  name        String
-  code        String        @unique
-  description String?
-  status      ProjectStatus @default(PLANNING)
-
-  startDate DateTime?
-  endDate   DateTime?
-
-  budget Float?
-
-  customerId String?
-  managerId  String?
-
-  tenantId String
-
-  tasks          Task[]
-  calendarEvents CalendarEvent[]
-  timesheets     Timesheet[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([code])
-  @@index([status])
-  @@index([tenantId])
 }
 
 enum TaskStatus {
@@ -1372,43 +2153,6 @@ enum TaskStatus {
   CANCELLED
 }
 
-model Task {
-  id          String     @id @default(cuid())
-  title       String
-  description String?
-  status      TaskStatus @default(TODO)
-  priority    Priority   @default(MEDIUM)
-
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  assigneeId String?
-
-  startDate   DateTime?
-  dueDate     DateTime?
-  completedAt DateTime?
-
-  estimatedHours Float?
-  actualHours    Float?
-
-  tenantId String
-
-  timesheets Timesheet[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([projectId])
-  @@index([status])
-  @@index([priority])
-  @@index([assigneeId])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// CONSTRUCTION MODULE
-// ============================================================================
-
 enum ConstructionStatus {
   QUEUED
   IN_PROGRESS
@@ -1416,96 +2160,6 @@ enum ConstructionStatus {
   COMPLETED
   CANCELLED
 }
-
-model ConstructionJob {
-  id          String  @id @default(cuid())
-  jobNumber   String  @unique
-  projectName String
-  description String? @db.Text
-
-  siteAddress String
-  city        String
-  state       String
-
-  clientName  String
-  clientEmail String?
-  clientPhone String?
-
-  startDate DateTime
-  endDate   DateTime?
-
-  estimatedCost Float
-  actualCost    Float @default(0)
-
-  status ConstructionStatus @default(QUEUED)
-
-  tenantId String
-
-  subcontracts Subcontract[]
-  materials    ConstructionMaterial[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([jobNumber])
-  @@index([status])
-  @@index([tenantId])
-}
-
-model Subcontract {
-  id    String          @id @default(cuid())
-  jobId String
-  job   ConstructionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
-
-  contractorName  String
-  contractorEmail String?
-  contractorPhone String?
-
-  workDescription String @db.Text
-  contractValue   Float
-  paidAmount      Float  @default(0)
-
-  startDate DateTime
-  endDate   DateTime?
-
-  status String @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([jobId])
-  @@index([status])
-  @@index([tenantId])
-}
-
-model ConstructionMaterial {
-  id    String          @id @default(cuid())
-  jobId String
-  job   ConstructionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
-
-  materialName String
-  quantity     Float
-  unit         String
-  unitCost     Float
-  totalCost    Float
-
-  supplier     String?
-  deliveryDate DateTime?
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([jobId])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// HELPDESK / SUPPORT MODULE
-// ============================================================================
 
 enum TicketStatus {
   NEW
@@ -1516,264 +2170,12 @@ enum TicketStatus {
   CLOSED
 }
 
-model Ticket {
-  id          String       @id @default(cuid())
-  number      String       @unique
-  subject     String
-  description String
-  status      TicketStatus @default(NEW)
-  priority    Priority     @default(MEDIUM)
-
-  customerId String?
-  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-
-  assigneeId String?
-  assignedTo User?   @relation("AssignedTickets", fields: [assigneeId], references: [id], onDelete: SetNull)
-
-  tenantId String
-
-  comments TicketComment[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([number])
-  @@index([status])
-  @@index([priority])
-  @@index([customerId])
-  @@index([assigneeId])
-  @@index([tenantId])
-}
-
-model TicketComment {
-  id       String @id @default(cuid())
-  ticketId String
-  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-
-  comment String @db.Text
-
-  authorId String?
-  author   User?   @relation("TicketComments", fields: [authorId], references: [id], onDelete: SetNull)
-
-  isInternal Boolean @default(false)
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([ticketId])
-  @@index([authorId])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// WEBSITE / CMS MODULE
-// ============================================================================
-
-model WebPage {
-  id      String @id @default(cuid())
-  title   String
-  slug    String @unique
-  content String
-
-  isPublished    Boolean @default(false)
-  seoTitle       String?
-  seoDescription String?
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([slug])
-  @@index([isPublished])
-  @@index([tenantId])
-}
-
-model BlogPost {
-  id            String  @id @default(cuid())
-  title         String
-  slug          String
-  content       String  @db.Text
-  excerpt       String?
-  featuredImage String?
-  authorId      String
-  author        User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-  isPublished Boolean   @default(false)
-  publishedAt DateTime?
-
-  categories String[] @default([])
-  tags       String[] @default([])
-
-  seoTitle       String?
-  seoDescription String?
-  seoKeywords    String[] @default([])
-
-  viewCount Int @default(0)
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([slug, tenantId])
-  @@index([authorId])
-  @@index([isPublished])
-  @@index([publishedAt])
-  @@index([tenantId])
-}
-
 enum CourseLevel {
   BEGINNER
   INTERMEDIATE
   ADVANCED
   EXPERT
 }
-
-model Course {
-  id          String  @id @default(cuid())
-  title       String
-  slug        String
-  description String? @db.Text
-  coverImage  String?
-
-  instructorId String?
-  instructor   User?   @relation("CourseInstructor", fields: [instructorId], references: [id], onDelete: SetNull)
-
-  isFree Boolean @default(false)
-  price  Float?
-
-  level    CourseLevel @default(BEGINNER)
-  duration Int? // Total duration in minutes
-  language String      @default("English")
-
-  isPublished Boolean   @default(false)
-  publishedAt DateTime?
-
-  category String?
-  tags     String[] @default([])
-
-  tenantId String
-
-  lessons     Lesson[]
-  enrollments CourseEnrollment[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([slug, tenantId])
-  @@index([instructorId])
-  @@index([isPublished])
-  @@index([level])
-  @@index([tenantId])
-}
-
-model Lesson {
-  id       String @id @default(cuid())
-  courseId String
-  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-
-  title       String
-  description String? @db.Text
-  content     String? @db.Text
-  videoUrl    String?
-
-  order    Int  @default(0)
-  duration Int? // Duration in minutes
-
-  isFree      Boolean @default(false)
-  isPublished Boolean @default(false)
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([courseId])
-  @@index([order])
-  @@index([tenantId])
-}
-
-model CourseEnrollment {
-  id       String @id @default(cuid())
-  courseId String
-  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-
-  userId String?
-  user   User?   @relation("CourseEnrollments", fields: [userId], references: [id], onDelete: SetNull)
-
-  studentName  String?
-  studentEmail String?
-
-  enrolledAt  DateTime  @default(now())
-  completedAt DateTime?
-
-  progress Int @default(0) // Percentage 0-100
-
-  paymentStatus String @default("PENDING") // PENDING, PAID, REFUNDED
-  amountPaid    Float?
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([courseId])
-  @@index([userId])
-  @@index([paymentStatus])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// SURVEYS MODULE
-// ============================================================================
-
-model Survey {
-  id          String  @id @default(cuid())
-  title       String
-  description String?
-  questions   Json // Array of questions with types, options, etc.
-
-  isActive Boolean @default(true)
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([isActive])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// SMS CAMPAIGNS MODULE
-// ============================================================================
-
-model SMSCampaign {
-  id      String @id @default(cuid())
-  name    String
-  message String
-  status  String @default("DRAFT") // 'DRAFT', 'SCHEDULED', 'SENT', 'CANCELLED'
-
-  scheduledAt DateTime?
-  sentAt      DateTime?
-
-  recipients String[] @default([]) // Array of phone numbers
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([status])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// MARKETING EVENTS MODULE
-// ============================================================================
 
 enum MarketingEventStatus {
   DRAFT
@@ -1783,124 +2185,11 @@ enum MarketingEventStatus {
   CANCELLED
 }
 
-model MarketingEvent {
-  id          String  @id @default(cuid())
-  title       String
-  description String? @db.Text
-  location    String?
-  eventType   String? // WEBINAR, CONFERENCE, WORKSHOP, etc.
-
-  startDate DateTime
-  endDate   DateTime?
-
-  capacity Int?
-  status   MarketingEventStatus @default(DRAFT)
-
-  coverImage String?
-
-  tenantId String
-
-  registrations EventRegistration[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([status])
-  @@index([startDate])
-  @@index([tenantId])
-}
-
-model EventRegistration {
-  id      String         @id @default(cuid())
-  eventId String
-  event   MarketingEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  attendeeName  String
-  attendeeEmail String
-  attendeePhone String?
-
-  status String @default("CONFIRMED") // CONFIRMED, CANCELLED, ATTENDED
-
-  registeredAt DateTime @default(now())
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([eventId])
-  @@index([status])
-  @@index([attendeeEmail])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// FORUM / COMMUNITY MODULE
-// ============================================================================
-
 enum TopicStatus {
   OPEN
   CLOSED
   LOCKED
 }
-
-model ForumTopic {
-  id          String   @id @default(cuid())
-  title       String
-  slug        String
-  description String?  @db.Text
-  category    String?
-  tags        String[] @default([])
-
-  authorId    String?
-  authorName  String
-  authorEmail String?
-
-  status   TopicStatus @default(OPEN)
-  isPinned Boolean     @default(false)
-
-  viewCount Int @default(0)
-
-  tenantId String
-
-  posts ForumPost[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([slug, tenantId])
-  @@index([category])
-  @@index([status])
-  @@index([isPinned])
-  @@index([tenantId])
-}
-
-model ForumPost {
-  id      String     @id @default(cuid())
-  topicId String
-  topic   ForumTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
-
-  content String @db.Text
-
-  authorId    String?
-  authorName  String
-  authorEmail String?
-
-  isAnswer Boolean @default(false)
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([topicId])
-  @@index([isAnswer])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// RESTAURANT MODULE
-// ============================================================================
 
 enum TableStatus {
   AVAILABLE
@@ -1908,26 +2197,6 @@ enum TableStatus {
   RESERVED
   CLEANING
 }
-
-model RestaurantTable {
-  id       String      @id @default(cuid())
-  number   String
-  capacity Int
-  status   TableStatus @default(AVAILABLE)
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([number, tenantId])
-  @@index([status])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// HOTEL MANAGEMENT MODULE
-// ============================================================================
 
 enum RoomStatus {
   AVAILABLE
@@ -1944,216 +2213,6 @@ enum BookingStatus {
   CANCELLED
   NO_SHOW
 }
-
-model HotelRoom {
-  id           String  @id @default(cuid())
-  roomNumber   String
-  roomType     String // SINGLE, DOUBLE, SUITE, DELUXE, etc.
-  floor        Int?
-  bedType      String? // SINGLE, DOUBLE, QUEEN, KING
-  maxOccupancy Int     @default(2)
-
-  amenities String[] @default([])
-
-  basePrice Float
-  status    RoomStatus @default(AVAILABLE)
-
-  description String?  @db.Text
-  images      String[] @default([])
-
-  tenantId String
-
-  // Multi-branch support
-  branchId String?
-  branch   HotelBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
-
-  // Housekeeping Status
-  housekeepingStatus HousekeepingStatus @default(CLEAN)
-  lastCleanedAt      DateTime?
-  lastInspectedAt    DateTime?
-  lastCleanedBy      String?
-
-  // Relations
-  bookings            HotelBooking[]
-  housekeepingTasks   HousekeepingTask[]
-  maintenanceRequests MaintenanceRequest[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([roomNumber, tenantId])
-  @@index([status])
-  @@index([roomType])
-  @@index([tenantId])
-  @@index([branchId])
-  @@index([housekeepingStatus])
-}
-
-model HotelBooking {
-  id            String @id @default(cuid())
-  bookingNumber String @unique
-
-  roomId String
-  room   HotelRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-
-  guestName  String
-  guestEmail String
-  guestPhone String?
-
-  checkIn  DateTime
-  checkOut DateTime
-  nights   Int
-  guests   Int      @default(1)
-
-  totalAmount Float
-  paidAmount  Float @default(0)
-
-  status BookingStatus @default(CONFIRMED)
-
-  specialRequests String? @db.Text
-
-  tenantId String
-
-  // Multi-branch support
-  branchId String?
-  branch   HotelBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
-
-  // Front Desk Fields
-  checkedInAt   DateTime?
-  checkedOutAt  DateTime?
-  checkedInBy   String?
-  assignedRoom  String?
-  idVerified    Boolean  @default(false)
-  paymentMethod String?
-  depositAmount Float    @default(0)
-
-  // Guest Profile Link
-  guestProfileId String?
-  guestProfile   GuestProfile? @relation(fields: [guestProfileId], references: [id], onDelete: SetNull)
-
-  // Relations
-  folioCharges   FolioCharge[]
-  frontDeskActions FrontDeskAction[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([roomId])
-  @@index([status])
-  @@index([checkIn])
-  @@index([checkOut])
-  @@index([tenantId])
-  @@index([branchId])
-  @@index([guestProfileId])
-}
-
-// ============================================================================
-// GUEST PROFILE (CRM for Hotel Guests)
-// ============================================================================
-
-model GuestProfile {
-  id       String @id @default(cuid())
-  tenantId String
-
-  // Identity
-  email       String
-  phone       String?
-  firstName   String
-  lastName    String
-  dateOfBirth DateTime?
-  nationality String?
-  idType      String? // PASSPORT, NIC, LICENSE
-  idNumber    String?
-  avatarUrl   String?
-
-  // Preferences
-  roomPreferences     Json?   // ["high_floor", "quiet", "king_bed", "non_smoking"]
-  dietaryRestrictions String?
-  specialNotes        String? @db.Text
-
-  // VIP & Loyalty
-  isVIP         Boolean @default(false)
-  vipLevel      String? // SILVER, GOLD, PLATINUM, DIAMOND
-  loyaltyNumber String?
-  loyaltyPoints Int     @default(0)
-  loyaltyTier   String? // MEMBER, ELITE, PREMIUM
-
-  // Stats (auto-updated)
-  totalStays   Int      @default(0)
-  totalSpend   Float    @default(0)
-  lastStayDate DateTime?
-  firstStayDate DateTime?
-
-  // Relations
-  bookings HotelBooking[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([tenantId, email])
-  @@index([tenantId])
-  @@index([lastName])
-  @@index([isVIP])
-  @@index([loyaltyTier])
-}
-
-// ============================================================================
-// FOLIO & BILLING
-// ============================================================================
-
-model FolioCharge {
-  id        String @id @default(cuid())
-  bookingId String
-  booking   HotelBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-
-  chargeType  String // ROOM, MINIBAR, RESTAURANT, SPA, LAUNDRY, PHONE, PARKING, OTHER
-  description String
-  amount      Float
-  quantity    Int     @default(1)
-  unitPrice   Float?
-  taxAmount   Float   @default(0)
-  
-  chargedAt DateTime @default(now())
-  chargedBy String?  // Staff ID
-  
-  isVoided    Boolean  @default(false)
-  voidedAt    DateTime?
-  voidedBy    String?
-  voidReason  String?
-
-  tenantId String
-
-  @@index([bookingId])
-  @@index([chargeType])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// FRONT DESK AUDIT TRAIL
-// ============================================================================
-
-model FrontDeskAction {
-  id        String @id @default(cuid())
-  bookingId String
-  booking   HotelBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-
-  actionType  String // CHECK_IN, CHECK_OUT, ROOM_CHANGE, EARLY_CHECKOUT, LATE_CHECKOUT, EXTEND_STAY, FOLIO_CHARGE, FOLIO_VOID, PAYMENT
-  performedBy String // Staff user ID
-  details     Json?
-  notes       String?
-
-  tenantId  String
-  createdAt DateTime @default(now())
-
-  @@index([bookingId])
-  @@index([actionType])
-  @@index([tenantId])
-  @@index([createdAt])
-}
-
-// ============================================================================
-// HOUSEKEEPING
-// ============================================================================
 
 enum HousekeepingStatus {
   CLEAN
@@ -2179,47 +2238,6 @@ enum HkTaskStatus {
   CANCELLED
 }
 
-model HousekeepingTask {
-  id     String @id @default(cuid())
-  roomId String
-  room   HotelRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-
-  taskType    String       // CHECKOUT_CLEAN, STAYOVER, TURNDOWN, DEEP_CLEAN, INSPECTION
-  priority    TaskPriority @default(NORMAL)
-  status      HkTaskStatus @default(PENDING)
-  
-  assignedTo  String?      // Staff user ID
-  assignedAt  DateTime?
-  notes       String?
-  
-  scheduledFor DateTime?
-  startedAt    DateTime?
-  completedAt  DateTime?
-  
-  verifiedBy   String?
-  verifiedAt   DateTime?
-  
-  // Checklist items (JSON array)
-  checklist    Json?  // [{"item": "Make bed", "done": true}, ...]
-
-  tenantId String
-  branchId String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([roomId])
-  @@index([status])
-  @@index([priority])
-  @@index([assignedTo])
-  @@index([tenantId])
-  @@index([scheduledFor])
-}
-
-// ============================================================================
-// MAINTENANCE
-// ============================================================================
-
 enum MaintenanceCategory {
   PLUMBING
   ELECTRICAL
@@ -2240,215 +2258,6 @@ enum MaintenanceStatus {
   CLOSED
 }
 
-model MaintenanceRequest {
-  id     String     @id @default(cuid())
-  roomId String?
-  room   HotelRoom? @relation(fields: [roomId], references: [id], onDelete: SetNull)
-
-  location    String? // For non-room issues: "Lobby", "Pool Area", etc.
-  category    MaintenanceCategory @default(OTHER)
-  description String  @db.Text
-  priority    TaskPriority @default(NORMAL)
-  status      MaintenanceStatus @default(OPEN)
-
-  reportedBy  String  // Guest name or "Staff: [name]"
-  assignedTo  String? // Maintenance staff ID
-  assignedAt  DateTime?
-  
-  estimatedCost Float?
-  actualCost    Float?
-  
-  startedAt   DateTime?
-  resolvedAt  DateTime?
-  resolution  String?  @db.Text
-  
-  // Photos
-  photos      String[] @default([])
-
-  tenantId String
-  branchId String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([roomId])
-  @@index([status])
-  @@index([priority])
-  @@index([category])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// HOTEL CONFIGURATION (White-Label CMS)
-// ============================================================================
-
-model HotelConfig {
-  id        String @id @default(cuid())
-  tenantId  String @unique // One config per Tenant
-  
-  // --- Branding ---
-  hotelName       String    @default("My Hotel")
-  tagline         String?
-  logoUrl         String?
-  faviconUrl      String?
-  
-  // --- Theme ---
-  primaryColor    String    @default("#1a73e8")
-  secondaryColor  String    @default("#202124")
-  accentColor     String    @default("#f59e0b")
-  fontFamily      String    @default("Inter, sans-serif")
-  currency        String    @default("LKR") // Currency code (LKR, USD, EUR, etc.)
-  
-  // --- Hero Section ---
-  heroImageUrl    String?
-  heroTitle       String?
-  heroSubtitle    String?
-  
-  // --- Content ---
-  aboutUs         String?   @db.Text
-  contactEmail    String?
-  contactPhone    String?
-  address         String?   @db.Text
-  mapEmbedUrl     String?
-  
-  // --- Social ---
-  facebookUrl     String?
-  instagramUrl    String?
-  twitterUrl      String?
-  youtubeUrl      String?
-  
-  // --- Footer ---
-  footerText      String?
-  
-  // --- SEO ---
-  metaTitle       String?
-  metaDescription String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([tenantId])
-}
-
-// ============================================================================
-// HOTEL BRANCH (Multi-Location Support)
-// ============================================================================
-
-model HotelBranch {
-  id       String @id @default(cuid())
-  tenantId String
-
-  // --- Branch Identity ---
-  name     String // "SLICT Hotel Colombo"
-  code     String // "SLICT-CMB" (unique per tenant)
-
-  // --- Location ---
-  country   String
-  city      String
-  address   String?  @db.Text
-  timezone  String   @default("Asia/Colombo")
-  latitude  Float?
-  longitude Float?
-
-  // --- Pricing & Currency ---
-  currency String @default("LKR")
-  taxRate  Float  @default(0)
-
-  // --- Contact ---
-  phone String?
-  email String?
-
-  // --- Config ---
-  isDefault Boolean @default(false) // Default branch for new rooms
-  isActive  Boolean @default(true)
-
-  // --- Relations ---
-  rooms    HotelRoom[]
-  bookings HotelBooking[]
-  config   HotelBranchConfig?
-  pricing  PricingRule[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([tenantId, code])
-  @@index([tenantId])
-  @@index([isActive])
-}
-
-model HotelBranchConfig {
-  id       String      @id @default(cuid())
-  branchId String      @unique
-  branch   HotelBranch @relation(fields: [branchId], references: [id], onDelete: Cascade)
-
-  // --- Branding (override parent tenant) ---
-  hotelName    String?
-  tagline      String?
-  logoUrl      String?
-  primaryColor String?
-
-  // --- Hero Section ---
-  heroImageUrl String?
-  heroTitle    String?
-  heroSubtitle String?
-
-  // --- Content ---
-  aboutUs String? @db.Text
-
-  // --- SEO ---
-  metaTitle       String?
-  metaDescription String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// Seasonal/Dynamic Pricing Rules
-model PricingRule {
-  id       String      @id @default(cuid())
-  branchId String
-  branch   HotelBranch @relation(fields: [branchId], references: [id], onDelete: Cascade)
-
-  name        String // "Peak Season", "Holiday Rate"
-  roomType    String? // null = applies to all room types
-  startDate   DateTime
-  endDate     DateTime
-  multiplier  Float   @default(1.0) // 1.5 = 50% increase
-  fixedPrice  Float? // Override base price entirely
-
-  isActive Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([branchId])
-  @@index([startDate, endDate])
-}
-
-// ============================================================================
-// RBAC (Role-Based Access Control) MODULE
-// ============================================================================
-
-model Role {
-  id          String  @id @default(cuid())
-  name        String
-  code        String  @unique
-  description String?
-  permissions Json // Array of permission strings
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([code])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// QUALITY MANAGEMENT MODULE
-// ============================================================================
-
 enum QualityCheckStatus {
   PENDING
   IN_PROGRESS
@@ -2456,39 +2265,13 @@ enum QualityCheckStatus {
   FAILED
 }
 
-model QualityCheck {
-  id          String             @id @default(cuid())
-  name        String
-  description String?
-  status      QualityCheckStatus @default(PENDING)
-
-  productId String?
-
-  checkDate DateTime @default(now())
-  inspector String?
-
-  results Json? // Detailed check results
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([status])
-  @@index([productId])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// AUTOMATION MODULE
-// ============================================================================
-
 enum TriggerType {
   SCHEDULE
   EVENT
   WEBHOOK
   MANUAL
 }
+
 enum ActionType {
   EMAIL
   SMS
@@ -2504,77 +2287,11 @@ enum ExecutionStatus {
   PARTIAL
 }
 
-model AutomationRule {
-  id            String      @id @default(cuid())
-  name          String
-  description   String?
-  triggerType   TriggerType
-  triggerConfig Json // Configuration for the trigger (cron, event type, etc.)
-  conditions    Json? // Array of conditions to evaluate
-  actions       Json // Array of actions to execute
-  isActive      Boolean     @default(true)
-  lastRunAt     DateTime?
-  tenantId      String
-
-  executions AutomationExecution[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([isActive])
-  @@index([triggerType])
-  @@index([tenantId])
-}
-
-model AutomationExecution {
-  id          String          @id @default(cuid())
-  ruleId      String
-  rule        AutomationRule  @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-  status      ExecutionStatus
-  triggerData Json? // Data that triggered the execution
-  results     Json? // Results of actions executed
-  error       String? // Error message if failed
-  executedAt  DateTime        @default(now())
-  tenantId    String
-
-  @@index([ruleId])
-  @@index([status])
-  @@index([executedAt])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// INTEGRATIONS MODULE
-// ============================================================================
-
 enum IntegrationStatus {
   SUCCESS
   FAILED
   PENDING
 }
-
-model IntegrationLog {
-  id           String            @id @default(cuid())
-  integration  String // Name of the integration (e.g., 'quickbooks', 'stripe')
-  action       String // Action performed (e.g., 'sync', 'create', 'update')
-  status       IntegrationStatus
-  requestData  Json?
-  responseData Json?
-  errorMessage String?           @db.Text
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-
-  @@index([integration])
-  @@index([status])
-  @@index([createdAt])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// CALENDAR MODULE
-// ============================================================================
 
 enum EventType {
   MEETING
@@ -2593,261 +2310,12 @@ enum EventStatus {
   POSTPONED
 }
 
-model CalendarEvent {
-  id          String  @id @default(cuid())
-  title       String
-  description String? @db.Text
-  location    String?
-
-  eventType EventType   @default(MEETING)
-  status    EventStatus @default(SCHEDULED)
-
-  startTime DateTime
-  endTime   DateTime
-  isAllDay  Boolean  @default(false)
-
-  organizerId String
-  organizer   User   @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
-
-  customerId String?
-  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-
-  projectId String?
-  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-
-  attendees EventAttendee[]
-
-  reminderMinutes Int? // Minutes before event to send reminder
-  notes           String? @db.Text
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([organizerId])
-  @@index([customerId])
-  @@index([projectId])
-  @@index([startTime])
-  @@index([endTime])
-  @@index([status])
-  @@index([tenantId])
-}
-
-model EventAttendee {
-  id      String        @id @default(cuid())
-  eventId String
-  event   CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  userId String?
-  user   User?   @relation("EventAttendee", fields: [userId], references: [id], onDelete: SetNull)
-
-  email String? // For external attendees
-  name  String? // For external attendees
-
-  status String @default("pending") // pending, accepted, declined, tentative
-
-  tenantId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([eventId])
-  @@index([userId])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// EMAIL MARKETING MODULE
-// ============================================================================
-
-model EmailCampaign {
-  id          String   @id @default(cuid())
-  name        String
-  subject     String
-  content     String   @db.Text
-  htmlContent String?  @db.Text
-  
-  status      String   @default("DRAFT") // DRAFT, SCHEDULED, SENDING, SENT, FAILED
-  
-  sentCount    Int      @default(0)
-  openedCount  Int      @default(0)
-  clickedCount Int      @default(0)
-  bouncedCount Int      @default(0)
-  
-  scheduledAt DateTime?
-  sentAt      DateTime?
-  
-  tenantId    String
-  
-  recipients EmailCampaignRecipient[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@index([tenantId])
-  @@index([status])
-}
-
-model EmailCampaignRecipient {
-  id         String         @id @default(cuid())
-  campaignId String
-  campaign   EmailCampaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  
-  email      String
-  name       String?
-  
-  status     String         @default("PENDING") // PENDING, SENT, OPENED, CLICKED, BOUNCED, FAILED
-  sentAt     DateTime?
-  openedAt   DateTime?
-  clickedAt  DateTime?
-  
-  tenantId   String
-  
-  @@index([campaignId])
-  @@index([email])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// LIVE CHAT MODULE
-// ============================================================================
-
 enum ChatStatus {
   ACTIVE
   WAITING
   RESOLVED
   CLOSED
 }
-
-model LiveChatSession {
-  id            String     @id @default(cuid())
-  
-  visitorName   String?
-  visitorEmail  String?
-  visitorPhone  String?
-  ipAddress     String?
-  userAgent     String?
-  
-  status        ChatStatus @default(ACTIVE)
-  
-  assignedToId  String?
-  assignedTo    User?      @relation("AssignedChats", fields: [assignedToId], references: [id], onDelete: SetNull)
-  
-  startedAt     DateTime   @default(now())
-  endedAt       DateTime?
-  
-  tenantId      String
-  
-  messages      LiveChatMessage[]
-  
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  
-  @@index([status])
-  @@index([assignedToId])
-  @@index([tenantId])
-}
-
-model LiveChatMessage {
-  id        String           @id @default(cuid())
-  sessionId String
-  session   LiveChatSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  
-  content   String           @db.Text
-  
-  // Who sent it: visitor or agent
-  senderType String          // VISITOR, AGENT
-  senderId   String?         // User ID if agent
-  senderName String
-  
-  isRead    Boolean          @default(false)
-  
-  tenantId  String
-  
-  sentAt    DateTime         @default(now())
-  
-  @@index([sessionId])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// KNOWLEDGE BASE MODULE
-// ============================================================================
-
-model KnowledgeArticle {
-  id             String   @id @default(cuid())
-  title          String
-  slug           String
-  content        String   @db.Text
-  excerpt        String?
-  
-  category       String?
-  tags           String[] @default([])
-  
-  isPublished    Boolean  @default(false)
-  publishedAt    DateTime?
-  
-  authorId       String?
-  
-  viewCount      Int      @default(0)
-  helpfulCount   Int      @default(0)
-  notHelpfulCount Int     @default(0)
-  
-  tenantId       String
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  
-  @@unique([slug, tenantId])
-  @@index([category])
-  @@index([isPublished])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// QUALITY INSPECTION MODULE (Enhanced)
-// ============================================================================
-
-model QualityInspection {
-  id          String   @id @default(cuid())
-  
-  inspectionType String // INCOMING, IN_PROCESS, FINAL, etc.
-  subject        String
-  description    String?  @db.Text
-  
-  productId   String?
-  orderNumber String?
-  
-  inspectorId String?
-  inspectorName String
-  
-  status      String   @default("PENDING") // PENDING, IN_PROGRESS, PASSED, FAILED, NEEDS_REVIEW
-  
-  score       Int?     // 0-100
-  findings    Json?    // Detailed findings
-  
-  passedChecks Int     @default(0)
-  failedChecks Int     @default(0)
-  totalChecks  Int     @default(0)
-  
-  notes       String?  @db.Text
-  
-  inspectionDate DateTime @default(now())
-  
-  tenantId    String
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@index([status])
-  @@index([inspectionType])
-  @@index([tenantId])
-}
-
-// ============================================================================
-// AI AGENTS MODULE - Agentic AI Features
-// ============================================================================
 
 enum AgentType {
   CHAT_ASSISTANT
@@ -2869,174 +2337,191 @@ enum AgentExecutionStatus {
   CANCELLED
 }
 
-// AI Agent Configuration
-model AIAgent {
-  id          String   @id @default(cuid())
-  tenantId    String
-  
-  name        String
-  type        AgentType
-  description String?  @db.Text
-  
-  // Configuration stored as JSON
-  config      Json?    // Agent-specific configuration
-  isActive    Boolean  @default(true)
-  
-  // Performance tracking
-  tasksCompleted Int     @default(0)
-  successRate    Float?
-  lastRunAt      DateTime?
-  
-  executions  AgentExecution[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+// Language Model Management
+model LanguageModel {
+  id              String                 @id @default(cuid())
+  tenantId        String
+  name            String
+  provider        ModelProvider
+  modelId         String // e.g., "gpt-4", "llama2", "qwen2.5:0.5b"
+  description     String?
+  capabilities    String[]               @default([]) // e.g., ["chat", "completion", "function_calling"]
+  contextWindow   Int                    @default(4096)
+  maxTokens       Int?
+  temperature     Float                  @default(0.7)
+  topP            Float                  @default(1.0)
+  frequencyPenalty Float                 @default(0.0)
+  presencePenalty Float                  @default(0.0)
+  apiEndpoint     String?
+  apiKey          String? // Encrypted
+  isDefault       Boolean                @default(false)
+  isActive        Boolean                @default(true)
+  config          Json? // Additional provider-specific config
+  metadata        Json? // Model metadata (version, training date, etc.)
+  usageCount      Int                    @default(0)
+  totalTokens     BigInt                 @default(0)
+  totalCost       Float                  @default(0)
+  lastUsedAt      DateTime?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  conversations   ConversationModel[]
+  modelUsages     ModelUsage[]
+  prompts         PromptTemplate[]
+
+  @@unique([tenantId, modelId, provider])
   @@index([tenantId])
-  @@index([type])
+  @@index([provider])
   @@index([isActive])
+  @@index([isDefault])
 }
 
-// Agent Execution Logs
-model AgentExecution {
-  id        String   @id @default(cuid())
-  agentId   String
-  agent     AIAgent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  
-  status    AgentExecutionStatus
-  input     Json?
-  output    Json?
-  error     String?  @db.Text
-  
-  duration  Int?     // milliseconds
-  
-  tenantId  String
-  
-  startedAt   DateTime @default(now())
-  completedAt DateTime?
-  
-  @@index([agentId])
-  @@index([status])
-  @@index([tenantId])
-}
+// Track which models are used in conversations
+model ConversationModel {
+  id              String         @id @default(cuid())
+  conversationId  String
+  modelId         String
+  usedAt          DateTime       @default(now())
+  tokensUsed      Int            @default(0)
+  cost            Float          @default(0)
+  tenantId        String
+  conversation    Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  model           LanguageModel  @relation(fields: [modelId], references: [id], onDelete: Cascade)
 
-// Conversation history for chat agent
-model Conversation {
-  id        String   @id @default(cuid())
-  tenantId  String
-  userId    String
-  user      User     @relation("UserConversations", fields: [userId], references: [id], onDelete: Cascade)
-  
-  title     String?
-  
-  messages  ConversationMessage[]
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@index([tenantId])
-  @@index([userId])
-}
-
-model ConversationMessage {
-  id             String       @id @default(cuid())
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  
-  role           String       // 'USER', 'ASSISTANT', 'SYSTEM'
-  content        String       @db.Text
-  
-  // Function calling results
-  functionCalls  Json?
-  
-  tenantId       String
-  
-  createdAt      DateTime     @default(now())
-  
   @@index([conversationId])
+  @@index([modelId])
   @@index([tenantId])
 }
 
-// AI-generated insights and recommendations
-model AIInsight {
-  id        String   @id @default(cuid())
-  tenantId  String
-  
-  type      String   // 'SALES', 'INVENTORY', 'FINANCIAL', etc.
-  category  String   // 'OPPORTUNITY', 'RISK', 'OPTIMIZATION', 'ALERT'
-  severity  String   // 'LOW', 'MEDIUM', 'HIGH'
-  
-  title     String
-  message   String   @db.Text
-  
-  // Associated data
-  metadata  Json?
-  
-  // Action tracking
-  isRead      Boolean  @default(false)
-  isActioned  Boolean  @default(false)
-  actionedBy  String?
-  actionedAt  DateTime?
-  
-  createdAt   DateTime @default(now())
-  expiresAt   DateTime?
-  
-  @@index([tenantId])
-  @@index([type])
-  @@index([severity])
-  @@index([isRead])
-}
-
-// ML Model tracking (for future use)
-model MLModel {
-  id          String   @id @default(cuid())
+// Prompt templates for different use cases
+model PromptTemplate {
+  id          String         @id @default(cuid())
   tenantId    String
-  
   name        String
-  type        String   // 'FORECASTING', 'CLASSIFICATION', 'CLUSTERING', etc.
-  version     String
-  
-  // Model artifacts
-  modelPath   String?  // Storage path for model file
-  metrics     Json?    // Accuracy, precision, recall, etc.
-  
-  // Training info
-  trainedOn   DateTime?
-  trainingData Json?   // Metadata about training dataset
-  
-  isActive    Boolean  @default(true)
-  
-  predictions Prediction[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  description String?
+  category    PromptCategory @default(GENERAL)
+  template    String // The actual prompt template with variables
+  variables   String[]       @default([]) // List of variable names used in template
+  modelId     String?
+  isSystem    Boolean        @default(false) // System-level vs user-created
+  isActive    Boolean        @default(true)
+  usageCount  Int            @default(0)
+  createdBy   String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  model       LanguageModel? @relation(fields: [modelId], references: [id])
+
+  @@unique([tenantId, name])
   @@index([tenantId])
-  @@index([type])
+  @@index([category])
   @@index([isActive])
 }
 
-// Predictions made by ML models
-model Prediction {
-  id        String   @id @default(cuid())
-  modelId   String
-  model     MLModel  @relation(fields: [modelId], references: [id], onDelete: Cascade)
-  
-  entityType String  // 'SALE', 'INVENTORY', 'CHURN', etc.
-  entityId   String? // Related entity ID
-  
-  prediction Json    // Prediction results
-  confidence Float?
-  
-  // Validation
-  actualValue  Json?
-  isCorrect    Boolean?
-  
-  tenantId     String
-  
-  createdAt    DateTime @default(now())
-  
-  @@index([modelId])
-  @@index([entityType])
+// Track model usage and costs
+model ModelUsage {
+  id              String        @id @default(cuid())
+  tenantId        String
+  modelId         String
+  conversationId  String?
+  userId          String?
+  operation       String // "chat", "completion", "embedding", etc.
+  promptTokens    Int           @default(0)
+  completionTokens Int          @default(0)
+  totalTokens     Int           @default(0)
+  cost            Float         @default(0)
+  latencyMs       Int? // Response time in milliseconds
+  success         Boolean       @default(true)
+  errorMessage    String?
+  metadata        Json? // Additional context
+  createdAt       DateTime      @default(now())
+  model           LanguageModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
   @@index([tenantId])
+  @@index([modelId])
+  @@index([conversationId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// Fine-tuning jobs for custom models
+model FineTuningJob {
+  id              String           @id @default(cuid())
+  tenantId        String
+  name            String
+  baseModel       String
+  status          FineTuningStatus @default(PENDING)
+  trainingFile    String
+  validationFile  String?
+  hyperparameters Json?
+  fineTunedModel  String? // ID of the resulting fine-tuned model
+  trainingMetrics Json?
+  errorMessage    String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+}
+
+// Model evaluation and benchmarks
+model ModelEvaluation {
+  id          String   @id @default(cuid())
+  tenantId    String
+  modelId     String?
+  modelName   String
+  provider    String
+  testSet     String // Name or ID of test dataset
+  accuracy    Float?
+  precision   Float?
+  recall      Float?
+  f1Score     Float?
+  bleuScore   Float?
+  perplexity  Float?
+  latencyMs   Int?
+  costPerToken Float?
+  metrics     Json? // Additional custom metrics
+  notes       String?
+  evaluatedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([modelName])
+  @@index([provider])
+}
+
+enum ModelProvider {
+  OPENAI
+  ANTHROPIC
+  GROQ
+  OLLAMA
+  HUGGINGFACE
+  COHERE
+  GOOGLE
+  AZURE
+  AWS_BEDROCK
+  CUSTOM
+}
+
+enum PromptCategory {
+  GENERAL
+  SALES
+  CUSTOMER_SERVICE
+  ANALYTICS
+  REPORTING
+  CODE_GENERATION
+  DATA_EXTRACTION
+  SUMMARIZATION
+  TRANSLATION
+  CLASSIFICATION
+  SENTIMENT_ANALYSIS
+  CUSTOM
+}
+
+enum FineTuningStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
 }

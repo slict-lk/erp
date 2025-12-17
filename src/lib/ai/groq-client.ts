@@ -22,6 +22,7 @@ export interface CompletionOptions {
   stream?: boolean;
   functions?: any[];
   functionCall?: 'auto' | 'none' | 'specific';
+  apiKey?: string;
 }
 
 export interface CompletionResponse {
@@ -157,7 +158,7 @@ class GroqClient {
         stream: false,
       });
 
-      const response = await this.makeRequest(payload);
+      const response = await this.makeRequest(payload, options.apiKey);
       const data = await response.json();
 
       if (!response.ok) {
@@ -298,7 +299,8 @@ class GroqClient {
    * Make HTTP request to Groq API with proper headers and error handling
    */
   private async makeRequest(
-    payload: Record<string, any>
+    payload: Record<string, any>,
+    apiKey?: string
   ): Promise<Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
@@ -308,7 +310,7 @@ class GroqClient {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`,
+          Authorization: `Bearer ${apiKey || this.apiKey}`,
         },
         body: JSON.stringify(payload),
         signal: controller.signal,

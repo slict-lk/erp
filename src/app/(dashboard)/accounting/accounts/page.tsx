@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { DollarSign, Plus, Search, TrendingUp, FileText } from 'lucide-react';
+import { Plus, Search, ArrowLeft } from 'lucide-react';
+import { AccountList } from '@/components/accounting/AccountList';
+import { AccountForm } from '@/components/accounting/AccountForm';
+import { toast } from 'sonner';
 
 interface Account {
     id: string;
@@ -14,12 +16,16 @@ interface Account {
     type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
     balance: number;
     currency: string;
-    status: 'ACTIVE' | 'INACTIVE';
 }
+
+type ViewMode = 'list' | 'create' | 'edit';
 
 export default function AccountsPage() {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [viewMode, setViewMode] = useState<ViewMode>('list');
+    const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         fetchAccounts();
@@ -27,6 +33,7 @@ export default function AccountsPage() {
 
     const fetchAccounts = async () => {
         try {
+            setIsLoading(true);
             const res = await fetch('/api/accounting/accounts');
             if (res.ok) {
                 const data = await res.json();
@@ -34,25 +41,110 @@ export default function AccountsPage() {
             }
         } catch (error) {
             console.error('Failed to fetch accounts:', error);
+            toast.error('Failed to load accounts');
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    const getTypeColor = (type: string) => {
-        const colors = {
-            ASSET: 'bg-blue-100 text-blue-700',
-            LIABILITY: 'bg-red-100 text-red-700',
-            EQUITY: 'bg-purple-100 text-purple-700',
-            REVENUE: 'bg-green-100 text-green-700',
-            EXPENSE: 'bg-orange-100 text-orange-700',
-        };
-        return colors[type as keyof typeof colors] || 'bg-gray-100 text-gray-700';
+    const handleCreateAccount = async (data: any) => {
+        try {
+            const res = await fetch('/api/accounting/accounts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (res.ok) {
+                toast.success('Account created successfully');
+                fetchAccounts();
+                setViewMode('list');
+            } else {
+                const error = await res.json();
+                toast.error(error.error || 'Failed to create account');
+            }
+        } catch (error) {
+            console.error('Error creating account:', error);
+            toast.error('An error occurred');
+        }
     };
+
+    const handleUpdateAccount = async (data: any) => {
+        if (!selectedAccount) return;
+        try {
+            const res = await fetch(`/api/accounting/accounts/${selectedAccount.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (res.ok) {
+                toast.success('Account updated successfully');
+                fetchAccounts();
+                setViewMode('list');
+                setSelectedAccount(null);
+            } else {
+                const error = await res.json();
+                toast.error(error.error || 'Failed to update account');
+            }
+        } catch (error) {
+            console.error('Error updating account:', error);
+            toast.error('An error occurred');
+        }
+    };
+
+    const handleDeleteAccount = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this account?')) return;
+        try {
+            const res = await fetch(`/api/accounting/accounts/${id}`, {
+                method: 'DELETE',
+            });
+            if (res.ok) {
+                toast.success('Account deleted successfully');
+                fetchAccounts();
+            } else {
+                const error = await res.json();
+                toast.error(error.error || 'Failed to delete account');
+            }
+        } catch (error) {
+            console.error('Error deleting account:', error);
+            toast.error('An error occurred');
+        }
+    };
+
+    const filteredAccounts = accounts.filter(acc =>
+        acc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        acc.code.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     const stats = {
         totalAssets: accounts.filter(a => a.type === 'ASSET').reduce((sum, a) => sum + a.balance, 0),
         totalLiabilities: accounts.filter(a => a.type === 'LIABILITY').reduce((sum, a) => sum + a.balance, 0),
         totalEquity: accounts.filter(a => a.type === 'EQUITY').reduce((sum, a) => sum + a.balance, 0),
     };
+
+    if (viewMode !== 'list') {
+        return (
+            <div className="p-6 max-w-4xl mx-auto space-y-6">
+                <div className="flex items-center gap-4">
+                    <Button variant="outline" size="icon" onClick={() => setViewMode('list')}>
+                        <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                    <h1 className="text-3xl font-bold text-gray-900">
+                        {viewMode === 'create' ? 'New Account' : 'Edit Account'}
+                    </h1>
+                </div>
+                <Card>
+                    <CardContent className="pt-6">
+                        <AccountForm
+                            initialData={selectedAccount || undefined}
+                            accounts={accounts.filter(a => a.id !== selectedAccount?.id)}
+                            onSubmit={viewMode === 'create' ? handleCreateAccount : handleUpdateAccount}
+                            onCancel={() => setViewMode('list')}
+                        />
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 space-y-6">
@@ -61,7 +153,7 @@ export default function AccountsPage() {
                     <h1 className="text-3xl font-bold text-gray-900">Chart of Accounts</h1>
                     <p className="text-gray-600">Manage your accounting accounts</p>
                 </div>
-                <Button>
+                <Button onClick={() => setViewMode('create')}>
                     <Plus className="h-4 w-4 mr-2" />
                     New Account
                 </Button>
@@ -98,7 +190,12 @@ export default function AccountsPage() {
                 <CardContent className="pt-6">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input placeholder="Search accounts..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+                        <Input
+                            placeholder="Search accounts..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10"
+                        />
                     </div>
                 </CardContent>
             </Card>
@@ -108,30 +205,21 @@ export default function AccountsPage() {
                     <CardTitle>Accounts</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="space-y-2">
-                        {accounts.map((account) => (
-                            <div key={account.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                                <div className="flex items-center gap-4">
-                                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                        <DollarSign className="h-5 w-5 text-blue-600" />
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <h3 className="font-semibold text-gray-900">{account.name}</h3>
-                                            <Badge className={getTypeColor(account.type)}>{account.type}</Badge>
-                                            {account.status === 'INACTIVE' && <Badge variant="outline">INACTIVE</Badge>}
-                                        </div>
-                                        <p className="text-sm text-gray-500">Code: {account.code}</p>
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <p className="font-semibold text-gray-900">{account.currency} {account.balance.toLocaleString()}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                    {isLoading ? (
+                        <div className="text-center py-8 text-gray-500">Loading accounts...</div>
+                    ) : (
+                        <AccountList
+                            accounts={filteredAccounts}
+                            onEdit={(acc) => {
+                                setSelectedAccount(acc as Account);
+                                setViewMode('edit');
+                            }}
+                            onDelete={handleDeleteAccount}
+                        />
+                    )}
                 </CardContent>
             </Card>
         </div>
     );
 }
+

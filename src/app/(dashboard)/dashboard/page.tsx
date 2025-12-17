@@ -160,6 +160,7 @@ export default function DashboardPage() {
         icon: DollarSign,
         color: 'text-emerald-600',
         bg: 'bg-emerald-50',
+        href: '/accounting/invoices',
       },
       {
         title: 'Active Customers',
@@ -168,6 +169,7 @@ export default function DashboardPage() {
         icon: Users,
         color: 'text-blue-600',
         bg: 'bg-blue-50',
+        href: '/sales/customers',
       },
       {
         title: 'Total Orders',
@@ -176,6 +178,7 @@ export default function DashboardPage() {
         icon: ShoppingBag,
         color: 'text-violet-600',
         bg: 'bg-violet-50',
+        href: '/sales/orders',
       },
       {
         title: 'Products in Stock',
@@ -184,6 +187,7 @@ export default function DashboardPage() {
         icon: Package,
         color: 'text-amber-600',
         bg: 'bg-amber-50',
+        href: '/inventory/products',
       },
     ],
     [stats]
@@ -258,28 +262,30 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
           >
-            <Card className="border-slate-200 shadow-sm transition-all hover:shadow-md">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className={`rounded-xl p-2.5 ${metric.bg} ${metric.color}`}>
-                    <metric.icon className="h-6 w-6" />
+            <Link href={metric.href}>
+              <Card className="border-slate-200 shadow-sm transition-all hover:shadow-md hover:border-blue-200 cursor-pointer group">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className={`rounded-xl p-2.5 ${metric.bg} ${metric.color} group-hover:scale-110 transition-transform`}>
+                      <metric.icon className="h-6 w-6" />
+                    </div>
+                    {metric.change !== undefined && (
+                      <Badge
+                        variant="secondary"
+                        className={`${metric.change >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'} border-transparent`}
+                      >
+                        {metric.change >= 0 ? <ArrowUpRight className="mr-1 h-3 w-3" /> : <ArrowDownRight className="mr-1 h-3 w-3" />}
+                        {Math.abs(metric.change).toFixed(1)}%
+                      </Badge>
+                    )}
                   </div>
-                  {metric.change !== undefined && (
-                    <Badge
-                      variant="secondary"
-                      className={`${metric.change >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'} border-transparent`}
-                    >
-                      {metric.change >= 0 ? <ArrowUpRight className="mr-1 h-3 w-3" /> : <ArrowDownRight className="mr-1 h-3 w-3" />}
-                      {Math.abs(metric.change).toFixed(1)}%
-                    </Badge>
-                  )}
-                </div>
-                <div className="mt-4">
-                  <p className="text-sm font-medium text-slate-500">{metric.title}</p>
-                  <h3 className="text-2xl font-bold text-slate-900">{metric.value}</h3>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="mt-4">
+                    <p className="text-sm font-medium text-slate-500">{metric.title}</p>
+                    <h3 className="text-2xl font-bold text-slate-900">{metric.value}</h3>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           </motion.div>
         ))}
       </div>
@@ -288,9 +294,16 @@ export default function DashboardPage() {
       <div className="grid gap-8 lg:grid-cols-7">
         {/* Charts Section */}
         <Card className="col-span-4 border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle>Revenue Overview</CardTitle>
-            <CardDescription>Monthly revenue performance for the current year</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Revenue Overview</CardTitle>
+              <CardDescription>Monthly revenue performance for the current year</CardDescription>
+            </div>
+            <Link href="/reports">
+              <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">
+                View Report
+              </Button>
+            </Link>
           </CardHeader>
           <CardContent className="pl-2">
             <div className="h-[350px] w-full">
@@ -340,9 +353,11 @@ export default function DashboardPage() {
               <CardTitle>Recent Orders</CardTitle>
               <CardDescription>Latest transactions from your store</CardDescription>
             </div>
-            <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">
-              View All
-            </Button>
+            <Link href="/sales">
+              <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">
+                View All
+              </Button>
+            </Link>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
