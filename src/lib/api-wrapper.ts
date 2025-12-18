@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from './auth';
-import { Permission, hasPermission } from './rbac';
+import { Permission } from './rbac';
 import { handleApiError, UnauthorizedError, ForbiddenError } from './error-handler';
 import { getOrCreateDefaultTenant } from './get-tenant';
 
@@ -31,12 +31,14 @@ export function withAuth(handler: ApiHandler, requiredPermission?: Permission) {
 
             // 3. Enforce RBAC
             if (requiredPermission) {
-                const userPermissions = (user.modulePermissions as any) || [];
-                // If user is ADMIN, they might have all permissions or a special flag
                 const isAdmin = user.role === 'ADMIN' || user.isSuperAdmin;
+                const enabledModuleIds = user.enabledModuleIds || [];
 
-                if (!isAdmin && !hasPermission(userPermissions, requiredPermission)) {
-                    throw new ForbiddenError(`Missing required permission: ${requiredPermission}`);
+                // Extract module name from permission (e.g., 'sales' from 'sales:view')
+                const moduleName = requiredPermission.split(':')[0];
+
+                if (!isAdmin && !enabledModuleIds.includes(moduleName)) {
+                    throw new ForbiddenError(`Module not enabled or missing required permission: ${requiredPermission}`);
                 }
             }
 

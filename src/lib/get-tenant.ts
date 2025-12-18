@@ -120,13 +120,19 @@ export function formatUserForSession(user: UserWithTenant) {
   // Determine user role: prioritize isSuperAdmin, then use database role field, default to USER
   const userRole = user.isSuperAdmin ? 'ADMIN' : (user.role || 'USER');
 
+  // Get enabled module IDs from modulePermissions JSON
+  const permissions = (user.modulePermissions as Record<string, any>) || {};
+  const enabledModuleIds = Object.keys(permissions).filter(key => permissions[key]?.enabled);
+
   return {
     id: user.id,
     email: user.email,
     name: user.name,
     role: userRole,
+    isSuperAdmin: user.isSuperAdmin,
     tenantId: user.tenantId,
     tenant: user.tenant?.name ?? user.tenant?.companyName ?? 'Default',
+    enabledModuleIds,
   };
 }
 
