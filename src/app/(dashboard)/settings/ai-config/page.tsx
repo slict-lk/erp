@@ -92,10 +92,10 @@ export default function AIConfigPage() {
     topP: 1.0,
     frequencyPenalty: 0.0,
     presencePenalty: 0.0,
-    ollamaEndpoint: 'http://localhost:11434',
+    ollamaEndpoint: process.env.NEXT_PUBLIC_OLLAMA_BASE_URL || 'http://localhost:11434',
   });
 
-  const tenantId = (session?.user as any)?.tenantId || 'cmivuqa8z0000epwfkvvn28mi';
+  const tenantId = (session?.user as any)?.tenantId || '';
 
   useEffect(() => {
     if (session) {
@@ -112,7 +112,7 @@ export default function AIConfigPage() {
         const data = await response.json();
         console.log('Fetched models:', data);
         setModels(data);
-        
+
         // Set default model if not already set
         if (!config.defaultModelId) {
           const defaultModel = data.find((m: LanguageModel) => m.isDefault);
@@ -144,7 +144,7 @@ export default function AIConfigPage() {
     try {
       // Save to localStorage
       localStorage.setItem('aiConfig', JSON.stringify(config));
-      
+
       // Update default model in database if changed
       if (config.defaultModelId) {
         await fetch('/api/ai/models', {
@@ -219,10 +219,10 @@ export default function AIConfigPage() {
       if (apiKeyUpdates.length > 0) {
         await Promise.all(apiKeyUpdates);
       }
-      
+
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-      
+
       // Refresh models to show updated API keys
       await fetchModels();
     } catch (error) {
@@ -242,7 +242,7 @@ export default function AIConfigPage() {
       topP: 1.0,
       frequencyPenalty: 0.0,
       presencePenalty: 0.0,
-      ollamaEndpoint: 'http://localhost:11434',
+      ollamaEndpoint: process.env.NEXT_PUBLIC_OLLAMA_BASE_URL || 'http://localhost:11434',
     });
   };
 
@@ -425,7 +425,7 @@ export default function AIConfigPage() {
                 {models.map((model) => {
                   const Icon = providerIcons[model.provider] || Brain;
                   const isSelected = model.id === config.defaultModelId;
-                  
+
                   return (
                     <div
                       key={model.id}

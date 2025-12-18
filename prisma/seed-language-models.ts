@@ -7,7 +7,7 @@ async function seedLanguageModels() {
 
   // Get the first tenant for seeding
   const tenant = await prisma.tenant.findFirst();
-  
+
   if (!tenant) {
     console.log('⚠️  No tenant found. Please create a tenant first.');
     return;
@@ -19,7 +19,7 @@ async function seedLanguageModels() {
   // Create default language models
   // Get API keys from environment
   const groqApiKey = process.env.GROQ_API_KEY || '';
-  
+
   const models = [
     {
       tenantId,
@@ -34,7 +34,7 @@ async function seedLanguageModels() {
       topP: 1.0,
       frequencyPenalty: 0.0,
       presencePenalty: 0.0,
-      apiEndpoint: 'http://localhost:11434',
+      apiEndpoint: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
       isDefault: true,
       isActive: true,
     },

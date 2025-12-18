@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
       NODE_ENV: process.env.NODE_ENV,
       DATABASE_URL: process.env.DATABASE_URL ? 'configured' : 'missing',
       NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET ? 'configured' : 'missing',
+      OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL ? 'configured' : 'missing',
     };
 
     const responseTime = Date.now() - startTime;

@@ -1,6 +1,6 @@
 // Small Ollama client wrapper for server-side use
 
-const DEFAULT_OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
+const DEFAULT_OLLAMA_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 
 export interface OllamaGenerateOptions {
   model: string;
@@ -102,7 +102,7 @@ export class OllamaClient {
   private timeout: number;
 
   constructor(
-    baseUrl: string = process.env.OLLAMA_API_URL || 'http://localhost:11434',
+    baseUrl: string = process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
     defaultModel: string = process.env.OLLAMA_MODEL || 'llama2',
     timeout: number = 60000
   ) {

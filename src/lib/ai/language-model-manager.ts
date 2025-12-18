@@ -204,7 +204,7 @@ export async function ensureDefaultModel(tenantId: string): Promise<LanguageMode
         topP: 1.0,
         frequencyPenalty: 0.0,
         presencePenalty: 0.0,
-        apiEndpoint: 'http://localhost:11434',
+        apiEndpoint: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
         isDefault: true,
         isActive: true,
       },
