@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, RefreshCw, Pill, CheckCircle, AlertTriangle, FileSignature, Package } from 'lucide-react';
+import { Search, RefreshCw, Pill, CheckCircle, AlertTriangle, FileSignature, Package, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { ScanWithPhoneButton } from '@/components/healthcare/ScanWithPhoneButton';
+import { generatePrescriptionPDF } from '@/lib/pdf-generator';
 
 interface Patient {
     id: string;
@@ -145,6 +146,27 @@ export default function PharmacyPage() {
         } finally {
             setDispensing(null);
         }
+    };
+    const handlePrintPrescription = () => {
+        if (!selectedVisit || visitPrescriptions.length === 0) return;
+
+        generatePrescriptionPDF({
+            patient: {
+                name: `${selectedVisit.patient.firstName} ${selectedVisit.patient.lastName}`,
+                patientNumber: selectedVisit.patient.patientNumber,
+                age: '-', // TODO: Add age to patient model/fetch
+                gender: '-' // TODO: Add gender to patient model/fetch
+            },
+            doctorName: "Doctor", // TODO: Fetch doctor name
+            date: new Date(selectedVisit.visitDate),
+            prescriptions: visitPrescriptions.map(p => ({
+                medication: p.medication,
+                dosage: p.dosage,
+                frequency: p.frequency,
+                duration: p.duration,
+                instructions: p.instructions
+            }))
+        });
     };
 
     const pendingCount = visitPrescriptions.filter(p => !p.isDispensed && p.isSignedByDoctor).length;
@@ -358,6 +380,9 @@ export default function PharmacyPage() {
                     )}
 
                     <DialogFooter>
+                        <Button onClick={handlePrintPrescription}>
+                            <Printer className="mr-2 h-4 w-4" /> Print Prescription
+                        </Button>
                         <DialogClose asChild>
                             <Button variant="outline">Close</Button>
                         </DialogClose>

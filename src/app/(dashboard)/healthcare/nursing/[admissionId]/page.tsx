@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Activity, Thermometer, Heart, Wind, Droplets, Plus, Clock, BedDouble, Save } from 'lucide-react';
+import { ArrowLeft, Activity, Thermometer, Heart, Wind, Droplets, Plus, Clock, BedDouble, Save, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Patient {
@@ -186,12 +186,21 @@ export default function NursingPatientDetailPage() {
                             </p>
                         </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                        <div className="flex items-center gap-2">
-                            <BedDouble className="h-4 w-4" />
-                            <span>{admission.bed.ward.name}</span>
+                    <div className="flex items-end gap-3">
+                        <div className="flex flex-col items-end gap-1">
+                            <div className="flex items-center gap-2">
+                                <BedDouble className="h-4 w-4" />
+                                <span>{admission.bed.ward.name}</span>
+                            </div>
+                            <span className="text-sm text-purple-200">{admission.admissionNumber}</span>
                         </div>
-                        <span className="text-sm text-purple-200">{admission.admissionNumber}</span>
+                        <Button
+                            className="bg-white/20 hover:bg-white/30 text-white border-0 hidden md:flex"
+                            onClick={() => router.push(`/healthcare/admission/discharge/${admission.id}`)}
+                        >
+                            <LogOut className="mr-2 h-4 w-4" />
+                            Discharge
+                        </Button>
                     </div>
                 </div>
                 {admission.patient.allergies && (

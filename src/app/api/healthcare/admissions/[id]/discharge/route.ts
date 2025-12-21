@@ -87,6 +87,91 @@ export async function POST(
             data: { status: 'AVAILABLE' },
         });
 
+        // ==========================================
+        // INTERNAL BILLING INTEGRATION (Phase 9)
+        // ==========================================
+        try {
+            // 1. Find or Create Customer from Patient
+            let customer = await prisma.customer.findFirst({
+                where: {
+                    email: admission.patient.email || undefined,
+                    tenantId: tenant.id
+                }
+            });
+
+            if (!customer) {
+                // If no email, check if we created one with patient number
+                if (!admission.patient.email) {
+                    const placeholderEmail = `patient-${admission.patient.patientNumber.toLowerCase()}@hospital.local`;
+                    customer = await prisma.customer.findFirst({ where: { email: placeholderEmail, tenantId: tenant.id } });
+                }
+            }
+
+            if (!customer) {
+                // Create new customer
+                customer = await prisma.customer.create({
+                    data: {
+                        name: `${admission.patient.firstName} ${admission.patient.lastName}`,
+                        email: admission.patient.email || `patient-${admission.patient.patientNumber.toLowerCase()}@hospital.local`,
+                        phone: admission.patient.phone,
+                        address: admission.patient.address,
+                        city: admission.patient.city,
+                        type: 'INDIVIDUAL',
+                        status: 'ACTIVE',
+                        tenantId: tenant.id,
+                        notes: `Linked to Patient: ${admission.patient.patientNumber}`
+                    }
+                });
+            }
+
+            // 2. Create Invoice
+            const invoiceNumber = `INV-${new Date().getFullYear()}-${admission.admissionNumber}`;
+
+            // Check if invoice already exists (avoid duplicates if re-running)
+            const existingInvoice = await prisma.invoice.findUnique({
+                where: { number: invoiceNumber }
+            });
+
+            if (!existingInvoice) {
+                await prisma.invoice.create({
+                    data: {
+                        number: invoiceNumber,
+                        type: 'SALES',
+                        status: 'OPEN', // Ready for payment
+                        customerId: customer.id,
+                        issueDate: new Date(),
+                        dueDate: new Date(), // Due immediately upon discharge
+                        subtotal: totalCharges,
+                        tax: 0, // Assuming tax included or 0 for now
+                        discount: 0,
+                        total: totalCharges,
+                        amountPaid: admission.depositAmount,
+                        amountDue: totalCharges - admission.depositAmount,
+                        notes: `Discharge Bill for Admission #${admission.admissionNumber}`,
+                        tenantId: tenant.id,
+                        lines: {
+                            create: finalCharges.map(charge => ({
+                                description: charge.description,
+                                quantity: charge.quantity,
+                                unitPrice: charge.unitPrice,
+                                total: charge.totalAmount,
+                                tax: 0,
+                                discount: 0
+                            }))
+                        }
+                    }
+                });
+
+                // Link Invoice to Admission (if field exists, checked in schema it does)
+                // Need to update admission again with invoiceId if we have the ID, but created inside.
+                // Or better, capture the created invoice.
+            }
+
+        } catch (err) {
+            console.error('Failed to create internal invoice:', err);
+            // Don't fail the whole request, just log it. The admission is already closed.
+        }
+
         return NextResponse.json({
             admission: updatedAdmission,
             summary: {

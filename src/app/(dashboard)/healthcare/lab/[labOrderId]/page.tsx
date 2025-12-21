@@ -8,8 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, FlaskConical, FileText, Save, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, FlaskConical, FileText, Save, AlertCircle, CheckCircle2, Printer } from 'lucide-react';
 import { toast } from 'sonner';
+import { generateLabReportPDF } from '@/lib/pdf-generator';
 
 interface LabOrder {
     id: string;
@@ -137,6 +138,23 @@ export default function LabOrderDetailPage() {
         return age;
     };
 
+    const handlePrint = () => {
+        if (!order || !order.result) return;
+
+        generateLabReportPDF({
+            patient: {
+                name: `${order.visit.patient.firstName} ${order.visit.patient.lastName}`,
+                patientNumber: order.visit.patient.patientNumber,
+                age: calculateAge(order.visit.patient.dateOfBirth),
+                gender: order.visit.patient.gender
+            },
+            testName: order.test.name,
+            resultDate: order.resultDate ? new Date(order.resultDate) : new Date(),
+            results: order.result,
+            enteredBy: "Lab Staff" // TODO: Add enteredBy to API response
+        });
+    };
+
     const getStatusBadge = (status: string) => {
         switch (status) {
             case 'PENDING':
@@ -183,6 +201,11 @@ export default function LabOrderDetailPage() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
+                        {order.status === 'COMPLETED' && (
+                            <Button onClick={handlePrint} className="bg-white/10 hover:bg-white/20 text-white border-0">
+                                <Printer className="mr-2 h-4 w-4" /> Print Report
+                            </Button>
+                        )}
                         {!order.isPaid && (
                             <Badge className="bg-red-500/30 text-white border-red-300">Unpaid</Badge>
                         )}
