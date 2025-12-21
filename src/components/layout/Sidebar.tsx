@@ -298,7 +298,16 @@ const navigation: NavigationItem[] = [
     name: 'Healthcare',
     href: '/healthcare',
     icon: Heart,
-    moduleId: 'healthcare'
+    children: [
+      { name: 'Dashboard', href: '/healthcare', moduleId: 'healthcare' },
+      { name: 'Reception', href: '/healthcare/reception', moduleId: 'healthcare_reception' },
+      { name: 'Consultation', href: '/healthcare/consultation', moduleId: 'healthcare_doctor' },
+      { name: 'Pharmacy', href: '/healthcare/pharmacy', moduleId: 'healthcare_pharmacy' },
+      { name: 'Laboratory', href: '/healthcare/lab', moduleId: 'healthcare_lab' },
+      { name: 'Admission', href: '/healthcare/admission', moduleId: 'healthcare_admission' },
+      { name: 'Nursing', href: '/healthcare/nursing', moduleId: 'healthcare_nursing' },
+      { name: 'Patients', href: '/healthcare/patients', moduleId: 'healthcare' },
+    ],
   },
   {
     name: 'Real Estate',
