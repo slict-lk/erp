@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
+import { AdmissionCharge } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,7 +46,7 @@ export async function POST(
         const roomRate = admission.bed.dailyRate;
 
         // Check if room charge already exists
-        const hasRoomCharge = admission.charges.some(c => c.chargeType === 'ROOM');
+        const hasRoomCharge = admission.charges.some((c: AdmissionCharge) => c.chargeType === 'ROOM');
 
         if (!hasRoomCharge && roomRate > 0) {
             // Add room charge
@@ -67,7 +68,7 @@ export async function POST(
             where: { admissionId },
         });
 
-        const totalCharges = finalCharges.reduce((sum, c) => sum + c.totalAmount, 0);
+        const totalCharges = finalCharges.reduce((sum: number, c: AdmissionCharge) => sum + c.totalAmount, 0);
         const balanceDue = totalCharges - admission.depositAmount;
 
         // Update admission with discharge info
@@ -150,7 +151,7 @@ export async function POST(
                         notes: `Discharge Bill for Admission #${admission.admissionNumber}`,
                         tenantId: tenant.id,
                         lines: {
-                            create: finalCharges.map(charge => ({
+                            create: finalCharges.map((charge: AdmissionCharge) => ({
                                 description: charge.description,
                                 quantity: charge.quantity,
                                 unitPrice: charge.unitPrice,

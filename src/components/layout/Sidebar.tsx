@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -409,6 +409,8 @@ export function Sidebar({
   const pathname = usePathname();
   const { modulePermissions, isAdmin, user } = useModulePermissions();
   const isSuperAdmin = user?.isSuperAdmin === true;
+  const navRef = useRef<HTMLElement>(null);
+
   const [openMenus, setOpenMenus] = useState<string[]>([]);
 
   // Filter navigation based on module permissions
@@ -436,6 +438,25 @@ export function Sidebar({
       return acc;
     }, []);
   }, [modulePermissions, isAdmin, isSuperAdmin]);
+
+  // Restore scroll position
+  useEffect(() => {
+    const savedScroll = localStorage.getItem('sidebar-scroll-position');
+    if (navRef.current && savedScroll && filteredNavigation.length > 0) {
+      // Small timeout to ensure DOM is painted
+      setTimeout(() => {
+        if (navRef.current) {
+          navRef.current.scrollTop = parseInt(savedScroll, 10);
+        }
+      }, 0);
+    }
+  }, [filteredNavigation.length]);
+
+  const handleScroll = () => {
+    if (navRef.current) {
+      localStorage.setItem('sidebar-scroll-position', navRef.current.scrollTop.toString());
+    }
+  };
 
   // Auto-expand menu if child is active
   useEffect(() => {
@@ -495,7 +516,11 @@ export function Sidebar({
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto custom-scrollbar">
+        <nav
+          ref={navRef}
+          onScroll={handleScroll}
+          className="flex-1 px-3 py-4 space-y-1 overflow-y-auto custom-scrollbar"
+        >
           {filteredNavigation.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || (pathname.startsWith(item.href + '/') && !item.children);

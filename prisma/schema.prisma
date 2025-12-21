@@ -117,7 +117,7 @@ model User {
   conversations Conversation[] @relation("UserConversations")
 
   // Employee relation
-  employeeId String? @unique
+  employeeId String?   @unique
   employee   Employee? @relation(fields: [employeeId], references: [id])
 
   // Healthcare - Doctor visits
@@ -741,29 +741,29 @@ model POSOrderItem {
 // ============================================================================
 
 model IntegrationMessage {
-  id            String   @id @default(cuid())
-  platform      String   // WHATSAPP, FACEBOOK_MESSENGER, INSTAGRAM
-  direction     String   @default("OUTBOUND") // INBOUND, OUTBOUND
+  id            String    @id @default(cuid())
+  platform      String // WHATSAPP, FACEBOOK_MESSENGER, INSTAGRAM
+  direction     String    @default("OUTBOUND") // INBOUND, OUTBOUND
   senderId      String
   senderName    String?
   recipientId   String
   recipientName String?
-  messageType   String   @default("TEXT") // TEXT, IMAGE, VIDEO, FILE
-  content       String   @db.Text
-  status        String   @default("SENT") // SENT, DELIVERED, READ, FAILED
+  messageType   String    @default("TEXT") // TEXT, IMAGE, VIDEO, FILE
+  content       String    @db.Text
+  status        String    @default("SENT") // SENT, DELIVERED, READ, FAILED
   readAt        DateTime?
 
   // Relations
-  customerId    String?
-  customer      Customer? @relation(fields: [customerId], references: [id])
-  
-  salesOrderId  String?
-  salesOrder    SalesOrder? @relation(fields: [salesOrderId], references: [id])
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
 
-  tenantId      String
+  salesOrderId String?
+  salesOrder   SalesOrder? @relation(fields: [salesOrderId], references: [id])
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  tenantId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId])
   @@index([platform])
@@ -778,64 +778,64 @@ model IntegrationMessage {
 // ============================================================================
 
 model Vendor {
-  id            String   @id @default(cuid())
-  name          String
-  email         String?
-  phone         String?
-  website       String?
-  taxId         String?
-  paymentTerms  String?
-  creditLimit   Float?
-  
+  id           String  @id @default(cuid())
+  name         String
+  email        String?
+  phone        String?
+  website      String?
+  taxId        String?
+  paymentTerms String?
+  creditLimit  Float?
+
   // Address
-  address       String?
-  city          String?
-  state         String?
-  postalCode    String?
-  zipCode       String? // Alias for postalCode to match frontend usage if needed, or just use one. Frontend says zipCode in POST.
-  country       String?
-  
+  address    String?
+  city       String?
+  state      String?
+  postalCode String?
+  zipCode    String? // Alias for postalCode to match frontend usage if needed, or just use one. Frontend says zipCode in POST.
+  country    String?
+
   contactPerson String?
   contactPhone  String?
   contactEmail  String?
-  
-  notes         String?
-  isActive      Boolean  @default(true)
-  
-  tenantId      String
+
+  notes    String?
+  isActive Boolean @default(true)
+
+  tenantId String
 
   purchaseOrders PurchaseOrder[]
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId])
   @@index([email])
 }
 
 model PurchaseOrder {
-  id            String   @id @default(cuid())
-  orderNumber   String   @unique
-  
-  vendorId      String
-  vendor        Vendor   @relation(fields: [vendorId], references: [id])
-  
-  status        String   @default("DRAFT") // DRAFT, SENT, CONFIRMED, RECEIVED, CANCELLED
-  orderDate     DateTime @default(now())
-  expectedDate  DateTime?
-  
-  subtotal      Float
-  tax           Float    @default(0)
-  total         Float
-  
-  notes         String?
-  
-  items         PurchaseOrderItem[]
-  
-  tenantId      String
+  id          String @id @default(cuid())
+  orderNumber String @unique
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  vendorId String
+  vendor   Vendor @relation(fields: [vendorId], references: [id])
+
+  status       String    @default("DRAFT") // DRAFT, SENT, CONFIRMED, RECEIVED, CANCELLED
+  orderDate    DateTime  @default(now())
+  expectedDate DateTime?
+
+  subtotal Float
+  tax      Float @default(0)
+  total    Float
+
+  notes String?
+
+  items PurchaseOrderItem[]
+
+  tenantId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([orderNumber])
   @@index([vendorId])
@@ -847,18 +847,18 @@ model PurchaseOrderItem {
   id              String        @id @default(cuid())
   purchaseOrderId String
   purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  
-  productId       String
-  product         Product       @relation(fields: [productId], references: [id])
-  
-  quantity        Int
-  unitPrice       Float
-  total           Float
-  
-  tenantId        String
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity  Int
+  unitPrice Float
+  total     Float
+
+  tenantId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([purchaseOrderId])
   @@index([productId])
@@ -1060,10 +1060,10 @@ model Product {
 
   tenantId String
 
-  stockMovements StockMovement[]
-  invoiceLines   InvoiceLine[]
-  cartItems      CartItem[]
-  posOrderItems  POSOrderItem[]  @relation("POSOrderItems")
+  stockMovements     StockMovement[]
+  invoiceLines       InvoiceLine[]
+  cartItems          CartItem[]
+  posOrderItems      POSOrderItem[]      @relation("POSOrderItems")
   purchaseOrderItems PurchaseOrderItem[]
 
   createdAt DateTime @default(now())
@@ -1203,7 +1203,7 @@ model Employee {
   phone     String?
 
   employeeId String @unique
-  
+
   user User?
 
   departmentId String?
@@ -2026,16 +2026,16 @@ model HotelBooking {
   checkedOutAt  DateTime?
   checkedInBy   String?
   assignedRoom  String?
-  idVerified    Boolean  @default(false)
+  idVerified    Boolean   @default(false)
   paymentMethod String?
-  depositAmount Float    @default(0)
+  depositAmount Float     @default(0)
 
   // Guest Profile Link
   guestProfileId String?
   guestProfile   GuestProfile? @relation(fields: [guestProfileId], references: [id], onDelete: SetNull)
 
   // Relations
-  folioCharges   FolioCharge[]
+  folioCharges     FolioCharge[]
   frontDeskActions FrontDeskAction[]
 
   createdAt DateTime @default(now())
@@ -2070,7 +2070,7 @@ model GuestProfile {
   avatarUrl   String?
 
   // Preferences
-  roomPreferences     Json?   // ["high_floor", "quiet", "king_bed", "non_smoking"]
+  roomPreferences     Json? // ["high_floor", "quiet", "king_bed", "non_smoking"]
   dietaryRestrictions String?
   specialNotes        String? @db.Text
 
@@ -2082,9 +2082,9 @@ model GuestProfile {
   loyaltyTier   String? // MEMBER, ELITE, PREMIUM
 
   // Stats (auto-updated)
-  totalStays   Int      @default(0)
-  totalSpend   Float    @default(0)
-  lastStayDate DateTime?
+  totalStays    Int       @default(0)
+  totalSpend    Float     @default(0)
+  lastStayDate  DateTime?
   firstStayDate DateTime?
 
   // Relations
@@ -2105,24 +2105,24 @@ model GuestProfile {
 // ============================================================================
 
 model FolioCharge {
-  id        String @id @default(cuid())
+  id        String       @id @default(cuid())
   bookingId String
   booking   HotelBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   chargeType  String // ROOM, MINIBAR, RESTAURANT, SPA, LAUNDRY, PHONE, PARKING, OTHER
   description String
   amount      Float
-  quantity    Int     @default(1)
+  quantity    Int    @default(1)
   unitPrice   Float?
-  taxAmount   Float   @default(0)
-  
+  taxAmount   Float  @default(0)
+
   chargedAt DateTime @default(now())
-  chargedBy String?  // Staff ID
-  
-  isVoided    Boolean  @default(false)
-  voidedAt    DateTime?
-  voidedBy    String?
-  voidReason  String?
+  chargedBy String? // Staff ID
+
+  isVoided   Boolean   @default(false)
+  voidedAt   DateTime?
+  voidedBy   String?
+  voidReason String?
 
   tenantId String
 
@@ -2136,7 +2136,7 @@ model FolioCharge {
 // ============================================================================
 
 model FrontDeskAction {
-  id        String @id @default(cuid())
+  id        String       @id @default(cuid())
   bookingId String
   booking   HotelBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
@@ -2183,27 +2183,27 @@ enum HkTaskStatus {
 }
 
 model HousekeepingTask {
-  id     String @id @default(cuid())
+  id     String    @id @default(cuid())
   roomId String
   room   HotelRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
 
-  taskType    String       // CHECKOUT_CLEAN, STAYOVER, TURNDOWN, DEEP_CLEAN, INSPECTION
-  priority    TaskPriority @default(NORMAL)
-  status      HkTaskStatus @default(PENDING)
-  
-  assignedTo  String?      // Staff user ID
-  assignedAt  DateTime?
-  notes       String?
-  
+  taskType String // CHECKOUT_CLEAN, STAYOVER, TURNDOWN, DEEP_CLEAN, INSPECTION
+  priority TaskPriority @default(NORMAL)
+  status   HkTaskStatus @default(PENDING)
+
+  assignedTo String? // Staff user ID
+  assignedAt DateTime?
+  notes      String?
+
   scheduledFor DateTime?
   startedAt    DateTime?
   completedAt  DateTime?
-  
-  verifiedBy   String?
-  verifiedAt   DateTime?
-  
+
+  verifiedBy String?
+  verifiedAt DateTime?
+
   // Checklist items (JSON array)
-  checklist    Json?  // [{"item": "Make bed", "done": true}, ...]
+  checklist Json? // [{"item": "Make bed", "done": true}, ...]
 
   tenantId String
   branchId String?
@@ -2250,23 +2250,23 @@ model MaintenanceRequest {
 
   location    String? // For non-room issues: "Lobby", "Pool Area", etc.
   category    MaintenanceCategory @default(OTHER)
-  description String  @db.Text
-  priority    TaskPriority @default(NORMAL)
-  status      MaintenanceStatus @default(OPEN)
+  description String              @db.Text
+  priority    TaskPriority        @default(NORMAL)
+  status      MaintenanceStatus   @default(OPEN)
 
-  reportedBy  String  // Guest name or "Staff: [name]"
-  assignedTo  String? // Maintenance staff ID
-  assignedAt  DateTime?
-  
+  reportedBy String // Guest name or "Staff: [name]"
+  assignedTo String? // Maintenance staff ID
+  assignedAt DateTime?
+
   estimatedCost Float?
   actualCost    Float?
-  
-  startedAt   DateTime?
-  resolvedAt  DateTime?
-  resolution  String?  @db.Text
-  
+
+  startedAt  DateTime?
+  resolvedAt DateTime?
+  resolution String?   @db.Text
+
   // Photos
-  photos      String[] @default([])
+  photos String[] @default([])
 
   tenantId String
   branchId String?
@@ -2286,43 +2286,43 @@ model MaintenanceRequest {
 // ============================================================================
 
 model HotelConfig {
-  id        String @id @default(cuid())
-  tenantId  String @unique // One config per Tenant
-  
+  id       String @id @default(cuid())
+  tenantId String @unique // One config per Tenant
+
   // --- Branding ---
-  hotelName       String    @default("My Hotel")
-  tagline         String?
-  logoUrl         String?
-  faviconUrl      String?
-  
+  hotelName  String  @default("My Hotel")
+  tagline    String?
+  logoUrl    String?
+  faviconUrl String?
+
   // --- Theme ---
-  primaryColor    String    @default("#1a73e8")
-  secondaryColor  String    @default("#202124")
-  accentColor     String    @default("#f59e0b")
-  fontFamily      String    @default("Inter, sans-serif")
-  currency        String    @default("LKR") // Currency code (LKR, USD, EUR, etc.)
-  
+  primaryColor   String @default("#1a73e8")
+  secondaryColor String @default("#202124")
+  accentColor    String @default("#f59e0b")
+  fontFamily     String @default("Inter, sans-serif")
+  currency       String @default("LKR") // Currency code (LKR, USD, EUR, etc.)
+
   // --- Hero Section ---
-  heroImageUrl    String?
-  heroTitle       String?
-  heroSubtitle    String?
-  
+  heroImageUrl String?
+  heroTitle    String?
+  heroSubtitle String?
+
   // --- Content ---
-  aboutUs         String?   @db.Text
-  contactEmail    String?
-  contactPhone    String?
-  address         String?   @db.Text
-  mapEmbedUrl     String?
-  
+  aboutUs      String? @db.Text
+  contactEmail String?
+  contactPhone String?
+  address      String? @db.Text
+  mapEmbedUrl  String?
+
   // --- Social ---
-  facebookUrl     String?
-  instagramUrl    String?
-  twitterUrl      String?
-  youtubeUrl      String?
-  
+  facebookUrl  String?
+  instagramUrl String?
+  twitterUrl   String?
+  youtubeUrl   String?
+
   // --- Footer ---
-  footerText      String?
-  
+  footerText String?
+
   // --- SEO ---
   metaTitle       String?
   metaDescription String?
@@ -2342,14 +2342,14 @@ model HotelBranch {
   tenantId String
 
   // --- Branch Identity ---
-  name     String // "SLICT Hotel Colombo"
-  code     String // "SLICT-CMB" (unique per tenant)
+  name String // "SLICT Hotel Colombo"
+  code String // "SLICT-CMB" (unique per tenant)
 
   // --- Location ---
   country   String
   city      String
-  address   String?  @db.Text
-  timezone  String   @default("Asia/Colombo")
+  address   String? @db.Text
+  timezone  String  @default("Asia/Colombo")
   latitude  Float?
   longitude Float?
 
@@ -2412,12 +2412,12 @@ model PricingRule {
   branchId String
   branch   HotelBranch @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
-  name        String // "Peak Season", "Holiday Rate"
-  roomType    String? // null = applies to all room types
-  startDate   DateTime
-  endDate     DateTime
-  multiplier  Float   @default(1.0) // 1.5 = 50% increase
-  fixedPrice  Float? // Override base price entirely
+  name       String // "Peak Season", "Holiday Rate"
+  roomType   String? // null = applies to all room types
+  startDate  DateTime
+  endDate    DateTime
+  multiplier Float    @default(1.0) // 1.5 = 50% increase
+  fixedPrice Float? // Override base price entirely
 
   isActive Boolean @default(true)
 
@@ -2492,6 +2492,7 @@ enum TriggerType {
   WEBHOOK
   MANUAL
 }
+
 enum ActionType {
   EMAIL
   SMS
@@ -2665,48 +2666,48 @@ model EventAttendee {
 // ============================================================================
 
 model EmailCampaign {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
   subject     String
-  content     String   @db.Text
-  htmlContent String?  @db.Text
-  
-  status      String   @default("DRAFT") // DRAFT, SCHEDULED, SENDING, SENT, FAILED
-  
-  sentCount    Int      @default(0)
-  openedCount  Int      @default(0)
-  clickedCount Int      @default(0)
-  bouncedCount Int      @default(0)
-  
+  content     String  @db.Text
+  htmlContent String? @db.Text
+
+  status String @default("DRAFT") // DRAFT, SCHEDULED, SENDING, SENT, FAILED
+
+  sentCount    Int @default(0)
+  openedCount  Int @default(0)
+  clickedCount Int @default(0)
+  bouncedCount Int @default(0)
+
   scheduledAt DateTime?
   sentAt      DateTime?
-  
-  tenantId    String
-  
+
+  tenantId String
+
   recipients EmailCampaignRecipient[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([tenantId])
   @@index([status])
 }
 
 model EmailCampaignRecipient {
-  id         String         @id @default(cuid())
+  id         String        @id @default(cuid())
   campaignId String
-  campaign   EmailCampaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  
-  email      String
-  name       String?
-  
-  status     String         @default("PENDING") // PENDING, SENT, OPENED, CLICKED, BOUNCED, FAILED
-  sentAt     DateTime?
-  openedAt   DateTime?
-  clickedAt  DateTime?
-  
-  tenantId   String
-  
+  campaign   EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  email String
+  name  String?
+
+  status    String    @default("PENDING") // PENDING, SENT, OPENED, CLICKED, BOUNCED, FAILED
+  sentAt    DateTime?
+  openedAt  DateTime?
+  clickedAt DateTime?
+
+  tenantId String
+
   @@index([campaignId])
   @@index([email])
   @@index([tenantId])
@@ -2724,52 +2725,52 @@ enum ChatStatus {
 }
 
 model LiveChatSession {
-  id            String     @id @default(cuid())
-  
-  visitorName   String?
-  visitorEmail  String?
-  visitorPhone  String?
-  ipAddress     String?
-  userAgent     String?
-  
-  status        ChatStatus @default(ACTIVE)
-  
-  assignedToId  String?
-  assignedTo    User?      @relation("AssignedChats", fields: [assignedToId], references: [id], onDelete: SetNull)
-  
-  startedAt     DateTime   @default(now())
-  endedAt       DateTime?
-  
-  tenantId      String
-  
-  messages      LiveChatMessage[]
-  
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  
+  id String @id @default(cuid())
+
+  visitorName  String?
+  visitorEmail String?
+  visitorPhone String?
+  ipAddress    String?
+  userAgent    String?
+
+  status ChatStatus @default(ACTIVE)
+
+  assignedToId String?
+  assignedTo   User?   @relation("AssignedChats", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  tenantId String
+
+  messages LiveChatMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([status])
   @@index([assignedToId])
   @@index([tenantId])
 }
 
 model LiveChatMessage {
-  id        String           @id @default(cuid())
+  id        String          @id @default(cuid())
   sessionId String
-  session   LiveChatSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  
-  content   String           @db.Text
-  
+  session   LiveChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  content String @db.Text
+
   // Who sent it: visitor or agent
-  senderType String          // VISITOR, AGENT
-  senderId   String?         // User ID if agent
+  senderType String // VISITOR, AGENT
+  senderId   String? // User ID if agent
   senderName String
-  
-  isRead    Boolean          @default(false)
-  
-  tenantId  String
-  
-  sentAt    DateTime         @default(now())
-  
+
+  isRead Boolean @default(false)
+
+  tenantId String
+
+  sentAt DateTime @default(now())
+
   @@index([sessionId])
   @@index([tenantId])
 }
@@ -2779,29 +2780,29 @@ model LiveChatMessage {
 // ============================================================================
 
 model KnowledgeArticle {
-  id             String   @id @default(cuid())
-  title          String
-  slug           String
-  content        String   @db.Text
-  excerpt        String?
-  
-  category       String?
-  tags           String[] @default([])
-  
-  isPublished    Boolean  @default(false)
-  publishedAt    DateTime?
-  
-  authorId       String?
-  
-  viewCount      Int      @default(0)
-  helpfulCount   Int      @default(0)
-  notHelpfulCount Int     @default(0)
-  
-  tenantId       String
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  
+  id      String  @id @default(cuid())
+  title   String
+  slug    String
+  content String  @db.Text
+  excerpt String?
+
+  category String?
+  tags     String[] @default([])
+
+  isPublished Boolean   @default(false)
+  publishedAt DateTime?
+
+  authorId String?
+
+  viewCount       Int @default(0)
+  helpfulCount    Int @default(0)
+  notHelpfulCount Int @default(0)
+
+  tenantId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([slug, tenantId])
   @@index([category])
   @@index([isPublished])
@@ -2813,36 +2814,36 @@ model KnowledgeArticle {
 // ============================================================================
 
 model QualityInspection {
-  id          String   @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   inspectionType String // INCOMING, IN_PROCESS, FINAL, etc.
   subject        String
-  description    String?  @db.Text
-  
+  description    String? @db.Text
+
   productId   String?
   orderNumber String?
-  
-  inspectorId String?
+
+  inspectorId   String?
   inspectorName String
-  
-  status      String   @default("PENDING") // PENDING, IN_PROGRESS, PASSED, FAILED, NEEDS_REVIEW
-  
-  score       Int?     // 0-100
-  findings    Json?    // Detailed findings
-  
-  passedChecks Int     @default(0)
-  failedChecks Int     @default(0)
-  totalChecks  Int     @default(0)
-  
-  notes       String?  @db.Text
-  
+
+  status String @default("PENDING") // PENDING, IN_PROGRESS, PASSED, FAILED, NEEDS_REVIEW
+
+  score    Int? // 0-100
+  findings Json? // Detailed findings
+
+  passedChecks Int @default(0)
+  failedChecks Int @default(0)
+  totalChecks  Int @default(0)
+
+  notes String? @db.Text
+
   inspectionDate DateTime @default(now())
-  
-  tenantId    String
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+
+  tenantId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([status])
   @@index([inspectionType])
   @@index([tenantId])
@@ -2874,27 +2875,27 @@ enum AgentExecutionStatus {
 
 // AI Agent Configuration
 model AIAgent {
-  id          String   @id @default(cuid())
-  tenantId    String
-  
+  id       String @id @default(cuid())
+  tenantId String
+
   name        String
   type        AgentType
-  description String?  @db.Text
-  
+  description String?   @db.Text
+
   // Configuration stored as JSON
-  config      Json?    // Agent-specific configuration
-  isActive    Boolean  @default(true)
-  
+  config   Json? // Agent-specific configuration
+  isActive Boolean @default(true)
+
   // Performance tracking
-  tasksCompleted Int     @default(0)
+  tasksCompleted Int       @default(0)
   successRate    Float?
   lastRunAt      DateTime?
-  
-  executions  AgentExecution[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+
+  executions AgentExecution[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([tenantId])
   @@index([type])
   @@index([isActive])
@@ -2902,22 +2903,22 @@ model AIAgent {
 
 // Agent Execution Logs
 model AgentExecution {
-  id        String   @id @default(cuid())
-  agentId   String
-  agent     AIAgent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  
-  status    AgentExecutionStatus
-  input     Json?
-  output    Json?
-  error     String?  @db.Text
-  
-  duration  Int?     // milliseconds
-  
-  tenantId  String
-  
-  startedAt   DateTime @default(now())
+  id      String  @id @default(cuid())
+  agentId String
+  agent   AIAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  status AgentExecutionStatus
+  input  Json?
+  output Json?
+  error  String?              @db.Text
+
+  duration Int? // milliseconds
+
+  tenantId String
+
+  startedAt   DateTime  @default(now())
   completedAt DateTime?
-  
+
   @@index([agentId])
   @@index([status])
   @@index([tenantId])
@@ -2925,18 +2926,18 @@ model AgentExecution {
 
 // Conversation history for chat agent
 model Conversation {
-  id        String   @id @default(cuid())
-  tenantId  String
-  userId    String
-  user      User     @relation("UserConversations", fields: [userId], references: [id], onDelete: Cascade)
-  
-  title     String?
-  
-  messages  ConversationMessage[]
-  
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
+  user     User   @relation("UserConversations", fields: [userId], references: [id], onDelete: Cascade)
+
+  title String?
+
+  messages ConversationMessage[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@index([tenantId])
   @@index([userId])
 }
@@ -2945,45 +2946,45 @@ model ConversationMessage {
   id             String       @id @default(cuid())
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  
-  role           String       // 'USER', 'ASSISTANT', 'SYSTEM'
-  content        String       @db.Text
-  
+
+  role    String // 'USER', 'ASSISTANT', 'SYSTEM'
+  content String @db.Text
+
   // Function calling results
-  functionCalls  Json?
-  
-  tenantId       String
-  
-  createdAt      DateTime     @default(now())
-  
+  functionCalls Json?
+
+  tenantId String
+
+  createdAt DateTime @default(now())
+
   @@index([conversationId])
   @@index([tenantId])
 }
 
 // AI-generated insights and recommendations
 model AIInsight {
-  id        String   @id @default(cuid())
-  tenantId  String
-  
-  type      String   // 'SALES', 'INVENTORY', 'FINANCIAL', etc.
-  category  String   // 'OPPORTUNITY', 'RISK', 'OPTIMIZATION', 'ALERT'
-  severity  String   // 'LOW', 'MEDIUM', 'HIGH'
-  
-  title     String
-  message   String   @db.Text
-  
+  id       String @id @default(cuid())
+  tenantId String
+
+  type     String // 'SALES', 'INVENTORY', 'FINANCIAL', etc.
+  category String // 'OPPORTUNITY', 'RISK', 'OPTIMIZATION', 'ALERT'
+  severity String // 'LOW', 'MEDIUM', 'HIGH'
+
+  title   String
+  message String @db.Text
+
   // Associated data
-  metadata  Json?
-  
+  metadata Json?
+
   // Action tracking
-  isRead      Boolean  @default(false)
-  isActioned  Boolean  @default(false)
-  actionedBy  String?
-  actionedAt  DateTime?
-  
-  createdAt   DateTime @default(now())
-  expiresAt   DateTime?
-  
+  isRead     Boolean   @default(false)
+  isActioned Boolean   @default(false)
+  actionedBy String?
+  actionedAt DateTime?
+
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+
   @@index([tenantId])
   @@index([type])
   @@index([severity])
@@ -2992,28 +2993,28 @@ model AIInsight {
 
 // ML Model tracking (for future use)
 model MLModel {
-  id          String   @id @default(cuid())
-  tenantId    String
-  
-  name        String
-  type        String   // 'FORECASTING', 'CLASSIFICATION', 'CLUSTERING', etc.
-  version     String
-  
+  id       String @id @default(cuid())
+  tenantId String
+
+  name    String
+  type    String // 'FORECASTING', 'CLASSIFICATION', 'CLUSTERING', etc.
+  version String
+
   // Model artifacts
-  modelPath   String?  // Storage path for model file
-  metrics     Json?    // Accuracy, precision, recall, etc.
-  
+  modelPath String? // Storage path for model file
+  metrics   Json? // Accuracy, precision, recall, etc.
+
   // Training info
-  trainedOn   DateTime?
-  trainingData Json?   // Metadata about training dataset
-  
-  isActive    Boolean  @default(true)
-  
+  trainedOn    DateTime?
+  trainingData Json? // Metadata about training dataset
+
+  isActive Boolean @default(true)
+
   predictions Prediction[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([tenantId])
   @@index([type])
   @@index([isActive])
@@ -3021,24 +3022,24 @@ model MLModel {
 
 // Predictions made by ML models
 model Prediction {
-  id        String   @id @default(cuid())
-  modelId   String
-  model     MLModel  @relation(fields: [modelId], references: [id], onDelete: Cascade)
-  
-  entityType String  // 'SALE', 'INVENTORY', 'CHURN', etc.
+  id      String  @id @default(cuid())
+  modelId String
+  model   MLModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  entityType String // 'SALE', 'INVENTORY', 'CHURN', etc.
   entityId   String? // Related entity ID
-  
-  prediction Json    // Prediction results
+
+  prediction Json // Prediction results
   confidence Float?
-  
+
   // Validation
-  actualValue  Json?
-  isCorrect    Boolean?
-  
-  tenantId     String
-  
-  createdAt    DateTime @default(now())
-  
+  actualValue Json?
+  isCorrect   Boolean?
+
+  tenantId String
+
+  createdAt DateTime @default(now())
+
   @@index([modelId])
   @@index([entityType])
   @@index([tenantId])
@@ -3050,7 +3051,7 @@ model Prediction {
 
 enum VisitType {
   OPD
-  ETU       // Emergency Treatment Unit
+  ETU // Emergency Treatment Unit
   CLINIC
 }
 
@@ -3058,7 +3059,7 @@ enum VisitStatus {
   WAITING
   IN_CONSULTATION
   COMPLETED
-  RECOMMENDED_ADMISSION  // Doctor recommends admission, awaiting admission desk
+  RECOMMENDED_ADMISSION // Doctor recommends admission, awaiting admission desk
   ADMITTED
   CANCELLED
 }
@@ -3078,42 +3079,42 @@ enum AdmissionStatus {
 }
 
 model Patient {
-  id            String    @id @default(cuid())
-  patientNumber String    @unique  // PHN - auto-generated
-  
-  firstName     String
-  lastName      String
-  dateOfBirth   DateTime
-  gender        String    // MALE, FEMALE, OTHER
-  bloodGroup    String?
-  
+  id            String @id @default(cuid())
+  patientNumber String @unique // PHN - auto-generated
+
+  firstName   String
+  lastName    String
+  dateOfBirth DateTime
+  gender      String // MALE, FEMALE, OTHER
+  bloodGroup  String?
+
   // Contact
-  email         String?
-  phone         String?   // Critical for WhatsApp/SMS
-  address       String?
-  city          String?
-  
+  email   String?
+  phone   String? // Critical for WhatsApp/SMS
+  address String?
+  city    String?
+
   // Notification Preference
-  notificationPreference String @default("WHATSAPP") // WHATSAPP, SMS, BOTH, NONE
-  hasWhatsApp   Boolean   @default(true)
-  
+  notificationPreference String  @default("WHATSAPP") // WHATSAPP, SMS, BOTH, NONE
+  hasWhatsApp            Boolean @default(true)
+
   // Emergency Contact
   emergencyContactName  String?
   emergencyContactPhone String?
-  
+
   // Medical
-  allergies     String?   @db.Text
+  allergies         String? @db.Text
   chronicConditions String? @db.Text
-  
+
   // Relations
-  visits        MedicalVisit[]
-  admissions    Admission[]
-  
-  tenantId      String
-  status        String    @default("ACTIVE")  // ACTIVE, INACTIVE
-  
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  visits     MedicalVisit[]
+  admissions Admission[]
+
+  tenantId String
+  status   String @default("ACTIVE") // ACTIVE, INACTIVE
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([patientNumber])
   @@index([phone])
@@ -3121,25 +3122,25 @@ model Patient {
 }
 
 model MedicalVisit {
-  id          String      @id @default(cuid())
-  visitNumber Int         // Daily Token Number (1, 2, 3...)
-  visitDate   DateTime    @default(now())
-  
-  type        VisitType   @default(OPD)
-  status      VisitStatus @default(WAITING)
+  id          String   @id @default(cuid())
+  visitNumber Int // Daily Token Number (1, 2, 3...)
+  visitDate   DateTime @default(now())
 
-  patientId   String
-  patient     Patient     @relation(fields: [patientId], references: [id])
+  type   VisitType   @default(OPD)
+  status VisitStatus @default(WAITING)
 
-  doctorId    String?
-  doctor      User?       @relation("DoctorVisits", fields: [doctorId], references: [id])
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  doctorId String?
+  doctor   User?   @relation("DoctorVisits", fields: [doctorId], references: [id])
 
   // Clinical Data
-  chiefComplaint String?  @db.Text
-  symptoms    String?     @db.Text
-  diagnosis   String?     @db.Text
-  notes       String?     @db.Text
-  
+  chiefComplaint String? @db.Text
+  symptoms       String? @db.Text
+  diagnosis      String? @db.Text
+  notes          String? @db.Text
+
   // Vitals
   bloodPressure String?
   temperature   Float?
@@ -3148,21 +3149,21 @@ model MedicalVisit {
   height        Float?
 
   // Billing Link
-  invoiceId   String?
-  
+  invoiceId String?
+
   // Consultation Completion
-  isCompleted       Boolean   @default(false)
-  completedAt       DateTime?
-  doctorSignature   String?   // Digital signature or confirmation code
-  
+  isCompleted     Boolean   @default(false)
+  completedAt     DateTime?
+  doctorSignature String? // Digital signature or confirmation code
+
   // Relations
   prescriptions Prescription[]
   labOrders     LabOrder[]
 
-  tenantId    String
+  tenantId String
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([visitDate])
   @@index([status])
@@ -3172,30 +3173,30 @@ model MedicalVisit {
 }
 
 model Prescription {
-  id            String       @id @default(cuid())
-  visitId       String
-  visit         MedicalVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  id      String       @id @default(cuid())
+  visitId String
+  visit   MedicalVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
 
-  productId     String?      // Link to inventory Product
-  medication    String       // Medication name
-  dosage        String       // e.g. "500mg"
-  frequency     String       // e.g. "BD" (Twice daily), "TDS" (Thrice daily)
-  duration      String       // e.g. "5 Days"
-  instructions  String?      // e.g. "After meals"
-  quantity      Int          @default(1)
+  productId    String? // Link to inventory Product
+  medication   String // Medication name
+  dosage       String // e.g. "500mg"
+  frequency    String // e.g. "BD" (Twice daily), "TDS" (Thrice daily)
+  duration     String // e.g. "5 Days"
+  instructions String? // e.g. "After meals"
+  quantity     Int     @default(1)
 
-  isDispensed   Boolean      @default(false)
-  dispensedAt   DateTime?
-  dispensedBy   String?      // User ID who dispensed
-  
+  isDispensed Boolean   @default(false)
+  dispensedAt DateTime?
+  dispensedBy String? // User ID who dispensed
+
   // Doctor Validation (required before dispense)
   isSignedByDoctor Boolean   @default(false)
-  signedAt      DateTime?
+  signedAt         DateTime?
 
-  tenantId      String
-  
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  tenantId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([visitId])
   @@index([isDispensed])
@@ -3203,25 +3204,25 @@ model Prescription {
 }
 
 model LabTest {
-  id            String    @id @default(cuid())
-  code          String    @unique
-  name          String    // e.g. "Full Blood Count", "Urinalysis"
-  category      String    // HEMATOLOGY, BIOCHEMISTRY, URINALYSIS, etc.
-  description   String?
-  
-  price         Float
-  productId     String?   // Link to Product for billing
-  
-  // Result template - what fields to capture
-  resultTemplate Json?    // e.g. {"fields": ["hemoglobin", "wbc", "platelets"]}
-  
-  isActive      Boolean   @default(true)
-  tenantId      String
-  
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id          String  @id @default(cuid())
+  code        String  @unique
+  name        String // e.g. "Full Blood Count", "Urinalysis"
+  category    String // HEMATOLOGY, BIOCHEMISTRY, URINALYSIS, etc.
+  description String?
 
-  labOrders     LabOrder[]
+  price     Float
+  productId String? // Link to Product for billing
+
+  // Result template - what fields to capture
+  resultTemplate Json? // e.g. {"fields": ["hemoglobin", "wbc", "platelets"]}
+
+  isActive Boolean @default(true)
+  tenantId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  labOrders LabOrder[]
 
   @@index([code])
   @@index([category])
@@ -3229,36 +3230,36 @@ model LabTest {
 }
 
 model LabOrder {
-  id            String       @id @default(cuid())
-  orderNumber   String       @unique
-  
-  visitId       String
-  visit         MedicalVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  id          String @id @default(cuid())
+  orderNumber String @unique
 
-  labTestId     String
-  labTest       LabTest      @relation(fields: [labTestId], references: [id])
+  visitId String
+  visit   MedicalVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
 
-  status        LabOrderStatus @default(PENDING)
-  priority      String       @default("NORMAL")  // NORMAL, URGENT, STAT
-  
+  labTestId String
+  labTest   LabTest @relation(fields: [labTestId], references: [id])
+
+  status   LabOrderStatus @default(PENDING)
+  priority String         @default("NORMAL") // NORMAL, URGENT, STAT
+
   // Results
-  results       Json?        // Flexible JSON for different result formats
-  resultNotes   String?      @db.Text
-  resultDate    DateTime?
-  resultEnteredBy String?    // User ID
-  
-  // Report
-  reportUrl     String?      // PDF Link
-  reportSentAt  DateTime?    // When WhatsApp/SMS was sent
-  
-  // Billing
-  invoiceId     String?
-  isPaid        Boolean      @default(false)
+  results         Json? // Flexible JSON for different result formats
+  resultNotes     String?   @db.Text
+  resultDate      DateTime?
+  resultEnteredBy String? // User ID
 
-  tenantId      String
-  
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  // Report
+  reportUrl    String? // PDF Link
+  reportSentAt DateTime? // When WhatsApp/SMS was sent
+
+  // Billing
+  invoiceId String?
+  isPaid    Boolean @default(false)
+
+  tenantId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([visitId])
   @@index([status])
@@ -3269,42 +3270,42 @@ model LabOrder {
 // --- IPD / ADMISSION ---
 
 model Ward {
-  id          String        @id @default(cuid())
-  name        String        // e.g. "Male Ward", "Maternity", "ICU"
-  code        String        @unique
-  type        String        // GENERAL, PRIVATE, ICU, MATERNITY
-  floor       String?
-  capacity    Int           @default(0)
-  
-  beds        HospitalBed[]
-  
-  isActive    Boolean       @default(true)
-  tenantId    String
-  
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id       String  @id @default(cuid())
+  name     String // e.g. "Male Ward", "Maternity", "ICU"
+  code     String  @unique
+  type     String // GENERAL, PRIVATE, ICU, MATERNITY
+  floor    String?
+  capacity Int     @default(0)
+
+  beds HospitalBed[]
+
+  isActive Boolean @default(true)
+  tenantId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([code])
   @@index([tenantId])
 }
 
 model HospitalBed {
-  id            String      @id @default(cuid())
-  wardId        String
-  ward          Ward        @relation(fields: [wardId], references: [id])
-  
-  bedNumber     String
-  bedType       String      @default("STANDARD") // STANDARD, ELECTRIC, ICU
-  status        String      @default("AVAILABLE") // AVAILABLE, OCCUPIED, MAINTENANCE
-  
-  dailyRate     Float       @default(0)
-  
-  admissions    Admission[]
-  
-  tenantId      String
-  
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id     String @id @default(cuid())
+  wardId String
+  ward   Ward   @relation(fields: [wardId], references: [id])
+
+  bedNumber String
+  bedType   String @default("STANDARD") // STANDARD, ELECTRIC, ICU
+  status    String @default("AVAILABLE") // AVAILABLE, OCCUPIED, MAINTENANCE
+
+  dailyRate Float @default(0)
+
+  admissions Admission[]
+
+  tenantId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([wardId, bedNumber])
   @@index([status])
@@ -3312,46 +3313,46 @@ model HospitalBed {
 }
 
 model Admission {
-  id              String          @id @default(cuid())
-  admissionNumber String          @unique
-  
-  patientId       String
-  patient         Patient         @relation(fields: [patientId], references: [id])
-  
-  bedId           String
-  bed             HospitalBed     @relation(fields: [bedId], references: [id])
-  
+  id              String @id @default(cuid())
+  admissionNumber String @unique
+
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  bedId String
+  bed   HospitalBed @relation(fields: [bedId], references: [id])
+
   // From OPD visit that triggered admission
-  originVisitId   String?
-  
-  admissionDate   DateTime        @default(now())
-  dischargeDate   DateTime?
+  originVisitId String?
+
+  admissionDate     DateTime  @default(now())
+  dischargeDate     DateTime?
   expectedDischarge DateTime?
-  
+
   admittingDoctorId String?
-  
+
   // Guardian Info
-  guardianName    String?
-  guardianPhone   String?
+  guardianName     String?
+  guardianPhone    String?
   guardianRelation String?
-  
+
   // Financial
-  depositAmount   Float           @default(0)
-  totalCharges    Float           @default(0)  // Running total
-  
+  depositAmount Float @default(0)
+  totalCharges  Float @default(0) // Running total
+
   status          AdmissionStatus @default(ADMITTED)
   admissionReason String?         @db.Text
   dischargeNotes  String?         @db.Text
-  
+
   // Relations
-  charges         AdmissionCharge[]
-  vitals          VitalSign[]
-  invoiceId       String?         // Final discharge invoice
-  
-  tenantId        String
-  
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  charges   AdmissionCharge[]
+  vitals    VitalSign[]
+  invoiceId String? // Final discharge invoice
+
+  tenantId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([patientId])
   @@index([bedId])
@@ -3361,23 +3362,23 @@ model Admission {
 
 // Track all charges during admission
 model AdmissionCharge {
-  id            String    @id @default(cuid())
-  admissionId   String
-  admission     Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
-  
-  chargeType    String    // ROOM, MEDICINE, LAB, PROCEDURE, OTHER
-  description   String
-  quantity      Float     @default(1)
-  unitPrice     Float
-  totalAmount   Float
-  
+  id          String    @id @default(cuid())
+  admissionId String
+  admission   Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+
+  chargeType  String // ROOM, MEDICINE, LAB, PROCEDURE, OTHER
+  description String
+  quantity    Float  @default(1)
+  unitPrice   Float
+  totalAmount Float
+
   // Reference to source
-  labOrderId    String?   // If LAB charge
-  productId     String?   // If MEDICINE charge
-  
-  chargeDate    DateTime  @default(now())
-  
-  tenantId      String
+  labOrderId String? // If LAB charge
+  productId  String? // If MEDICINE charge
+
+  chargeDate DateTime @default(now())
+
+  tenantId String
 
   @@index([admissionId])
   @@index([chargeType])
@@ -3386,22 +3387,22 @@ model AdmissionCharge {
 
 // Vital signs tracking for admitted patients
 model VitalSign {
-  id            String    @id @default(cuid())
-  admissionId   String
-  admission     Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
-  
-  recordedAt    DateTime  @default(now())
-  recordedBy    String?   // Nurse user ID
-  
-  temperature   Float?    // Celsius
+  id          String    @id @default(cuid())
+  admissionId String
+  admission   Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+
+  recordedAt DateTime @default(now())
+  recordedBy String? // Nurse user ID
+
+  temperature            Float? // Celsius
   bloodPressureSystolic  Int?
   bloodPressureDiastolic Int?
-  pulse         Int?
-  respiratoryRate Int?
-  oxygenSaturation Float?
-  notes         String?
-  
-  tenantId      String
+  pulse                  Int?
+  respiratoryRate        Int?
+  oxygenSaturation       Float?
+  notes                  String?
+
+  tenantId String
 
   @@index([admissionId])
   @@index([recordedAt])
@@ -3410,21 +3411,21 @@ model VitalSign {
 
 // Phone-to-PC QR Session for wireless scanning
 model QRSession {
-  id           String   @id @default(cuid())
-  status       String   @default("WAITING")  // WAITING, SCANNED, EXPIRED
-  
+  id     String @id @default(cuid())
+  status String @default("WAITING") // WAITING, SCANNED, EXPIRED
+
   // Data transferred from phone
-  scannedData  String?  @db.Text
-  scannedBy    String?  // User ID of scanner
-  
+  scannedData String? @db.Text
+  scannedBy   String? // User ID of scanner
+
   // Context (where to use the data)
-  context      String   @default("PATIENT")  // PATIENT, BED, LAB_ORDER
-  
+  context String @default("PATIENT") // PATIENT, BED, LAB_ORDER
+
   // Session timing
-  createdAt    DateTime @default(now())
-  expiresAt    DateTime
-  
-  tenantId     String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  tenantId String
 
   @@index([status])
   @@index([tenantId])
