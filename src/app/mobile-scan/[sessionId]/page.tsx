@@ -92,7 +92,13 @@ export default function MobileScannerPage() {
                 }
             );
         } catch (err) {
-            setError('Failed to start camera. Please ensure camera permissions are granted.');
+            console.error('Camera error:', err);
+            setError(
+                'Failed to start camera. Please:\n' +
+                '1. Grant camera permissions in your browser settings\n' +
+                '2. Ensure you\'re using HTTPS (https://)\n' +
+                '3. Try refreshing the page'
+            );
             setScanning(false);
         }
     };
@@ -254,11 +260,18 @@ export default function MobileScannerPage() {
                 </Card>
 
                 {/* Session Info */}
-                {session && (
-                    <div className="text-center text-indigo-200 text-sm">
-                        <p>Session expires in {Math.max(0, Math.round((new Date(session.expiresAt).getTime() - Date.now()) / 1000 / 60))} minutes</p>
-                    </div>
-                )}
+                {session && (() => {
+                    const expiryTime = new Date(session.expiresAt).getTime();
+                    const remainingMs = expiryTime - Date.now();
+                    const remainingMinutes = Math.max(0, Math.round(remainingMs / 1000 / 60));
+                    const isValid = !isNaN(remainingMinutes);
+
+                    return (
+                        <div className="text-center text-indigo-200 text-sm">
+                            <p>Session expires in {isValid ? remainingMinutes : 5} minutes</p>
+                        </div>
+                    );
+                })()}
             </div>
         </div>
     );
