@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, FlaskConical, FileText, Save, AlertCircle, CheckCircle2, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateLabReportPDF } from '@/lib/pdf-generator';
+import { useModulePermissions } from '@/hooks/use-module-permissions';
 
 interface LabOrder {
     id: string;
@@ -20,6 +21,7 @@ interface LabOrder {
     testName: string;
     result: string | null;
     resultDate: string | null;
+    resultEnteredBy: string | null;
     notes: string | null;
     isPaid: boolean;
     visit: {
@@ -47,6 +49,7 @@ export default function LabOrderDetailPage() {
     const router = useRouter();
     const params = useParams();
     const labOrderId = params.labOrderId as string;
+    const { user } = useModulePermissions();
 
     const [order, setOrder] = useState<LabOrder | null>(null);
     const [loading, setLoading] = useState(true);
@@ -115,6 +118,7 @@ export default function LabOrderDetailPage() {
                     notes,
                     status: 'COMPLETED',
                     resultDate: new Date().toISOString(),
+                    resultEnteredBy: user?.name,
                 }),
             });
 
@@ -151,7 +155,7 @@ export default function LabOrderDetailPage() {
             testName: order.test.name,
             resultDate: order.resultDate ? new Date(order.resultDate) : new Date(),
             results: order.result,
-            enteredBy: "Lab Staff" // TODO: Add enteredBy to API response
+            enteredBy: order.resultEnteredBy || user?.name || "Lab Staff"
         });
     };
 

@@ -17,7 +17,10 @@ interface Patient {
     firstName: string;
     lastName: string;
     patientNumber: string;
+    gender: string;
+    dateOfBirth: string;
 }
+
 
 interface Prescription {
     id: string;
@@ -40,6 +43,9 @@ interface Visit {
     type: string;
     status: string;
     patient: Patient;
+    doctor: {
+        name: string;
+    } | null;
 }
 
 interface PrescriptionWithVisit extends Prescription {
@@ -150,14 +156,17 @@ export default function PharmacyPage() {
     const handlePrintPrescription = () => {
         if (!selectedVisit || visitPrescriptions.length === 0) return;
 
+        const birthDate = new Date(selectedVisit.patient.dateOfBirth);
+        const age = new Date().getFullYear() - birthDate.getFullYear();
+
         generatePrescriptionPDF({
             patient: {
                 name: `${selectedVisit.patient.firstName} ${selectedVisit.patient.lastName}`,
                 patientNumber: selectedVisit.patient.patientNumber,
-                age: '-', // TODO: Add age to patient model/fetch
-                gender: '-' // TODO: Add gender to patient model/fetch
+                age: age,
+                gender: selectedVisit.patient.gender
             },
-            doctorName: "Doctor", // TODO: Fetch doctor name
+            doctorName: selectedVisit.doctor?.name || "Doctor",
             date: new Date(selectedVisit.visitDate),
             prescriptions: visitPrescriptions.map(p => ({
                 medication: p.medication,

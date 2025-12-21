@@ -522,12 +522,22 @@ export async function getHealthcareAnalytics(tenantId: string) {
   const endOfDay = new Date(today);
   endOfDay.setHours(23, 59, 59, 999);
 
-  const [totalPatients, todayVisits, waitingCount] = await Promise.all([
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - today.getDay()); // Start from Sunday
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const [totalPatients, todayVisits, weekVisits, waitingCount] = await Promise.all([
     prisma.patient.count({ where: { tenantId } }),
     prisma.medicalVisit.count({
       where: {
         tenantId,
         visitDate: { gte: startOfDay, lte: endOfDay },
+      },
+    }),
+    prisma.medicalVisit.count({
+      where: {
+        tenantId,
+        visitDate: { gte: startOfWeek, lte: endOfDay },
       },
     }),
     prisma.medicalVisit.count({
@@ -542,7 +552,7 @@ export async function getHealthcareAnalytics(tenantId: string) {
   return {
     totalPatients,
     appointmentsToday: todayVisits,
-    appointmentsThisWeek: todayVisits, // TODO: Calculate weekly
+    appointmentsThisWeek: weekVisits,
     averageWaitTime: 0,
     patientSatisfaction: 0,
     waitingCount,
