@@ -47,7 +47,7 @@ export default function LabTestsManagementPage() {
             const res = await fetch('/api/healthcare/lab-tests');
             if (res.ok) {
                 const data = await res.json();
-                setTests(data.tests || data || []);
+                setTests(data.labTests || (Array.isArray(data) ? data : []));
             }
         } catch (error) {
             console.error('Error fetching tests:', error);

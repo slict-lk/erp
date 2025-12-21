@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, FlaskConical, FileText, Save, AlertCircle, CheckCircle2, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateLabReportPDF } from '@/lib/pdf-generator';
-import { useModulePermissions } from '@/hooks/use-module-permissions';
+import { useModulePermissions } from '@/hooks/useModulePermissions';
 
 interface LabOrder {
     id: string;
