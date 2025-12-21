@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, RefreshCw, Pill, CheckCircle, AlertTriangle, FileSignature, Package } from 'lucide-react';
 import { toast } from 'sonner';
+import { ScanWithPhoneButton } from '@/components/healthcare/ScanWithPhoneButton';
 
 interface Patient {
     id: string;
@@ -158,6 +159,14 @@ export default function PharmacyPage() {
                     <p className="text-gray-600">Dispense prescriptions for patients</p>
                 </div>
                 <div className="flex gap-2">
+                    <ScanWithPhoneButton
+                        onScanned={(data) => {
+                            setSearchQuery(data);
+                            setTimeout(() => handleSearch(), 100);
+                        }}
+                        context="PATIENT"
+                        buttonText="Scan Token"
+                    />
                     <Button variant="outline" onClick={fetchData}>
                         <RefreshCw className="mr-2 h-4 w-4" /> Refresh
                     </Button>

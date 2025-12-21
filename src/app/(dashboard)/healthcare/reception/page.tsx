@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, UserPlus, QrCode, Printer, RefreshCw, Clock, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { TokenSlip } from '@/components/healthcare/TokenSlip';
+import { ScanWithPhoneButton } from '@/components/healthcare/ScanWithPhoneButton';
 
 interface Patient {
     id: string;
@@ -254,6 +255,16 @@ export default function ReceptionPage() {
                         <p className="mt-1 text-blue-100">Patient registration and token issuance</p>
                     </div>
                     <div className="flex gap-2">
+                        <ScanWithPhoneButton
+                            onScanned={(data) => {
+                                setSearchQuery(data);
+                                // Search after a short delay to let state update
+                                setTimeout(() => handleSearch(), 100);
+                            }}
+                            context="PATIENT"
+                            buttonText="Scan Token"
+                            className="border-white/30 bg-white/10 text-white hover:bg-white/20"
+                        />
                         <Button variant="outline" onClick={fetchData} className="border-white/30 bg-white/10 text-white hover:bg-white/20">
                             <RefreshCw className="mr-2 h-4 w-4" /> Refresh
                         </Button>

@@ -86,6 +86,7 @@
     "crypto-js": "^4.2.0",
     "date-fns": "^3.6.0",
     "framer-motion": "^11.2.0",
+    "html5-qrcode": "^2.3.8",
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.2",
     "leaflet": "^1.9.4",

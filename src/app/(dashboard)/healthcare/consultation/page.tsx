@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RefreshCw, Clock, User, Stethoscope, Play, CheckCircle, AlertCircle, BedDouble } from 'lucide-react';
 import { toast } from 'sonner';
+import { ScanWithPhoneButton } from '@/components/healthcare/ScanWithPhoneButton';
 
 interface Patient {
     id: string;
@@ -135,6 +136,22 @@ export default function ConsultationPage() {
                     <p className="text-gray-600">Today&apos;s patient queue and consultations</p>
                 </div>
                 <div className="flex gap-2">
+                    <ScanWithPhoneButton
+                        onScanned={(data) => {
+                            // Find visit by token number and start consultation
+                            const visit = visits.find(v =>
+                                v.visitNumber.toString() === data ||
+                                data.includes(v.visitNumber.toString())
+                            );
+                            if (visit) {
+                                handleStartConsultation(visit);
+                            } else {
+                                toast.error(`Token not found: ${data}`);
+                            }
+                        }}
+                        context="PATIENT"
+                        buttonText="Scan Token"
+                    />
                     <Button variant="outline" onClick={fetchVisits}>
                         <RefreshCw className="mr-2 h-4 w-4" /> Refresh
                     </Button>

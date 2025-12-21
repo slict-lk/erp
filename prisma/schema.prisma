@@ -3407,3 +3407,26 @@ model VitalSign {
   @@index([recordedAt])
   @@index([tenantId])
 }
+
+// Phone-to-PC QR Session for wireless scanning
+model QRSession {
+  id           String   @id @default(cuid())
+  status       String   @default("WAITING")  // WAITING, SCANNED, EXPIRED
+  
+  // Data transferred from phone
+  scannedData  String?  @db.Text
+  scannedBy    String?  // User ID of scanner
+  
+  // Context (where to use the data)
+  context      String   @default("PATIENT")  // PATIENT, BED, LAB_ORDER
+  
+  // Session timing
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+  
+  tenantId     String
+
+  @@index([status])
+  @@index([tenantId])
+  @@index([expiresAt])
+}
