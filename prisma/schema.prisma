@@ -1038,6 +1038,7 @@ model Product {
   id          String      @id @default(cuid())
   name        String
   sku         String      @unique
+
   barcode     String?
   description String?
   type        ProductType @default(STORABLE)
@@ -1062,6 +1063,7 @@ model Product {
 
   stockMovements     StockMovement[]
   invoiceLines       InvoiceLine[]
+  automotivePart     AutomotivePart?
   cartItems          CartItem[]
   posOrderItems      POSOrderItem[]      @relation("POSOrderItems")
   purchaseOrderItems PurchaseOrderItem[]
@@ -3430,4 +3432,82 @@ model QRSession {
   @@index([status])
   @@index([tenantId])
   @@index([expiresAt])
+}
+
+// ============================================================================
+// AUTOMOTIVE MODULE (New)
+// ============================================================================
+
+enum AutomotivePartType {
+  BEARING
+  SPARE_PART
+  LUBRICANT
+  ACCESSORY
+  TOOL
+}
+
+enum PartCondition {
+  NEW
+  USED
+  RECONDITIONED
+}
+
+model AutomotivePart {
+  id        String   @id @default(cuid())
+  tenantId  String
+  
+  // Link to core Product for stock/pricing
+  productId String   @unique
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  partType  AutomotivePartType @default(SPARE_PART)
+  oemCode   String?  // Original Equipment Manufacturer Code
+  interchangeNumbers String? // Cross-reference numbers
+
+  // Condition & Origin
+  condition      PartCondition @default(NEW)
+  brandOrigin    String?       // e.g., JAPAN, CHINA
+  warrantyPeriod Int?          // Months
+  remarks        String?       // Specific notes for used parts
+
+  // Bearing Specifics
+  innerDiameter Float?   // 'd' (mm)
+  outerDiameter Float?   // 'D' (mm)
+  width         Float?   // 'B' (mm)
+  clearance     String?  // e.g., C3, C4, CN
+  sealType      String?  // e.g., 2RS, ZZ, OPEN
+
+  // Compatibility
+  vehicleModels String[] @default([]) // Array of compatible models
+  engineModels  String[] @default([]) // e.g., "1NZ-FE"
+
+  // Organization
+  rackLocation  String?  // Specific shelf/bin
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([oemCode])
+  @@index([partType])
+  @@index([condition])
+}
+
+model Vehicle {
+  id        String   @id @default(cuid())
+  tenantId  String
+  
+  make      String   // e.g. Toyota
+  model     String   // e.g. Corolla
+  yearStart Int      // e.g. 2018
+  yearEnd   Int?     // e.g. 2023 (null if current)
+  engine    String?  // e.g. 1NZ-FE (Optional specific engine code)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, make, model, yearStart, engine])
+  @@index([tenantId])
+  @@index([make])
+  @@index([model])
 }

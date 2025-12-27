@@ -42,7 +42,8 @@ import {
   X,
   ChevronDown,
   ChevronRight,
-  LogOut
+  LogOut,
+  Wrench
 } from 'lucide-react';
 import { useModulePermissions } from '@/hooks/useModulePermissions';
 import type { LucideIcon } from 'lucide-react';
@@ -109,6 +110,18 @@ const navigation: NavigationItem[] = [
       { name: 'Warehouses', href: '/inventory/warehouses', moduleId: 'inventory' },
       { name: 'Movements', href: '/inventory/movements', moduleId: 'inventory' },
       { name: 'Purchase Orders', href: '/inventory/purchase-orders', moduleId: 'inventory' },
+    ],
+  },
+  {
+    name: 'Automotive',
+    href: '/automotive',
+    icon: Wrench,
+    children: [
+      { name: 'Dashboard', href: '/automotive', moduleId: 'automotive' },
+      { name: 'Parts Catalog', href: '/automotive/parts', moduleId: 'automotive' },
+      { name: 'Fitment Search', href: '/automotive/search', moduleId: 'automotive' },
+      { name: 'Vehicle Database', href: '/automotive/vehicles', moduleId: 'automotive' },
+      { name: 'Stock Adjustments', href: '/automotive/adjustments', moduleId: 'automotive' },
     ],
   },
   {
