@@ -90,25 +90,25 @@ export default function PurchasesPage() {
     }, [fetchOrders]);
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
             {/* Header */}
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                        <FileText className="h-8 w-8 text-primary" />
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2 sm:gap-3">
+                        <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
                         Purchase Orders
                     </h1>
-                    <p className="text-gray-600 dark:text-gray-400">
+                    <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
                         Manage supplier orders and goods receiving
                     </p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={fetchOrders} disabled={refreshing}>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <Button variant="outline" onClick={fetchOrders} disabled={refreshing} className="w-full sm:w-auto">
                         <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                         Refresh
                     </Button>
-                    <Link href="/spareparts/purchases/new">
-                        <Button>
+                    <Link href="/spareparts/purchases/new" className="w-full sm:w-auto">
+                        <Button className="w-full">
                             <Plus className="mr-2 h-4 w-4" />
                             New Order
                         </Button>
@@ -117,54 +117,54 @@ export default function PurchasesPage() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                 <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                            <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                    <CardContent className="p-4 flex items-center gap-3 sm:gap-4">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
+                            <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 dark:text-blue-400" />
                         </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Pending</p>
-                            <p className="text-2xl font-bold">
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm text-gray-500">Pending</p>
+                            <p className="text-xl sm:text-2xl font-bold truncate">
                                 {orders.filter(o => ['DRAFT', 'SENT', 'CONFIRMED'].includes(o.status)).length}
                             </p>
                         </div>
                     </CardContent>
                 </Card>
                 <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center">
-                            <Package className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+                    <CardContent className="p-4 flex items-center gap-3 sm:gap-4">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center flex-shrink-0">
+                            <Package className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-600 dark:text-yellow-400" />
                         </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Partial</p>
-                            <p className="text-2xl font-bold">
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm text-gray-500">Partial</p>
+                            <p className="text-xl sm:text-2xl font-bold truncate">
                                 {orders.filter(o => o.status === 'PARTIAL_RECEIVED').length}
                             </p>
                         </div>
                     </CardContent>
                 </Card>
                 <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-green-100 dark:bg-green-900 flex items-center justify-center">
-                            <Truck className="h-6 w-6 text-green-600 dark:text-green-400" />
+                    <CardContent className="p-4 flex items-center gap-3 sm:gap-4">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-green-100 dark:bg-green-900 flex items-center justify-center flex-shrink-0">
+                            <Truck className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />
                         </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Received</p>
-                            <p className="text-2xl font-bold">
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm text-gray-500">Received</p>
+                            <p className="text-xl sm:text-2xl font-bold truncate">
                                 {orders.filter(o => o.status === 'RECEIVED').length}
                             </p>
                         </div>
                     </CardContent>
                 </Card>
                 <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
-                            <Clock className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                    <CardContent className="p-4 flex items-center gap-3 sm:gap-4">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-purple-100 dark:bg-purple-900 flex items-center justify-center flex-shrink-0">
+                            <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600 dark:text-purple-400" />
                         </div>
-                        <div>
-                            <p className="text-sm text-gray-500">This Month</p>
-                            <p className="text-2xl font-bold">
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs sm:text-sm text-gray-500 truncate">This Month</p>
+                            <p className="text-sm sm:text-xl font-bold truncate">
                                 {formatCurrency(orders.reduce((sum, o) => sum + o.total, 0))}
                             </p>
                         </div>

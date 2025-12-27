@@ -92,25 +92,25 @@ export default function SparePartsPage() {
     }, [fetchData]);
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
             {/* Header */}
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                        <Store className="h-8 w-8 text-primary" />
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2 sm:gap-3">
+                        <Store className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
                         Spare Parts Shop
                     </h1>
-                    <p className="text-gray-600 dark:text-gray-400">
+                    <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
                         Complete retail management - customers, sales, inventory, and promotions
                     </p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={fetchData} disabled={refreshing}>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <Button variant="outline" onClick={fetchData} disabled={refreshing} className="w-full sm:w-auto">
                         <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                         Refresh
                     </Button>
-                    <Link href="/spareparts/pos">
-                        <Button>
+                    <Link href="/spareparts/pos" className="w-full sm:w-auto">
+                        <Button className="w-full">
                             <Plus className="mr-2 h-4 w-4" />
                             New Sale
                         </Button>
@@ -151,7 +151,7 @@ export default function SparePartsPage() {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
                 <QuickAction href="/spareparts/pos" icon={ShoppingCart} label="Point of Sale" color="bg-green-500" />
                 <QuickAction href="/spareparts/customers" icon={Users} label="Customers" color="bg-blue-500" />
                 <QuickAction href="/spareparts/sales" icon={DollarSign} label="Sales & Invoices" color="bg-purple-500" />
@@ -285,14 +285,14 @@ function StatCard({
 
     return (
         <Card>
-            <CardContent className="flex items-center justify-between p-6">
-                <div>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
-                    <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
+            <CardContent className="flex items-center justify-between p-4 sm:p-6">
+                <div className="flex-1 min-w-0">
+                    <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
+                    <p className="mt-1 text-xl sm:text-2xl font-bold text-gray-900 dark:text-white truncate">{value}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{subtitle}</p>
                 </div>
-                <div className={`rounded-xl p-3 ${colors[variant]}`}>
-                    <Icon className="h-6 w-6" />
+                <div className={`rounded-xl p-2 sm:p-3 flex-shrink-0 ${colors[variant]}`}>
+                    <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
                 </div>
             </CardContent>
         </Card>
@@ -313,11 +313,11 @@ function QuickAction({
     return (
         <Link href={href}>
             <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                <CardContent className="flex flex-col items-center justify-center p-4 text-center">
-                    <div className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center mb-2`}>
-                        <Icon className="h-6 w-6 text-white" />
+                <CardContent className="flex flex-col items-center justify-center p-3 sm:p-4 text-center min-h-[100px] sm:min-h-[120px]">
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl ${color} flex items-center justify-center mb-2`}>
+                        <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                     </div>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
+                    <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 leading-tight">{label}</span>
                 </CardContent>
             </Card>
         </Link>

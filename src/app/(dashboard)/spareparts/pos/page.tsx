@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import {
-    ShoppingCart,
+    ShoppingBag,
     Search,
     Plus,
     Minus,
@@ -85,6 +85,7 @@ export default function POSPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [showCustomerDialog, setShowCustomerDialog] = useState(false);
     const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+    const [showMobileCart, setShowMobileCart] = useState(false);
     const [processing, setProcessing] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
     const [cashReceived, setCashReceived] = useState('');
@@ -343,15 +344,16 @@ export default function POSPage() {
     return (
         <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
             {/* Header */}
-            <div className="bg-white dark:bg-gray-800 border-b px-4 py-3 flex items-center justify-between">
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <ShoppingCart className="h-6 w-6 text-primary" />
-                    Point of Sale
+            <div className="bg-white dark:bg-gray-800 border-b px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <ShoppingBag className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                    <span className="hidden sm:inline">Point of Sale</span>
+                    <span className="sm:hidden">POS</span>
                 </h1>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" onClick={() => router.push('/spareparts')}>
-                        <X className="h-4 w-4 mr-1" />
-                        Exit POS
+                        <X className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline">Exit POS</span>
                     </Button>
                 </div>
             </div>
@@ -365,17 +367,17 @@ export default function POSPage() {
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <Input
-                                placeholder="🔍 Search products by name, SKU, or category..."
+                                placeholder="🔍 Search products..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-10 bg-white dark:bg-gray-800 text-lg h-12"
+                                className="pl-10 bg-white dark:bg-gray-800 h-10 sm:h-12 text-base sm:text-lg"
                                 autoFocus
                             />
                         </div>
 
                         {/* Product Dropdown Results */}
                         {searchQuery && products.length > 0 && (
-                            <Card className="absolute z-50 w-[calc(100%-4rem)] max-w-4xl shadow-xl border-2 border-primary/20">
+                            <Card className="absolute z-50 left-4 right-4 md:max-w-4xl shadow-xl border-2 border-primary/20">
                                 <CardContent className="p-0 max-h-96 overflow-y-auto">
                                     <div className="bg-gray-50 dark:bg-gray-800 px-4 py-2 border-b sticky top-0">
                                         <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -391,42 +393,47 @@ export default function POSPage() {
                                                 setSearchQuery('');
                                             }}
                                         >
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                    <span className="text-xl">📦</span>
+                                            <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                                                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                    <span className="text-lg sm:text-xl">📦</span>
                                                 </div>
-                                                <div>
-                                                    <h4 className="font-semibold text-gray-900 dark:text-white">
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className="font-semibold text-gray-900 dark:text-white truncate text-sm sm:text-base">
                                                         {product.name}
                                                     </h4>
-                                                    <div className="flex items-center gap-3 text-sm text-gray-500">
-                                                        <span className="font-mono bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
+                                                    <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500">
+                                                        <span className="font-mono bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded truncate">
                                                             {product.sku}
                                                         </span>
                                                         {product.category && (
-                                                            <span className="text-blue-600 dark:text-blue-400">
+                                                            <span className="text-blue-600 dark:text-blue-400 truncate hidden sm:inline">
                                                                 📁 {product.category}
                                                             </span>
                                                         )}
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-4 text-right">
-                                                <div>
-                                                    <p className="font-bold text-lg text-primary">
+                                            <div className="flex items-center gap-2 sm:gap-4 text-right flex-shrink-0">
+                                                <div className="hidden sm:block">
+                                                    <p className="font-bold text-base sm:text-lg text-primary">
                                                         {formatCurrency(product.salePrice)}
                                                     </p>
                                                     <p className="text-xs text-gray-500">
                                                         Cost: {formatCurrency(product.costPrice)}
                                                     </p>
                                                 </div>
+                                                <div className="sm:hidden">
+                                                    <p className="font-bold text-sm text-primary">
+                                                        {formatCurrency(product.salePrice)}
+                                                    </p>
+                                                </div>
                                                 <Badge
                                                     variant={product.stockQty > 10 ? 'default' : product.stockQty > 0 ? 'secondary' : 'destructive'}
-                                                    className="min-w-[60px] justify-center"
+                                                    className="min-w-[50px] sm:min-w-[60px] justify-center text-xs"
                                                 >
-                                                    {product.stockQty > 0 ? `${product.stockQty} in stock` : 'Out of stock'}
+                                                    {product.stockQty > 0 ? `${product.stockQty}` : '0'}
                                                 </Badge>
-                                                <Button size="sm" variant="ghost" className="text-green-600">
+                                                <Button size="sm" variant="ghost" className="text-green-600 hidden sm:flex">
                                                     <Plus className="h-5 w-5" />
                                                 </Button>
                                             </div>
@@ -440,8 +447,8 @@ export default function POSPage() {
                     {/* Product Grid - Shows when not searching */}
                     {!searchQuery && (
                         <>
-                            <h3 className="text-sm font-medium text-gray-500 mb-3">All Products</h3>
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                            <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-3">All Products</h3>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3">
                                 {products.map((product) => (
                                     <Card
                                         key={product.id}
@@ -449,25 +456,25 @@ export default function POSPage() {
                                             }`}
                                         onClick={() => addToCart(product)}
                                     >
-                                        <CardContent className="p-3">
+                                        <CardContent className="p-2 sm:p-3">
                                             <div className="aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg mb-2 flex items-center justify-center relative">
-                                                <span className="text-2xl text-gray-400">📦</span>
+                                                <span className="text-xl sm:text-2xl text-gray-400">📦</span>
                                                 {product.stockQty <= 5 && product.stockQty > 0 && (
                                                     <span className="absolute top-1 right-1 text-orange-500 text-xs">⚠️</span>
                                                 )}
                                             </div>
-                                            <h3 className="font-medium text-sm text-gray-900 dark:text-white truncate">
+                                            <h3 className="font-medium text-xs sm:text-sm text-gray-900 dark:text-white truncate">
                                                 {product.name}
                                             </h3>
-                                            <p className="text-xs text-gray-500 truncate font-mono">{product.sku}</p>
+                                            <p className="text-[10px] sm:text-xs text-gray-500 truncate font-mono">{product.sku}</p>
                                             {product.category && (
-                                                <p className="text-xs text-blue-500 truncate">{product.category}</p>
+                                                <p className="text-[10px] sm:text-xs text-blue-500 truncate">{product.category}</p>
                                             )}
-                                            <div className="flex items-center justify-between mt-2">
-                                                <span className="font-bold text-primary">
+                                            <div className="flex items-center justify-between mt-1 sm:mt-2">
+                                                <span className="font-bold text-xs sm:text-sm text-primary truncate">
                                                     {formatCurrency(product.salePrice)}
                                                 </span>
-                                                <Badge variant={product.stockQty > 0 ? 'default' : 'destructive'} className="text-xs">
+                                                <Badge variant={product.stockQty > 0 ? 'default' : 'destructive'} className="text-[10px] sm:text-xs px-1">
                                                     {product.stockQty}
                                                 </Badge>
                                             </div>
@@ -487,8 +494,8 @@ export default function POSPage() {
                     )}
                 </div>
 
-                {/* Cart Panel */}
-                <div className="w-96 bg-white dark:bg-gray-800 border-l flex flex-col">
+                {/* Cart Panel - Hidden on mobile by default, shown on larger screens */}
+                <div className="hidden lg:flex lg:w-96 bg-white dark:bg-gray-800 border-l flex-col">
                     {/* Customer Selection */}
                     <div className="p-4 border-b">
                         {selectedCustomer ? (
@@ -539,7 +546,7 @@ export default function POSPage() {
                     <div className="flex-1 overflow-y-auto p-4">
                         {cart.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-gray-500">
-                                <ShoppingCart className="h-12 w-12 mb-2 opacity-50" />
+                                <ShoppingBag className="h-12 w-12 mb-2 opacity-50" />
                                 <p>Cart is empty</p>
                                 <p className="text-sm">Click products to add</p>
                             </div>
@@ -825,6 +832,157 @@ export default function POSPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Mobile Cart Dialog */}
+            <Dialog open={showMobileCart} onOpenChange={setShowMobileCart}>
+                <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Shopping Cart ({cart.length} items)</DialogTitle>
+                    </DialogHeader>
+
+                    {/* Customer Selection - Mobile */}
+                    <div className="space-y-3">
+                        {selectedCustomer ? (
+                            <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-primary/20">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                                        {selectedCustomer.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-gray-900 dark:text-white text-sm">
+                                            {selectedCustomer.name}
+                                        </p>
+                                        <p className="text-xs text-gray-500">{selectedCustomer.customerType}</p>
+                                    </div>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setSelectedCustomer(null)}
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                className="w-full justify-start"
+                                onClick={() => {
+                                    setShowMobileCart(false);
+                                    setShowCustomerDialog(true);
+                                }}
+                            >
+                                <User className="h-4 w-4 mr-2" />
+                                Select Customer (Optional)
+                            </Button>
+                        )}
+                    </div>
+
+                    {/* Cart Items */}
+                    <div className="space-y-2 max-h-[40vh] overflow-y-auto">
+                        {cart.length === 0 ? (
+                            <p className="text-center text-gray-500 py-8">Cart is empty</p>
+                        ) : (
+                            cart.map((item, index) => (
+                                <div key={index} className="flex items-start gap-2 p-2 border rounded-lg">
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="font-medium text-sm truncate">{item.product.name}</h4>
+                                        <p className="text-xs text-gray-500">{item.product.sku}</p>
+                                        <p className="text-sm font-semibold text-primary mt-1">
+                                            {formatCurrency(item.lineTotal)}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => updateQuantity(item.product.id, -1)}
+                                            className="h-8 w-8 p-0"
+                                        >
+                                            <Minus className="h-3 w-3" />
+                                        </Button>
+                                        <span className="text-sm font-medium w-8 text-center">
+                                            {item.quantity}
+                                        </span>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => updateQuantity(item.product.id, 1)}
+                                            className="h-8 w-8 p-0"
+                                        >
+                                            <Plus className="h-3 w-3" />
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => removeFromCart(item.product.id)}
+                                            className="h-8 w-8 p-0 text-red-600"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    {/* Cart Summary */}
+                    <div className="border-t pt-3 space-y-2">
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Subtotal:</span>
+                            <span className="font-semibold">{formatCurrency(subtotal)}</span>
+                        </div>
+                        {taxAmount > 0 && (
+                            <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Tax ({taxRate}%):</span>
+                                <span className="font-semibold">{formatCurrency(taxAmount)}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between text-lg font-bold border-t pt-2">
+                            <span>Total:</span>
+                            <span className="text-primary">{formatCurrency(total)}</span>
+                        </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setCart([])}
+                            className="flex-1"
+                            disabled={cart.length === 0}
+                        >
+                            Clear Cart
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                setShowMobileCart(false);
+                                setShowPaymentDialog(true);
+                            }}
+                            className="flex-1"
+                            disabled={cart.length === 0}
+                        >
+                            <Check className="h-4 w-4 mr-2" />
+                            Checkout
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Mobile Cart FAB (Floating Action Button) - Moved up to avoid AI button overlap */}
+            <div className="lg:hidden fixed bottom-24 right-6 z-50">
+                <Button
+                    onClick={() => setShowMobileCart(true)}
+                    className="h-14 w-14 rounded-full shadow-lg relative p-0 flex items-center justify-center"
+                >
+                    <ShoppingBag className="h-6 w-6 text-white" />
+                    {cart.length > 0 && (
+                        <span className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                            {cart.length}
+                        </span>
+                    )}
+                </Button>
+            </div>
         </div>
     );
 }

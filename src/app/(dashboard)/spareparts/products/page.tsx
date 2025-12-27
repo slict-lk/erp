@@ -90,25 +90,25 @@ export default function ProductsPage() {
     };
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
             {/* Header */}
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                        <Package className="h-8 w-8 text-primary" />
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2 sm:gap-3">
+                        <Package className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
                         Products
                     </h1>
-                    <p className="text-gray-600 dark:text-gray-400">
+                    <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
                         Manage your spare parts inventory
                     </p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={fetchProducts} disabled={refreshing}>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <Button variant="outline" onClick={fetchProducts} disabled={refreshing} className="w-full sm:w-auto">
                         <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                         Refresh
                     </Button>
-                    <Link href="/spareparts/products/new">
-                        <Button>
+                    <Link href="/spareparts/products/new" className="w-full sm:w-auto">
+                        <Button className="w-full">
                             <Plus className="mr-2 h-4 w-4" />
                             Add Product
                         </Button>
@@ -122,7 +122,7 @@ export default function ProductsPage() {
                     <CardTitle>Filters</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <Input
@@ -133,7 +133,7 @@ export default function ProductsPage() {
                             />
                         </div>
                         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full">
                                 <SelectValue placeholder="All Categories" />
                             </SelectTrigger>
                             <SelectContent>
@@ -170,57 +170,109 @@ export default function ProductsPage() {
                             </Link>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>SKU</TableHead>
-                                        <TableHead>Product Name</TableHead>
-                                        <TableHead>Category</TableHead>
-                                        <TableHead className="text-right">Stock</TableHead>
-                                        <TableHead className="text-right">Min Stock</TableHead>
-                                        <TableHead className="text-right">Cost Price</TableHead>
-                                        <TableHead className="text-right">Sale Price</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {products.map((product) => (
-                                        <TableRow key={product.id}>
-                                            <TableCell className="font-medium">{product.sku}</TableCell>
-                                            <TableCell>{product.name}</TableCell>
-                                            <TableCell>
-                                                {product.category ? (
-                                                    <Badge variant="secondary">{product.category}</Badge>
-                                                ) : (
-                                                    <span className="text-gray-400">-</span>
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="text-right">{product.stockQty}</TableCell>
-                                            <TableCell className="text-right">{product.minStockQty}</TableCell>
-                                            <TableCell className="text-right">
-                                                {formatCurrency(Number(product.costPrice))}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                {formatCurrency(Number(product.salePrice))}
-                                            </TableCell>
-                                            <TableCell>{getStockBadge(product)}</TableCell>
-                                            <TableCell className="text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    <Button variant="ghost" size="sm">
-                                                        <Edit className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="sm" className="text-red-600">
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
+                        <>
+                            {/* Desktop Table View */}
+                            <div className="hidden md:block overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>SKU</TableHead>
+                                            <TableHead>Product Name</TableHead>
+                                            <TableHead>Category</TableHead>
+                                            <TableHead className="text-right">Stock</TableHead>
+                                            <TableHead className="text-right">Min Stock</TableHead>
+                                            <TableHead className="text-right">Cost Price</TableHead>
+                                            <TableHead className="text-right">Sale Price</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead className="text-right">Actions</TableHead>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {products.map((product) => (
+                                            <TableRow key={product.id}>
+                                                <TableCell className="font-medium">{product.sku}</TableCell>
+                                                <TableCell>{product.name}</TableCell>
+                                                <TableCell>
+                                                    {product.category ? (
+                                                        <Badge variant="secondary">{product.category}</Badge>
+                                                    ) : (
+                                                        <span className="text-gray-400">-</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-right">{product.stockQty}</TableCell>
+                                                <TableCell className="text-right">{product.minStockQty}</TableCell>
+                                                <TableCell className="text-right">
+                                                    {formatCurrency(Number(product.costPrice))}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {formatCurrency(Number(product.salePrice))}
+                                                </TableCell>
+                                                <TableCell>{getStockBadge(product)}</TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        <Button variant="ghost" size="sm">
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button variant="ghost" size="sm" className="text-red-600">
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+
+                            {/* Mobile Card View */}
+                            <div className="md:hidden space-y-3">
+                                {products.map((product) => (
+                                    <Card key={product.id} className="hover:shadow-md transition-shadow">
+                                        <CardContent className="p-4">
+                                            <div className="flex items-start justify-between mb-3">
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                                                        {product.name}
+                                                    </h3>
+                                                    <p className="text-xs text-gray-500 font-mono mt-0.5">
+                                                        {product.sku}
+                                                    </p>
+                                                    {product.category && (
+                                                        <Badge variant="secondary" className="mt-1">
+                                                            {product.category}
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                {getStockBadge(product)}
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
+                                                <div>
+                                                    <p className="text-gray-500 text-xs">Stock / Min</p>
+                                                    <p className="font-semibold">{product.stockQty} / {product.minStockQty}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-gray-500 text-xs">Sale Price</p>
+                                                    <p className="font-semibold text-primary">
+                                                        {formatCurrency(Number(product.salePrice))}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex gap-2 pt-3 border-t">
+                                                <Button variant="outline" size="sm" className="flex-1">
+                                                    <Edit className="h-4 w-4 mr-1" />
+                                                    Edit
+                                                </Button>
+                                                <Button variant="outline" size="sm" className="text-red-600">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        </>
                     )}
                 </CardContent>
             </Card>
