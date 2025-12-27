@@ -63,43 +63,51 @@ export default function MobileScannerPage() {
             setScanning(true);
             setError(null);
 
-            const scanner = new Html5QrcodeScanner(
-                "qr-reader",
-                {
-                    fps: 10,
-                    qrbox: { width: 250, height: 250 },
-                    aspectRatio: 1.0,
-                },
-                false
-            );
+            // Wait for DOM to render the div
+            setTimeout(() => {
+                try {
+                    const scanner = new Html5QrcodeScanner(
+                        "qr-reader",
+                        {
+                            fps: 10,
+                            qrbox: { width: 250, height: 250 },
+                            aspectRatio: 1.0,
+                        },
+                        false
+                    );
 
-            scannerRef.current = scanner;
+                    scannerRef.current = scanner;
 
-            scanner.render(
-                (decodedText: string) => {
-                    // Success - stop scanner and show result
-                    scanner.clear();
-                    setScanResult(decodedText);
+                    scanner.render(
+                        (decodedText: string) => {
+                            // Success - stop scanner and show result
+                            scanner.clear();
+                            setScanResult(decodedText);
+                            setScanning(false);
+
+                            // Vibrate if supported
+                            if (navigator.vibrate) {
+                                navigator.vibrate(200);
+                            }
+                        },
+                        (errorMessage: string) => {
+                            // QR code not found in frame - this is normal, don't show error
+                        }
+                    );
+                } catch (err) {
+                    console.error('Camera init error:', err);
+                    setError(
+                        'Failed to start camera. Please:\n' +
+                        '1. Grant camera permissions in your browser settings\n' +
+                        '2. Ensure you\'re using HTTPS (https://)\n' +
+                        '3. Try refreshing the page'
+                    );
                     setScanning(false);
-
-                    // Vibrate if supported
-                    if (navigator.vibrate) {
-                        navigator.vibrate(200);
-                    }
-                },
-                (errorMessage: string) => {
-                    // QR code not found in frame - this is normal, don't show error
                 }
-            );
+            }, 100);
         } catch (err) {
-            console.error('Camera error:', err);
-            setError(
-                'Failed to start camera. Please:\n' +
-                '1. Grant camera permissions in your browser settings\n' +
-                '2. Ensure you\'re using HTTPS (https://)\n' +
-                '3. Try refreshing the page'
-            );
-            setScanning(false);
+            console.error('Import error:', err);
+            setError('Failed to load scanner library');
         }
     };
 
