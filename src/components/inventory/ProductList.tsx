@@ -179,7 +179,7 @@ export function ProductList({
                 <div className="flex items-center justify-between pt-3 border-t">
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-gray-600" />
-                    <span className="text-lg font-bold">${product.listPrice.toFixed(2)}</span>
+                    <span className="text-lg font-bold">${Number(product.listPrice || 0).toFixed(2)}</span>
                   </div>
                   {product.type !== 'SERVICE' && (
                     <div className="text-sm text-gray-600">
@@ -188,10 +188,10 @@ export function ProductList({
                   )}
                 </div>
 
-                {product.costPrice && (
+                {product.costPrice != null && (
                   <div className="text-xs text-gray-500">
-                    Cost: ${product.costPrice.toFixed(2)} • Margin:{' '}
-                    {(((product.listPrice - product.costPrice) / product.listPrice) * 100).toFixed(
+                    Cost: ${Number(product.costPrice).toFixed(2)} • Margin:{' '}
+                    {(((Number(product.listPrice || 0) - Number(product.costPrice)) / Number(product.listPrice || 1)) * 100).toFixed(
                       1
                     )}
                     %

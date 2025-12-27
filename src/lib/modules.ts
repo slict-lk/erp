@@ -188,6 +188,15 @@ export const AVAILABLE_MODULES: Module[] = [
     route: '/automotive',
     permissions: { view: true, create: true, edit: true, delete: true, export: true, import: true },
   },
+  {
+    id: 'spareparts',
+    name: 'Spare Parts Shop',
+    description: 'Complete spare parts retail management with POS, customers, promotions, and reordering',
+    category: 'operations',
+    icon: 'Store',
+    route: '/spareparts',
+    permissions: { view: true, create: true, edit: true, delete: true, export: true, import: true },
+  },
 
   // Human Resources
   {

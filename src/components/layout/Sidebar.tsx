@@ -44,7 +44,8 @@ import {
   ChevronDown,
   ChevronRight,
   LogOut,
-  Wrench
+  Wrench,
+  Store
 } from 'lucide-react';
 import { useModulePermissions } from '@/hooks/useModulePermissions';
 import type { LucideIcon } from 'lucide-react';
@@ -125,6 +126,24 @@ const navigation: NavigationItem[] = [
       { name: 'Vehicle Database', href: '/automotive/vehicles', moduleId: 'automotive' },
       { name: 'Stock Adjustments', href: '/automotive/adjustments', moduleId: 'automotive' },
       { name: 'Shop Mode (Tablet)', href: '/automotive/shop', icon: Smartphone, moduleId: 'automotive' },
+    ],
+  },
+  {
+    name: 'Spare Parts Shop',
+    href: '/spareparts',
+    icon: Store,
+    children: [
+      { name: 'Dashboard', href: '/spareparts', moduleId: 'spareparts' },
+      { name: 'Point of Sale', href: '/spareparts/pos', moduleId: 'spareparts' },
+      { name: 'Products', href: '/spareparts/products', moduleId: 'spareparts' },
+      { name: 'Customers', href: '/spareparts/customers', moduleId: 'spareparts' },
+      { name: 'Sales & Invoices', href: '/spareparts/sales', moduleId: 'spareparts' },
+      { name: 'Inventory', href: '/spareparts/inventory', moduleId: 'spareparts' },
+      { name: 'Promotions', href: '/spareparts/promotions', moduleId: 'spareparts' },
+      { name: 'Suppliers', href: '/spareparts/suppliers', moduleId: 'spareparts' },
+      { name: 'Purchases', href: '/spareparts/purchases', moduleId: 'spareparts' },
+      { name: 'Reorder', href: '/spareparts/reorder', moduleId: 'spareparts' },
+      { name: 'Reports', href: '/spareparts/reports', moduleId: 'spareparts' },
     ],
   },
   {

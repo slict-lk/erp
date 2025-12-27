@@ -3511,3 +3511,513 @@ model Vehicle {
   @@index([make])
   @@index([model])
 }
+
+// ============================================================================
+// SPARE PARTS SHOP MODULE
+// ============================================================================
+
+enum ShopCustomerType {
+  RETAIL
+  WHOLESALE
+  MECHANIC
+  FLEET
+  VIP
+}
+
+enum ShopInvoiceStatus {
+  DRAFT
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum ShopPaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  REFUNDED
+  OVERDUE
+}
+
+enum ShopPaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  CHEQUE
+  CREDIT
+  MOBILE_PAYMENT
+}
+
+enum ShopPromotionType {
+  AUTOMATIC
+  CODE
+  COUPON
+}
+
+enum ShopDiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  BUY_X_GET_Y
+}
+
+enum ShopTargetType {
+  ALL_PRODUCTS
+  SPECIFIC_PRODUCTS
+  SPECIFIC_CATEGORIES
+  SPECIFIC_BRANDS
+}
+
+enum ShopPOStatus {
+  DRAFT
+  SENT
+  CONFIRMED
+  PARTIAL_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum ShopSuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ORDERED
+}
+
+// Shop Customer (like Patient in Healthcare)
+model SparePart {
+  id          String   @id @default(cuid())
+  tenantId    String
+
+  name        String
+  sku         String
+  description String?
+  
+  category    String?
+  brand       String?
+  
+  // Pricing & Stock
+  salePrice   Decimal  @default(0)
+  costPrice   Decimal  @default(0)
+  stockQty    Decimal  @default(0)
+  minStockQty Decimal  @default(0)
+  
+  // Automotive specifics
+  partNumber      String? // OEM
+  compatibleModels String[] @default([])
+  condition       String? // NEW, USED
+  
+  // Media
+  images      String[] @default([])
+  
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
+  @@index([sku])
+  @@index([category])
+}
+
+model ShopCustomer {
+  id              String           @id @default(cuid())
+  customerNumber  String           @unique
+  
+  name            String
+  email           String?
+  phone           String
+  alternatePhone  String?
+  
+  address         String?
+  city            String?
+  postalCode      String?
+  
+  businessName    String?
+  taxId           String?
+  customerType    ShopCustomerType @default(RETAIL)
+  
+  creditLimit     Decimal          @default(0)
+  creditBalance   Decimal          @default(0)
+  paymentTermDays Int              @default(0)
+  
+  loyaltyPoints   Int              @default(0)
+  totalPurchases  Decimal          @default(0)
+  
+  invoices        ShopInvoice[]
+  audiences       ShopCustomerAudienceMember[]
+  vehicleHistory  ShopCustomerVehicle[]
+  
+  tenantId        String
+  status          String           @default("ACTIVE")
+  
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  @@index([customerNumber])
+  @@index([phone])
+  @@index([tenantId])
+  @@index([customerType])
+}
+
+model ShopCustomerVehicle {
+  id          String       @id @default(cuid())
+  customerId  String
+  customer    ShopCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  make        String
+  model       String
+  year        Int
+  plateNumber String?
+  vin         String?
+  
+  createdAt   DateTime     @default(now())
+  
+  @@index([customerId])
+}
+
+// Product Images
+model ProductImage {
+  id          String   @id @default(cuid())
+  productId   String
+  
+  url         String
+  altText     String?
+  isPrimary   Boolean  @default(false)
+  displayOrder Int     @default(0)
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([productId])
+}
+
+// Sales Invoice
+model ShopInvoice {
+  id              String            @id @default(cuid())
+  invoiceNumber   String            @unique
+  
+  customerId      String?
+  customer        ShopCustomer?     @relation(fields: [customerId], references: [id])
+  customerName    String?
+  customerPhone   String?
+  
+  vehicleInfo     String?
+  
+  subtotal        Decimal
+  discountAmount  Decimal           @default(0)
+  taxAmount       Decimal           @default(0)
+  shippingAmount  Decimal           @default(0)
+  total           Decimal
+  
+  paidAmount      Decimal           @default(0)
+  dueAmount       Decimal
+  
+  status          ShopInvoiceStatus  @default(DRAFT)
+  paymentStatus   ShopPaymentStatus  @default(UNPAID)
+  
+  notes           String?
+  internalNotes   String?
+  
+  items           ShopInvoiceItem[]
+  payments        ShopInvoicePayment[]
+  appliedPromos   ShopAppliedPromotion[]
+  
+  createdById     String
+  
+  tenantId        String
+  
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  
+  @@index([invoiceNumber])
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([tenantId])
+}
+
+model ShopInvoiceItem {
+  id              String       @id @default(cuid())
+  invoiceId       String
+  invoice         ShopInvoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  productId       String
+  productName     String
+  productSku      String
+  
+  quantity        Decimal
+  unitPrice       Decimal
+  costPrice       Decimal
+  
+  discountPercent Decimal      @default(0)
+  discountAmount  Decimal      @default(0)
+  promotionId     String?
+  
+  taxRate         Decimal      @default(0)
+  taxAmount       Decimal      @default(0)
+  
+  lineTotal       Decimal
+  
+  vehicleInfo     String?
+  
+  @@index([invoiceId])
+  @@index([productId])
+}
+
+model ShopInvoicePayment {
+  id          String            @id @default(cuid())
+  invoiceId   String
+  invoice     ShopInvoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  amount      Decimal
+  method      ShopPaymentMethod
+  reference   String?
+  
+  receivedById String
+  
+  createdAt   DateTime          @default(now())
+  
+  @@index([invoiceId])
+}
+
+// Promotions
+model ShopPromotion {
+  id              String             @id @default(cuid())
+  
+  name            String
+  description     String?
+  code            String?            @unique
+  
+  type            ShopPromotionType
+  discountType    ShopDiscountType
+  discountValue   Decimal
+  
+  minimumPurchase Decimal?
+  maximumDiscount Decimal?
+  usageLimit      Int?
+  usageCount      Int                @default(0)
+  perCustomerLimit Int?
+  
+  targetType      ShopTargetType     @default(ALL_PRODUCTS)
+  targetProducts  ShopPromotionProduct[]
+  targetCategories String[]          @default([])
+  targetBrands    String[]           @default([])
+  targetAudiences ShopPromotionAudience[]
+  
+  startDate       DateTime
+  endDate         DateTime?
+  isActive        Boolean            @default(true)
+  priority        Int                @default(0)
+  
+  appliedTo       ShopAppliedPromotion[]
+  
+  tenantId        String
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  
+  @@index([code])
+  @@index([isActive])
+  @@index([tenantId])
+}
+
+model ShopPromotionProduct {
+  id          String        @id @default(cuid())
+  promotionId String
+  promotion   ShopPromotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  productId   String
+  
+  @@unique([promotionId, productId])
+}
+
+model ShopPromotionAudience {
+  id          String             @id @default(cuid())
+  promotionId String
+  promotion   ShopPromotion      @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  audienceId  String
+  audience    ShopCustomerAudience @relation(fields: [audienceId], references: [id])
+  
+  @@unique([promotionId, audienceId])
+}
+
+model ShopAppliedPromotion {
+  id          String        @id @default(cuid())
+  invoiceId   String
+  invoice     ShopInvoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  promotionId String
+  promotion   ShopPromotion @relation(fields: [promotionId], references: [id])
+  
+  discountAmount Decimal
+  
+  @@index([invoiceId])
+}
+
+// Customer Audiences
+model ShopCustomerAudience {
+  id          String   @id @default(cuid())
+  
+  name        String
+  description String?
+  color       String?
+  
+  rules       Json?
+  isAutomatic Boolean  @default(false)
+  
+  members     ShopCustomerAudienceMember[]
+  promotions  ShopPromotionAudience[]
+  
+  tenantId    String
+  createdAt   DateTime @default(now())
+  
+  @@index([tenantId])
+}
+
+model ShopCustomerAudienceMember {
+  id          String               @id @default(cuid())
+  audienceId  String
+  audience    ShopCustomerAudience @relation(fields: [audienceId], references: [id], onDelete: Cascade)
+  customerId  String
+  customer    ShopCustomer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  joinedAt    DateTime             @default(now())
+  
+  @@unique([audienceId, customerId])
+}
+
+// Reorder System
+model ShopReorderRule {
+  id              String   @id @default(cuid())
+  
+  productId       String?  @unique
+  categoryId      String?
+  
+  reorderPoint    Int
+  reorderQuantity Int
+  maxStock        Int?
+  
+  useDemandForecast Boolean @default(true)
+  demandPeriodDays  Int     @default(30)
+  safetyMultiplier  Decimal @default(1.5)
+  
+  preferredSupplierId String?
+  
+  autoGenerate    Boolean  @default(false)
+  autoApprove     Boolean  @default(false)
+  autoApproveLimit Decimal?
+  
+  notifyOnLow     Boolean  @default(true)
+  notifyEmails    String[] @default([])
+  
+  isActive        Boolean  @default(true)
+  tenantId        String
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([productId])
+  @@index([tenantId])
+}
+
+model ShopReorderSuggestion {
+  id              String                @id @default(cuid())
+  
+  productId       String
+  productName     String
+  productSku      String
+  
+  currentStock    Int
+  reorderPoint    Int
+  suggestedQty    Int
+  
+  avgDailySales   Decimal
+  daysOfStock     Int
+  lastSaleDate    DateTime?
+  
+  status          ShopSuggestionStatus  @default(PENDING)
+  purchaseOrderId String?
+  
+  processedById   String?
+  processedAt     DateTime?
+  rejectionReason String?
+  
+  tenantId        String
+  createdAt       DateTime              @default(now())
+  
+  @@index([status])
+  @@index([tenantId])
+}
+
+// Suppliers
+model ShopSupplier {
+  id            String   @id @default(cuid())
+  
+  name          String
+  contactPerson String?
+  email         String?
+  phone         String?
+  address       String?
+  
+  paymentTermDays Int    @default(30)
+  leadTimeDays    Int    @default(7)
+  
+  totalOrders     Int    @default(0)
+  onTimeDelivery  Decimal @default(100)
+  
+  purchaseOrders  ShopPurchaseOrder[]
+  
+  tenantId        String
+  status          String  @default("ACTIVE")
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([tenantId])
+}
+
+// Purchase Orders
+model ShopPurchaseOrder {
+  id              String        @id @default(cuid())
+  orderNumber     String        @unique
+  
+  supplierId      String
+  supplier        ShopSupplier  @relation(fields: [supplierId], references: [id])
+  
+  subtotal        Decimal
+  taxAmount       Decimal       @default(0)
+  shippingAmount  Decimal       @default(0)
+  total           Decimal
+  
+  status          ShopPOStatus  @default(DRAFT)
+  
+  expectedDate    DateTime?
+  receivedDate    DateTime?
+  
+  notes           String?
+  
+  items           ShopPurchaseOrderItem[]
+  
+  createdById     String
+  
+  tenantId        String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  @@index([orderNumber])
+  @@index([supplierId])
+  @@index([tenantId])
+}
+
+model ShopPurchaseOrderItem {
+  id              String            @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   ShopPurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  
+  productId       String
+  productName     String
+  productSku      String
+  
+  quantity        Decimal
+  receivedQty     Decimal           @default(0)
+  unitCost        Decimal
+  lineTotal       Decimal
+  
+  @@index([purchaseOrderId])
+}
