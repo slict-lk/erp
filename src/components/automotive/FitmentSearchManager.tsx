@@ -1,131 +1,114 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { Search, Car, Wrench } from 'lucide-react';
-
-import { Button } from '@/components/ui/button';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Search, Loader2, CheckCircle, Smartphone } from 'lucide-react';
 import { searchCompatibleParts } from '@/lib/actions/search';
+import { VehicleSelector } from './VehicleSelector';
 
-interface FitmentSearchManagerProps {
-    vehicles: any[]; // List of makes/models to populate dropdowns
-}
+export default function FitmentSearchManager() {
+    const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
+    const [loading, setLoading] = useState(false);
+    const [parts, setParts] = useState<any[]>([]);
+    const [searched, setSearched] = useState(false);
 
-export function FitmentSearchManager({ vehicles }: FitmentSearchManagerProps) {
-    const [make, setMake] = useState('');
-    const [model, setModel] = useState('');
-    const [year, setYear] = useState('');
-    const [results, setResults] = useState<any[]>([]);
-    const [hasSearched, setHasSearched] = useState(false);
-    const [isPending, startTransition] = useTransition();
+    const handleSearch = async () => {
+        if (!selectedVehicle) return;
 
-    // Derive unique makes and models
-    const uniqueMakes = Array.from(new Set(vehicles.map(v => v.make)));
-    const filteredModels = vehicles.filter(v => v.make === make).map(v => v.model);
-
-    const handleSearch = () => {
-        if (!make || !model) return;
-        setHasSearched(true);
-        startTransition(async () => {
-            const parts = await searchCompatibleParts({ make, model, year });
-            setResults(parts);
-        });
+        setLoading(true);
+        try {
+            const results = await searchCompatibleParts({
+                make: selectedVehicle.make,
+                model: selectedVehicle.model,
+                year: selectedVehicle.yearStart.toString()
+            });
+            setParts(results);
+            setSearched(true);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Fitment Search</h2>
-                    <p className="text-muted-foreground">Find parts compatible with specific vehicles.</p>
-                </div>
-            </div>
-
-            <Card>
+            <Card className="bg-gradient-to-br from-background to-muted/20 border-primary/20 shadow-lg">
                 <CardHeader>
-                    <CardTitle>Vehicle Filter</CardTitle>
-                    <CardDescription>Select a vehicle to see all compatible parts.</CardDescription>
+                    <CardTitle className="text-2xl flex items-center gap-2">
+                        Fitment Search tool
+                        <Badge variant="outline" className="ml-auto font-normal text-muted-foreground">
+                            Advanced Cross-Reference
+                        </Badge>
+                    </CardTitle>
+                    <CardDescription>
+                        Select a vehicle to find compatible parts. OEM cross-reference included automatically.
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <Select value={make} onValueChange={setMake}>
-                            <SelectTrigger><SelectValue placeholder="Make (e.g. Toyota)" /></SelectTrigger>
-                            <SelectContent>
-                                {uniqueMakes.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                    <div className="flex flex-col md:flex-row gap-4 items-end">
+                        <div className="flex-1 w-full relative z-20">
+                            <label className="text-sm font-medium mb-1.5 block">Select Vehicle</label>
+                            <VehicleSelector onSelect={setSelectedVehicle} selectedVehicle={selectedVehicle} />
+                        </div>
 
-                        <Select value={model} onValueChange={setModel} disabled={!make}>
-                            <SelectTrigger><SelectValue placeholder="Model (e.g. Corolla)" /></SelectTrigger>
-                            <SelectContent>
-                                {filteredModels.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-
-                        <Input
-                            type="number"
-                            placeholder="Year (Optional)"
-                            value={year}
-                            onChange={(e) => setYear(e.target.value)}
-                        />
-
-                        <Button className="w-full" onClick={handleSearch} disabled={isPending || !make || !model}>
-                            {isPending ? <Search className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                            Find Parts
+                        <Button
+                            onClick={handleSearch}
+                            disabled={!selectedVehicle || loading}
+                            className="bg-primary hover:bg-primary/90 h-12 px-8 min-w-[120px]"
+                        >
+                            {loading ? <Loader2 className="animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                            Search
                         </Button>
                     </div>
                 </CardContent>
             </Card>
 
-            {!hasSearched && (
-                <div className="text-center py-20 bg-slate-50 rounded-lg border border-dashed text-slate-400">
-                    <Car className="mx-auto h-12 w-12 opacity-20 mb-3" />
-                    <p>Select a vehicle above to browse compatible parts.</p>
-                </div>
-            )}
-
-            {hasSearched && (
-                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                    <h3 className="text-lg font-medium">Search Results ({results.length})</h3>
-                    {results.length === 0 ? (
-                        <div className="text-center py-10 text-muted-foreground border rounded-lg">
-                            No parts found for this vehicle.
-                        </div>
-                    ) : (
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                            {results.map((part) => (
-                                <Card key={part.id} className="hover:border-blue-400 transition-colors cursor-pointer">
-                                    <CardHeader className="pb-3 bg-slate-50/50">
-                                        <div className="flex justify-between items-start">
-                                            <Badge variant="outline" className="font-mono">{part.product.sku}</Badge>
-                                            <Badge variant="secondary">{part.partType}</Badge>
+            <div className="space-y-4">
+                {searched && parts.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground bg-muted/10 rounded-lg border border-dashed">
+                        No compatible parts found for this vehicle.
+                    </div>
+                ) : (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {parts.map((part) => (
+                            <Card key={part.id} className="group hover:border-primary/50 transition-colors">
+                                <CardHeader className="pb-3">
+                                    <div className="flex justify-between items-start">
+                                        <Badge variant="secondary" className="mb-2">{part.partType}</Badge>
+                                        <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                                            <CheckCircle className="w-3 h-3 mr-1" /> Fits Verified
+                                        </Badge>
+                                    </div>
+                                    <CardTitle className="leading-tight">{part.product.name}</CardTitle>
+                                    <CardDescription>{part.product.sku}</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">OEM Code:</span>
+                                            <span className="font-mono bg-muted px-1 rounded">{part.oemCode || 'N/A'}</span>
                                         </div>
-                                        <CardTitle className="text-base mt-2 line-clamp-1">{part.product.name}</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="pt-4 space-y-2">
-                                        <div className="flex justify-between text-sm">
+                                        <div className="flex justify-between">
                                             <span className="text-muted-foreground">Price:</span>
-                                            <span className="font-bold">Rs. {part.product.salePrice}</span>
+                                            <span className="font-bold">${part.product.salePrice.toFixed(2)}</span>
                                         </div>
-                                        <div className="flex justify-between text-sm">
+                                        <div className="flex justify-between">
                                             <span className="text-muted-foreground">Stock:</span>
-                                            <span className={part.product.stockQty > 0 ? "text-green-600 font-medium" : "text-red-500 font-medium"}>
-                                                {part.product.stockQty} Units
+                                            <span className={part.product.stockQty > 0 ? "text-green-600 font-medium" : "text-destructive font-medium"}>
+                                                {part.product.stockQty > 0 ? `${part.product.stockQty} Units` : 'Out of Stock'}
                                             </span>
                                         </div>
-                                        <div className="text-xs text-muted-foreground mt-2 border-t pt-2">
-                                            Make: {part.brandOrigin || 'Unknown'}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

@@ -8,7 +8,7 @@ async function getStats() {
     if (!user) return { partCount: 0, lowStockCount: 0, vehicleCount: 0 };
 
     const [partCount, lowStockCount, vehicleCount] = await Promise.all([
-        prisma.automotivePart.count({ where: { tenantId: user.tenantId } }),
+        (prisma as any).automotivePart.count({ where: { tenantId: user.tenantId } }),
         prisma.product.count({
             where: {
                 tenantId: user.tenantId,
@@ -16,7 +16,7 @@ async function getStats() {
                 isActive: true
             }
         }),
-        prisma.vehicle.count({ where: { tenantId: user.tenantId } })
+        (prisma as any).vehicle.count({ where: { tenantId: user.tenantId } })
     ]);
 
     return { partCount, lowStockCount, vehicleCount };

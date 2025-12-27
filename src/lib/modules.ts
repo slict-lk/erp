@@ -179,6 +179,15 @@ export const AVAILABLE_MODULES: Module[] = [
     route: '/quality',
     permissions: { view: true, create: true, edit: true, delete: true },
   },
+  {
+    id: 'automotive',
+    name: 'Automotive',
+    description: 'Automotive parts, fitment search, and shop floor management',
+    category: 'operations',
+    icon: 'Wrench',
+    route: '/automotive',
+    permissions: { view: true, create: true, edit: true, delete: true, export: true, import: true },
+  },
 
   // Human Resources
   {

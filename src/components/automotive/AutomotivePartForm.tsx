@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/components/ui/use-toast';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
@@ -320,38 +320,48 @@ export function AutomotivePartForm({ vehicles = [] }: AutomotivePartFormProps) {
                                                         </FormControl>
                                                     </PopoverTrigger>
                                                     <PopoverContent className="w-[400px] p-0">
-                                                        <Command>
-                                                            <CommandInput placeholder="Search vehicle..." />
-                                                            <CommandEmpty>No vehicle found.</CommandEmpty>
-                                                            <CommandGroup className="max-h-64 overflow-auto">
+                                                        <div className="flex flex-col">
+                                                            <div className="flex items-center border-b px-3 py-2">
+                                                                <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                                                                <Input
+                                                                    placeholder="Search vehicle..."
+                                                                    className="border-0 p-0 h-8 focus-visible:ring-0 focus-visible:ring-offset-0"
+                                                                />
+                                                            </div>
+                                                            <div className="max-h-64 overflow-y-auto p-1">
                                                                 {vehicles.map((vehicle) => {
                                                                     const label = `${vehicle.make} ${vehicle.model} (${vehicle.yearStart}-${vehicle.yearEnd || 'Present'})`;
+                                                                    const isSelected = (field.value || []).includes(label);
                                                                     return (
-                                                                        <CommandItem
-                                                                            value={label}
+                                                                        <button
                                                                             key={vehicle.id}
-                                                                            onSelect={() => {
-                                                                                const current = field.value || []; // Ensure array
-                                                                                const isSelected = current.includes(label);
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                const current = field.value || [];
                                                                                 if (isSelected) {
                                                                                     form.setValue('vehicleModels', current.filter((v: string) => v !== label));
                                                                                 } else {
                                                                                     form.setValue('vehicleModels', [...current, label]);
                                                                                 }
                                                                             }}
+                                                                            className={cn(
+                                                                                "relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors",
+                                                                                "hover:bg-slate-100 dark:hover:bg-slate-800",
+                                                                                isSelected && "bg-slate-100 dark:bg-slate-800"
+                                                                            )}
                                                                         >
                                                                             <Check
                                                                                 className={cn(
                                                                                     "mr-2 h-4 w-4",
-                                                                                    (field.value || []).includes(label) ? "opacity-100" : "opacity-0"
+                                                                                    isSelected ? "opacity-100" : "opacity-0"
                                                                                 )}
                                                                             />
                                                                             {label}
-                                                                        </CommandItem>
+                                                                        </button>
                                                                     );
                                                                 })}
-                                                            </CommandGroup>
-                                                        </Command>
+                                                            </div>
+                                                        </div>
                                                     </PopoverContent>
                                                 </Popover>
                                                 <FormDescription>

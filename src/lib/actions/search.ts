@@ -29,18 +29,74 @@ export async function searchCompatibleParts(criteria: {
         // Prisma doesn't support "array element contains substring" easily.
 
         // FALLBACK: Fetch all AutomotiveParts and filter in memory (OK for small scale demo)
-        const allParts = await prisma.automotivePart.findMany({
+        const allParts = await (prisma as any).automotivePart.findMany({
             where: { tenantId: user.tenantId },
             include: { product: true },
             take: 100
         });
 
-        return allParts.filter(part => {
-            return part.vehicleModels.some(vm => vm.toLowerCase().includes(searchTerm.toLowerCase()));
+        return allParts.filter((part: any) => {
+            return part.vehicleModels.some((vm: string) => vm.toLowerCase().includes(searchTerm.toLowerCase()));
         });
 
     } catch (error) {
         console.error('Fitment search failed:', error);
+        return [];
+    }
+}
+
+export async function searchVehicles(query: string) {
+    try {
+        const user = await getCurrentUser();
+        if (!user) return [];
+
+        if (!query || query.length < 2) return [];
+
+        const vehicles = await (prisma as any).vehicle.findMany({
+            where: {
+                tenantId: user.tenantId,
+                OR: [
+                    { make: { contains: query, mode: 'insensitive' } },
+                    { model: { contains: query, mode: 'insensitive' } },
+                    { engine: { contains: query, mode: 'insensitive' } },
+                ]
+            },
+            take: 10,
+            orderBy: { yearStart: 'desc' }
+        });
+
+        return vehicles;
+    } catch (error) {
+        console.error('Vehicle search failed:', error);
+        return [];
+    }
+}
+
+// Enhanced General Part Search (for Shop Mode & Fuzzy Search)
+export async function searchPartsFuzzy(query: string) {
+    try {
+        const user = await getCurrentUser();
+        if (!user) return [];
+
+        if (!query || query.length < 2) return [];
+
+        return await (prisma as any).automotivePart.findMany({
+            where: {
+                tenantId: user.tenantId,
+                OR: [
+                    { oemCode: { contains: query, mode: 'insensitive' } },
+                    { interchangeNumbers: { contains: query, mode: 'insensitive' } },
+                    { product: { name: { contains: query, mode: 'insensitive' } } },
+                    { product: { sku: { contains: query, mode: 'insensitive' } } },
+                ]
+            },
+            include: {
+                product: true
+            },
+            take: 20
+        });
+    } catch (error) {
+        console.error('Fuzzy search failed:', error);
         return [];
     }
 }

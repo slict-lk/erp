@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -111,30 +111,48 @@ export function StockAdjustmentManager({ initialMovements, warehouses }: StockAd
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-[400px] p-0">
-                                    <Command shouldFilter={false}>
-                                        <CommandInput placeholder="Search..." onValueChange={handleProductSearch} />
-                                        <CommandEmpty>No product found.</CommandEmpty>
-                                        <CommandGroup>
-                                            {products.map((product) => (
-                                                <CommandItem
-                                                    key={product.id}
-                                                    value={product.id}
-                                                    onSelect={() => {
-                                                        setSelectedProduct(product);
-                                                        setProductSearchOpen(false);
-                                                    }}
-                                                >
-                                                    <Check
+                                    <div className="flex flex-col">
+                                        <div className="flex items-center border-b px-3 py-2">
+                                            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                                            <input
+                                                type="text"
+                                                placeholder="Search by SKU or name..."
+                                                onChange={(e) => handleProductSearch(e.target.value)}
+                                                className="flex h-8 w-full bg-transparent text-sm outline-none placeholder:text-slate-500"
+                                            />
+                                        </div>
+                                        <div className="max-h-[300px] overflow-y-auto p-1">
+                                            {products.length === 0 ? (
+                                                <div className="py-6 text-center text-sm text-muted-foreground">
+                                                    No product found.
+                                                </div>
+                                            ) : (
+                                                products.map((product) => (
+                                                    <button
+                                                        key={product.id}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSelectedProduct(product);
+                                                            setProductSearchOpen(false);
+                                                        }}
                                                         className={cn(
-                                                            "mr-2 h-4 w-4",
-                                                            selectedProduct?.id === product.id ? "opacity-100" : "opacity-0"
+                                                            "relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors text-left",
+                                                            "hover:bg-slate-100 dark:hover:bg-slate-800",
+                                                            selectedProduct?.id === product.id && "bg-slate-100 dark:bg-slate-800"
                                                         )}
-                                                    />
-                                                    {product.sku} - {product.name} (Stock: {product.stockQty})
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </Command>
+                                                    >
+                                                        <Check
+                                                            className={cn(
+                                                                "mr-2 h-4 w-4 shrink-0",
+                                                                selectedProduct?.id === product.id ? "opacity-100" : "opacity-0"
+                                                            )}
+                                                        />
+                                                        {product.sku} - {product.name} (Stock: {product.stockQty})
+                                                    </button>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
                                 </PopoverContent>
                             </Popover>
                         </div>

@@ -18,6 +18,7 @@ import {
   Brain,
   Palette,
   Heart,
+  Smartphone,
   Truck,
   MessageCircle,
   Link as LinkIcon,
@@ -54,6 +55,7 @@ interface NavigationChild {
   name: string;
   href: string;
   moduleId?: string;
+  icon?: LucideIcon;
 }
 
 interface NavigationItem {
@@ -122,6 +124,7 @@ const navigation: NavigationItem[] = [
       { name: 'Fitment Search', href: '/automotive/search', moduleId: 'automotive' },
       { name: 'Vehicle Database', href: '/automotive/vehicles', moduleId: 'automotive' },
       { name: 'Stock Adjustments', href: '/automotive/adjustments', moduleId: 'automotive' },
+      { name: 'Shop Mode (Tablet)', href: '/automotive/shop', icon: Smartphone, moduleId: 'automotive' },
     ],
   },
   {
@@ -535,7 +538,7 @@ export function Sidebar({
           className="flex-1 px-3 py-4 space-y-1 overflow-y-auto custom-scrollbar"
         >
           {filteredNavigation.map((item) => {
-            const Icon = item.icon;
+            const Icon = item.icon || Truck; // Fallback icon
             const isActive = pathname === item.href || (pathname.startsWith(item.href + '/') && !item.children);
             const hasChildren = item.children && item.children.length > 0;
             const isOpen = openMenus.includes(item.name);
@@ -573,10 +576,12 @@ export function Sidebar({
                         <div className="ml-4 mt-1 space-y-0.5 border-l border-slate-800 pl-3 py-1">
                           {item.children!.map((child) => {
                             const isChildActive = pathname === child.href;
+                            const ChildIcon = child.icon;
                             return (
                               <Link
                                 key={child.name}
                                 href={child.href}
+                                onClick={onClose}
                                 className={`
                                   flex items-center gap-2 px-3 py-2 rounded-md transition-all duration-200 text-sm
                                   ${isChildActive
@@ -585,7 +590,11 @@ export function Sidebar({
                                   }
                                 `}
                               >
-                                <span className={`w-1.5 h-1.5 rounded-full ${isChildActive ? 'bg-blue-400' : 'bg-slate-600'}`} />
+                                {ChildIcon ? (
+                                  <ChildIcon className={`h-4 w-4 ${isChildActive ? 'text-blue-400' : 'text-slate-600'}`} />
+                                ) : (
+                                  <span className={`w-1.5 h-1.5 rounded-full ${isChildActive ? 'bg-blue-400' : 'bg-slate-600'}`} />
+                                )}
                                 <span>{child.name}</span>
                               </Link>
                             );
@@ -602,6 +611,7 @@ export function Sidebar({
               <Link
                 key={item.name}
                 href={item.href}
+                onClick={onClose}
                 className={`
                   flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group mb-1
                   ${isActive

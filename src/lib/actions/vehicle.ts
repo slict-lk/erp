@@ -9,7 +9,7 @@ export async function getVehicles() {
     const user = await getCurrentUser();
     if (!user) throw new Error("Unauthorized");
 
-    return await prisma.vehicle.findMany({
+    return await (prisma as any).vehicle.findMany({
         where: { tenantId: user.tenantId },
         orderBy: { make: 'asc' },
     });
@@ -17,13 +17,15 @@ export async function getVehicles() {
 
 export async function createVehicle(data: VehicleFormValues) {
     try {
-        const validated = vehicleSchema.parse(data);
-        const tenant = await getOrCreateDefaultTenant();
+        const user = await getCurrentUser();
+        if (!user) throw new Error("Unauthorized");
 
-        const vehicle = await prisma.vehicle.create({
+        const validated = vehicleSchema.parse(data);
+
+        const vehicle = await (prisma as any).vehicle.create({
             data: {
                 ...validated,
-                tenantId: tenant.id,
+                tenantId: user.tenantId,
             },
         });
 
@@ -39,7 +41,7 @@ export async function deleteVehicle(id: string) {
         const user = await getCurrentUser();
         if (!user) throw new Error("Unauthorized");
 
-        await prisma.vehicle.delete({
+        await (prisma as any).vehicle.delete({
             where: { id, tenantId: user.tenantId },
         });
         revalidatePath('/automotive/vehicles');

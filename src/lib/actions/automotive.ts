@@ -35,7 +35,7 @@ export async function createAutomotivePart(data: AutomotivePartFormValues) {
             });
 
             // Create Automotive Specifics
-            await tx.automotivePart.create({
+            await (tx as any).automotivePart.create({
                 data: {
                     tenantId: user.tenantId,
                     productId: product.id,
