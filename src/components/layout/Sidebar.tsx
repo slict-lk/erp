@@ -144,6 +144,7 @@ const navigation: NavigationItem[] = [
       { name: 'Purchases', href: '/spareparts/purchases', moduleId: 'spareparts' },
       { name: 'Reorder', href: '/spareparts/reorder', moduleId: 'spareparts' },
       { name: 'Reports', href: '/spareparts/reports', moduleId: 'spareparts' },
+      { name: 'Storefront', href: '/spareparts/storefront', icon: Palette, moduleId: 'spareparts' },
     ],
   },
   {

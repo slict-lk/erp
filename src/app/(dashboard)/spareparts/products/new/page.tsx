@@ -57,24 +57,50 @@ export default function NewProductPage() {
         const files = e.target.files;
         if (!files) return;
 
+        setLoading(true); // Show loading state during upload
         const uploadedUrls: string[] = [];
 
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            const reader = new FileReader();
+        try {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('folder', 'products'); // Organize in products folder
 
-            await new Promise((resolve) => {
-                reader.onloadend = () => {
-                    if (reader.result) {
-                        uploadedUrls.push(reader.result as string);
+                const res = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.url) {
+                        uploadedUrls.push(data.url);
+                        toast({
+                            title: 'Image Uploaded',
+                            description: `${file.name} converted to WebP`,
+                        });
                     }
-                    resolve(null);
-                };
-                reader.readAsDataURL(file);
+                } else {
+                    toast({
+                        title: 'Upload Failed',
+                        description: `Failed to upload ${file.name}`,
+                        variant: 'destructive',
+                    });
+                }
+            }
+            setImages(prev => [...prev, ...uploadedUrls]);
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Error uploading images',
+                variant: 'destructive',
             });
+        } finally {
+            setLoading(false);
+            // Reset input value to allow selecting same file again if needed
+            e.target.value = '';
         }
-
-        setImages(prev => [...prev, ...uploadedUrls]);
     };
 
     const removeImage = (index: number) => {

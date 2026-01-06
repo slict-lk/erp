@@ -51,17 +51,19 @@ export async function POST(request: Request) {
     const uploadDir = join(process.cwd(), 'public/uploads');
     await mkdir(uploadDir, { recursive: true });
 
-    // Generate unique filename
-    const fileExt = file.name.split('.').pop() || '';
-    const fileName = `${field}-${randomUUID()}.${fileExt}`;
+    // Generate unique filename with webp extension
+    const fileName = `${field}-${randomUUID()}.webp`;
     const filePath = join(uploadDir, fileName);
 
     // Convert file to buffer
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Save file to disk
-    await writeFile(filePath, buffer);
+    // Convert to WebP and save
+    const sharp = require('sharp'); // Dynamic import to avoid build issues if not present yet
+    await sharp(buffer)
+      .webp({ quality: 80 })
+      .toFile(filePath);
 
     // Return public URL
     const publicUrl = `/uploads/${fileName}`;
