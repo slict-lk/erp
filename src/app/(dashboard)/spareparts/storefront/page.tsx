@@ -20,6 +20,17 @@ interface SparePartsConfig {
     address?: string;
     facebookUrl?: string;
     instagramUrl?: string;
+    // New Settings Fields
+    aboutUs?: {
+        story?: string;
+        mission?: string;
+    };
+    businessHours?: {
+        text?: string;
+    };
+    mapUrl?: string;
+    whatsappNumber?: string;
+    linkedinUrl?: string;
 }
 
 interface HeroSlide {
@@ -181,12 +192,12 @@ export default function StorefrontManagerPage() {
                 </button>
             </div>
 
-            {/* Tabs */}
             <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-8 w-fit">
                 {[
                     { id: 'general', label: 'General & Branding', icon: Palette },
+                    { id: 'content', label: 'Page Content', icon: Layout },
                     { id: 'hero', label: 'Hero Slider', icon: Layout },
-                    { id: 'categories', label: 'Visual Categories', icon: Image },
+                    { id: 'categories', label: 'Visual Categories', icon: ImageIcon },
                     { id: 'contact', label: 'Contact Info', icon: Globe },
                 ].map(tab => (
                     <button
@@ -197,7 +208,7 @@ export default function StorefrontManagerPage() {
                             ${activeTab === tab.id ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}
                         `}
                     >
-                        {/* @ts-ignore */}
+                        {/* Render Icon safely */}
                         <tab.icon size={16} />
                         {tab.label}
                     </button>
@@ -251,6 +262,35 @@ export default function StorefrontManagerPage() {
                                 <div className="flex items-center gap-3">
                                     <input type="color" {...register('secondaryColor')} className="w-12 h-12 p-1 rounded cursor-pointer" />
                                     <input {...register('secondaryColor')} className="px-4 py-2 rounded-lg border border-gray-200 w-32 uppercase" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* PAGE CONTENT TAB */}
+                {activeTab === 'content' && (
+                    <div className="space-y-6 max-w-3xl">
+                        <div className="space-y-4">
+                            <h3 className="text-lg font-bold">About Us Page</h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Our Story</label>
+                                    <textarea
+                                        {...register('aboutUs.story')}
+                                        rows={6}
+                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:border-blue-500 transition-all"
+                                        placeholder="Tell your customers about your journey..."
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Mission Statement</label>
+                                    <textarea
+                                        {...register('aboutUs.mission')}
+                                        rows={3}
+                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:border-blue-500 transition-all"
+                                        placeholder="Our mission is to..."
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -393,28 +433,43 @@ export default function StorefrontManagerPage() {
 
                 {/* CONTACT TAB */}
                 {activeTab === 'contact' && (
-                    <div className="space-y-6 max-w-2xl">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                                <input {...register('contactEmail')} className="w-full px-4 py-2 rounded-lg border border-gray-200" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                                <input {...register('contactPhone')} className="w-full px-4 py-2 rounded-lg border border-gray-200" />
-                            </div>
-                            <div className="col-span-2">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                                <textarea {...register('address')} rows={2} className="w-full px-4 py-2 rounded-lg border border-gray-200" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Facebook URL</label>
-                                <input {...register('facebookUrl')} className="w-full px-4 py-2 rounded-lg border border-gray-200" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Instagram URL</label>
-                                <input {...register('instagramUrl')} className="w-full px-4 py-2 rounded-lg border border-gray-200" />
-                            </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <input {...register('contactEmail')} className="w-full px-4 py-2 rounded-lg border border-gray-200" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                            <input {...register('contactPhone')} className="w-full px-4 py-2 rounded-lg border border-gray-200" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp Number</label>
+                            <input {...register('whatsappNumber')} placeholder="+94..." className="w-full px-4 py-2 rounded-lg border border-gray-200" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Business Hours Text</label>
+                            <input {...register('businessHours.text')} placeholder="Mon-Sat: 9am - 6pm" className="w-full px-4 py-2 rounded-lg border border-gray-200" />
+                        </div>
+                        <div className="col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                            <textarea {...register('address')} rows={2} className="w-full px-4 py-2 rounded-lg border border-gray-200" />
+                        </div>
+                        <div className="col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Google Maps Embed URL</label>
+                            <input {...register('mapUrl')} placeholder="https://www.google.com/maps/embed?..." className="w-full px-4 py-2 rounded-lg border border-gray-200" />
+                            <p className="text-xs text-gray-400 mt-1">Paste the 'Embed a map' HTML src only.</p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Facebook URL</label>
+                            <input {...register('facebookUrl')} className="w-full px-4 py-2 rounded-lg border border-gray-200" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Instagram URL</label>
+                            <input {...register('instagramUrl')} className="w-full px-4 py-2 rounded-lg border border-gray-200" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">LinkedIn URL</label>
+                            <input {...register('linkedinUrl')} className="w-full px-4 py-2 rounded-lg border border-gray-200" />
                         </div>
                     </div>
                 )}

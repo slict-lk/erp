@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
                 logo: true,
                 primaryColor: true,
                 companyName: true,
+                settings: true,
             }
         });
 
@@ -69,15 +70,24 @@ export async function GET(request: NextRequest) {
                     benefits: [
                         { icon: 'Truck', title: 'Island-wide Delivery', description: 'Within 24 hours' },
                         { icon: 'Shield', title: 'Quality Guarantee', description: 'Original & Aftermarket' }
-                    ]
+                    ],
                 }
             });
         }
 
+        // 3. Merge Tenant Settings (JSON) into the Config object for runtime flexibility
+        // This ensures if we add "aboutUs" to the Tenant.settings in DB, it overrides or augments the static config
+        const mergedConfig = {
+            ...config,
+            aboutUs: (tenant.settings as any)?.aboutUs || (config as any).aboutUs,
+            businessHours: (tenant.settings as any)?.businessHours || (config as any).businessHours,
+            mapUrl: (tenant.settings as any)?.mapUrl || (config as any).mapUrl,
+        };
+
         return NextResponse.json({
             tenantId: tenant.id,
             subdomain: tenant.subdomain,
-            config: config
+            config: mergedConfig
         });
 
     } catch (error: any) {

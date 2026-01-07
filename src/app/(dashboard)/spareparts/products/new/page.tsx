@@ -71,9 +71,21 @@ export default function NewProductPage() {
         }
     };
 
-    // ... handleFileUpload ...
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files) return;
 
-    // ... removeImage ...
+        // For now, just show a toast that upload is not yet implemented
+        // In production, this would upload to a server and return URLs
+        toast({
+            title: "Info",
+            description: "File upload requires server configuration. Please use URL input for now.",
+        });
+    };
+
+    const removeImage = (index: number) => {
+        setImages(prev => prev.filter((_, i) => i !== index));
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

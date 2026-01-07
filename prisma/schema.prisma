@@ -476,6 +476,7 @@ model Tenant {
   users          User[]
   properties     Property[]
   propertyAgents PropertyAgent[]
+  sparePartsConfig SparePartsConfig[]
 
   @@index([subdomain])
   @@index([domain])
@@ -3070,6 +3071,7 @@ model SparePart {
 model SparePartsConfig {
   id              String   @id @default(cuid())
   tenantId        String   @unique
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   
   // Branding
   storeName       String
