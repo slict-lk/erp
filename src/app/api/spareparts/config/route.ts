@@ -7,17 +7,18 @@ export async function GET(req: NextRequest) {
     try {
         // TEMPORARY: Find the first tenant for development if auth is not fully set up
         // In production, get tenantId from session
-        const tenant = await prisma.tenant.findFirst({
-            include: { sparePartsConfig: true }
-        });
+        const tenant = await prisma.tenant.findFirst();
 
         if (!tenant) {
             return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
         }
 
-        let config = tenant.sparePartsConfig[0];
+        // Query SparePartsConfig separately to avoid type issues
+        let config = await prisma.sparePartsConfig.findUnique({
+            where: { tenantId: tenant.id }
+        });
 
-        // Auto-provision if missing (copied from public route logic)
+        // Auto-provision if missing
         if (!config) {
             config = await prisma.sparePartsConfig.create({
                 data: {
