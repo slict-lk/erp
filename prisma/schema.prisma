@@ -3057,6 +3057,7 @@ model SparePart {
   condition        String?
   images           String[] @default([])
   isActive         Boolean  @default(true)
+  aliases          SparePartAlias[]
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -3122,6 +3123,72 @@ model SparePartsConfig {
   @@index([tenantId])
 }
 
+// ============================================================================
+// SPARE PARTS PROMOTIONS - Quantity-Based Tiered Discounts
+// ============================================================================
+
+model SparePromotion {
+  id              String   @id @default(cuid())
+  tenantId        String
+  
+  // Basic Info
+  name            String
+  description     String?
+  code            String?   // Optional promo code
+  
+  // Promotion Type
+  type            String    // AUTOMATIC | CODE | QUANTITY
+  discountType    String    // PERCENTAGE | FIXED_AMOUNT
+  discountValue   Decimal   @default(0) // For non-tiered promotions
+  
+  // Targeting Scope
+  targetScope     String    @default("ALL") // ALL | CATEGORY | PRODUCT
+  targetProducts  String[]  @default([])    // Product IDs when scope is PRODUCT
+  targetCategories String[] @default([])    // Category names when scope is CATEGORY
+  
+  // Constraints
+  minimumPurchase Decimal?  // Minimum order amount
+  maximumDiscount Decimal?  // Cap on discount amount
+  
+  // Validity
+  startDate       DateTime  @default(now())
+  endDate         DateTime?
+  isActive        Boolean   @default(true)
+  
+  // Usage Tracking
+  usageCount      Int       @default(0)
+  usageLimit      Int?      // null = unlimited
+  
+  // Stacking
+  stackable       Boolean   @default(true) // Can combine with other promotions
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  tiers           SparePromotionTier[]
+  
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([type])
+  @@index([isActive])
+}
+
+model SparePromotionTier {
+  id            String   @id @default(cuid())
+  promotionId   String
+  promotion     SparePromotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  
+  minQuantity   Int
+  maxQuantity   Int?      // null = unlimited (e.g., 100+)
+  discountType  String    // PERCENTAGE | FIXED_AMOUNT
+  discountValue Decimal
+  
+  createdAt     DateTime  @default(now())
+  
+  @@index([promotionId])
+}
+
 model SparePartsBranch {
   id          String   @id @default(cuid())
   tenantId    String
@@ -3160,6 +3227,7 @@ model CustomerCreditTransaction {
 model ShopCustomer {
   id              String           @id @default(cuid())
   customerNumber  String           @unique
+  password        String?          // For online accounts
   name            String
   email           String?
   phone           String
@@ -3189,11 +3257,42 @@ model ShopCustomer {
   creditApprovedBy String?
   creditApprovedAt DateTime?
   creditNotes      String?
+  
+  taxStatus        String   @default("STANDARD") // STANDARD | EXEMPT
 
   @@index([customerNumber])
   @@index([phone])
   @@index([tenantId])
   @@index([customerType])
+}
+
+model ShopCreditNote {
+  id                String      @id @default(cuid())
+  creditNoteNumber  String      @unique
+  originalInvoiceId String
+  originalInvoice   ShopInvoice @relation(fields: [originalInvoiceId], references: [id])
+  reason            String?
+  totalReturnAmount Decimal
+  taxReversed       Decimal     @default(0)
+  
+  createdById       String
+  tenantId          String
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  @@index([originalInvoiceId])
+  @@index([tenantId])
+}
+
+model SparePartAlias {
+  id             String    @id @default(cuid())
+  sparePartId    String
+  sparePart      SparePart @relation(fields: [sparePartId], references: [id], onDelete: Cascade)
+  aliasNumber    String
+  brand          String?
+  
+  @@index([aliasNumber])
+  @@index([sparePartId])
 }
 
 model ShopCustomerVehicle {
@@ -3252,6 +3351,7 @@ model ShopInvoice {
   items          ShopInvoiceItem[]
   payments       ShopInvoicePayment[]
   appliedPromos  ShopAppliedPromotion[]
+  creditNotes    ShopCreditNote[]
 
   @@index([invoiceNumber])
   @@index([customerId])

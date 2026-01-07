@@ -16,9 +16,6 @@ export async function GET(req: NextRequest) {
         // Mocking finding the config for the tenant
         // Default to a known tenant or find one
         const config = await prisma.sparePartsConfig.findFirst({
-            include: {
-                tenant: true
-            }
         });
 
         return NextResponse.json(config);

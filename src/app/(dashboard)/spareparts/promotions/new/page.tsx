@@ -34,25 +34,52 @@ export default function NewPromotionPage() {
         startDate: new Date().toISOString().split('T')[0],
         endDate: '',
         targetType: 'ALL',
+        targetProducts: '',
+        targetCategories: '',
     });
+
+    const [tiers, setTiers] = useState<Array<{
+        minQuantity: string;
+        maxQuantity: string;
+        discountType: string;
+        discountValue: string;
+    }>>([
+        { minQuantity: '10', maxQuantity: '', discountType: 'PERCENTAGE', discountValue: '5' }
+    ]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
 
         try {
+            const payload: any = {
+                ...formData,
+                discountValue: parseFloat(formData.discountValue) || 0,
+                minimumPurchase: formData.minimumPurchase ? parseFloat(formData.minimumPurchase) : null,
+                maximumDiscount: formData.maximumDiscount ? parseFloat(formData.maximumDiscount) : null,
+                startDate: new Date(formData.startDate),
+                endDate: formData.endDate ? new Date(formData.endDate) : null,
+                targetScope: formData.targetType, // Map targetType to targetScope for backend
+                targetProducts: formData.targetProducts ? formData.targetProducts.split(',').map(s => s.trim()) : [],
+                targetCategories: formData.targetCategories ? formData.targetCategories.split(',').map(s => s.trim()) : [],
+                isActive: true,
+            };
+
+            if (formData.type === 'QUANTITY') {
+                payload.tiers = tiers.map(t => ({
+                    minQuantity: parseInt(t.minQuantity),
+                    maxQuantity: t.maxQuantity ? parseInt(t.maxQuantity) : null,
+                    discountType: t.discountType,
+                    discountValue: parseFloat(t.discountValue)
+                }));
+                // Quantity promos don't usually have a single discount value
+                payload.discountValue = 0;
+            }
+
             const res = await fetch('/api/spareparts/promotions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...formData,
-                    discountValue: parseFloat(formData.discountValue) || 0,
-                    minimumPurchase: formData.minimumPurchase ? parseFloat(formData.minimumPurchase) : null,
-                    maximumDiscount: formData.maximumDiscount ? parseFloat(formData.maximumDiscount) : null,
-                    startDate: new Date(formData.startDate),
-                    endDate: formData.endDate ? new Date(formData.endDate) : null,
-                    isActive: true,
-                }),
+                body: JSON.stringify(payload),
             });
 
             if (res.ok) {
@@ -78,6 +105,20 @@ export default function NewPromotionPage() {
 
     const handleChange = (field: string, value: string) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
+    };
+
+    const handleTierChange = (index: number, field: string, value: string) => {
+        const newTiers = [...tiers];
+        (newTiers[index] as any)[field] = value;
+        setTiers(newTiers);
+    };
+
+    const addTier = () => {
+        setTiers([...tiers, { minQuantity: '', maxQuantity: '', discountType: 'PERCENTAGE', discountValue: '' }]);
+    };
+
+    const removeTier = (index: number) => {
+        setTiers(tiers.filter((_, i) => i !== index));
     };
 
     return (
@@ -157,59 +198,124 @@ export default function NewPromotionPage() {
                                         <SelectItem value="CODE">Promo Code</SelectItem>
                                         <SelectItem value="AUTOMATIC">Automatic</SelectItem>
                                         <SelectItem value="COUPON">Coupon</SelectItem>
+                                        <SelectItem value="QUANTITY">Quantity (Tiered)</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="discountType">Discount Type</Label>
-                                <Select value={formData.discountType} onValueChange={(v) => handleChange('discountType', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="PERCENTAGE">Percentage (%)</SelectItem>
-                                        <SelectItem value="FIXED_AMOUNT">Fixed Amount (LKR)</SelectItem>
-                                        <SelectItem value="BUY_X_GET_Y">Buy X Get Y</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            {formData.type !== 'QUANTITY' && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="discountType">Discount Type</Label>
+                                    <Select value={formData.discountType} onValueChange={(v) => handleChange('discountType', v)}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="PERCENTAGE">Percentage (%)</SelectItem>
+                                            <SelectItem value="FIXED_AMOUNT">Fixed Amount (LKR)</SelectItem>
+                                            <SelectItem value="BUY_X_GET_Y">Buy X Get Y</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="discountValue">
-                                    Discount Value * {formData.discountType === 'PERCENTAGE' ? '(%)' : '(LKR)'}
-                                </Label>
-                                <Input
-                                    id="discountValue"
-                                    type="number"
-                                    step="0.01"
-                                    value={formData.discountValue}
-                                    onChange={(e) => handleChange('discountValue', e.target.value)}
-                                    placeholder={formData.discountType === 'PERCENTAGE' ? '10' : '500'}
-                                    required
-                                />
+
+                        {formData.type === 'QUANTITY' ? (
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <Label>Quantity Tiers</Label>
+                                    <Button type="button" variant="outline" size="sm" onClick={addTier}>
+                                        Add Tier
+                                    </Button>
+                                </div>
+                                {tiers.map((tier, index) => (
+                                    <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end border p-3 rounded-lg relative">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">Min Qty</Label>
+                                            <Input
+                                                type="number"
+                                                value={tier.minQuantity}
+                                                onChange={(e) => handleTierChange(index, 'minQuantity', e.target.value)}
+                                                placeholder="10"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">Max Qty (Optional)</Label>
+                                            <Input
+                                                type="number"
+                                                value={tier.maxQuantity}
+                                                onChange={(e) => handleTierChange(index, 'maxQuantity', e.target.value)}
+                                                placeholder="99"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">Type</Label>
+                                            <Select value={tier.discountType} onValueChange={(v) => handleTierChange(index, 'discountType', v)}>
+                                                <SelectTrigger className="h-10">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="PERCENTAGE">%</SelectItem>
+                                                    <SelectItem value="FIXED_AMOUNT">LKR</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">Value</Label>
+                                            <Input
+                                                type="number"
+                                                value={tier.discountValue}
+                                                onChange={(e) => handleTierChange(index, 'discountValue', e.target.value)}
+                                                placeholder="5"
+                                            />
+                                        </div>
+                                        <div>
+                                            {index > 0 && (
+                                                <Button type="button" variant="destructive" size="sm" onClick={() => removeTier(index)}>
+                                                    Remove
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="minimumPurchase">Minimum Purchase (LKR)</Label>
-                                <Input
-                                    id="minimumPurchase"
-                                    type="number"
-                                    value={formData.minimumPurchase}
-                                    onChange={(e) => handleChange('minimumPurchase', e.target.value)}
-                                    placeholder="5000"
-                                />
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="discountValue">
+                                        Discount Value * {formData.discountType === 'PERCENTAGE' ? '(%)' : '(LKR)'}
+                                    </Label>
+                                    <Input
+                                        id="discountValue"
+                                        type="number"
+                                        step="0.01"
+                                        value={formData.discountValue}
+                                        onChange={(e) => handleChange('discountValue', e.target.value)}
+                                        placeholder={formData.discountType === 'PERCENTAGE' ? '10' : '500'}
+                                        required={formData.type !== 'QUANTITY'}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="minimumPurchase">Minimum Purchase (LKR)</Label>
+                                    <Input
+                                        id="minimumPurchase"
+                                        type="number"
+                                        value={formData.minimumPurchase}
+                                        onChange={(e) => handleChange('minimumPurchase', e.target.value)}
+                                        placeholder="5000"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="maximumDiscount">Max Discount (LKR)</Label>
+                                    <Input
+                                        id="maximumDiscount"
+                                        type="number"
+                                        value={formData.maximumDiscount}
+                                        onChange={(e) => handleChange('maximumDiscount', e.target.value)}
+                                        placeholder="10000"
+                                    />
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="maximumDiscount">Max Discount (LKR)</Label>
-                                <Input
-                                    id="maximumDiscount"
-                                    type="number"
-                                    value={formData.maximumDiscount}
-                                    onChange={(e) => handleChange('maximumDiscount', e.target.value)}
-                                    placeholder="10000"
-                                />
-                            </div>
-                        </div>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -255,6 +361,28 @@ export default function NewPromotionPage() {
                                 </SelectContent>
                             </Select>
                         </div>
+                        {formData.targetType === 'PRODUCT' && (
+                            <div className="space-y-2">
+                                <Label htmlFor="targetProducts">Product IDs (Comma separated)</Label>
+                                <Input
+                                    id="targetProducts"
+                                    value={formData.targetProducts}
+                                    onChange={(e) => handleChange('targetProducts', e.target.value)}
+                                    placeholder="prod_123, prod_456"
+                                />
+                            </div>
+                        )}
+                        {formData.targetType === 'CATEGORY' && (
+                            <div className="space-y-2">
+                                <Label htmlFor="targetCategories">Categories (Comma separated)</Label>
+                                <Input
+                                    id="targetCategories"
+                                    value={formData.targetCategories}
+                                    onChange={(e) => handleChange('targetCategories', e.target.value)}
+                                    placeholder="Engine, Brakes"
+                                />
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 

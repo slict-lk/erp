@@ -39,6 +39,9 @@ export async function GET(request: NextRequest) {
             where,
             orderBy: { createdAt: 'desc' },
             take: limit ? parseInt(limit) : undefined,
+            include: {
+                aliases: true,
+            }
         });
 
         return NextResponse.json({ products });
@@ -75,6 +78,12 @@ export async function POST(request: NextRequest) {
                 condition: body.condition || 'NEW',
                 images: body.images || [],
                 isActive: true,
+                aliases: body.aliases ? {
+                    create: body.aliases.map((alias: any) => ({
+                        aliasNumber: alias.aliasNumber,
+                        brand: alias.brand
+                    }))
+                } : undefined,
             },
         });
 

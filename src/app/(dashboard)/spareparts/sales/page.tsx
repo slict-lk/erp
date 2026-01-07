@@ -35,6 +35,7 @@ interface Invoice {
     dueAmount: number;
     status: string;
     paymentStatus: string;
+    source: string;
     createdAt: string;
     _count: { items: number };
 }
@@ -78,6 +79,7 @@ export default function SalesPage() {
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [paymentFilter, setPaymentFilter] = useState<string>('all');
+    const [sourceFilter, setSourceFilter] = useState<string>('all');
     const [refreshing, setRefreshing] = useState(false);
 
     const fetchInvoices = useCallback(async () => {
@@ -86,6 +88,7 @@ export default function SalesPage() {
             const params = new URLSearchParams();
             if (statusFilter && statusFilter !== 'all') params.set('status', statusFilter);
             if (paymentFilter && paymentFilter !== 'all') params.set('paymentStatus', paymentFilter);
+            if (sourceFilter && sourceFilter !== 'all') params.set('source', sourceFilter);
 
             const res = await fetch(`/api/spareparts/sales?${params.toString()}`);
             if (res.ok) {
@@ -98,7 +101,7 @@ export default function SalesPage() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [statusFilter, paymentFilter]);
+    }, [statusFilter, paymentFilter, sourceFilter]);
 
     useEffect(() => {
         fetchInvoices();
@@ -160,6 +163,17 @@ export default function SalesPage() {
                                 <SelectItem value="OVERDUE">Overdue</SelectItem>
                             </SelectContent>
                         </Select>
+
+                        <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                            <SelectTrigger className="w-full sm:w-[180px]">
+                                <SelectValue placeholder="Order Source" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Sources</SelectItem>
+                                <SelectItem value="POS">POS (In-Store)</SelectItem>
+                                <SelectItem value="ONLINE">Online Orders</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 </CardContent>
             </Card>
@@ -207,9 +221,16 @@ export default function SalesPage() {
                                             <TableRow key={invoice.id}>
                                                 <TableCell>
                                                     <div>
-                                                        <p className="font-medium text-gray-900 dark:text-white">
-                                                            {invoice.invoiceNumber}
-                                                        </p>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="font-medium text-gray-900 dark:text-white">
+                                                                {invoice.invoiceNumber}
+                                                            </p>
+                                                            {invoice.source === 'ONLINE' && (
+                                                                <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 text-[10px] px-1.5 py-0">
+                                                                    ONLINE
+                                                                </Badge>
+                                                            )}
+                                                        </div>
                                                         <p className="text-sm text-gray-500">
                                                             {invoice._count.items} items
                                                         </p>

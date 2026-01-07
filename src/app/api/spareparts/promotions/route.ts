@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPromotions, createPromotion } from '@/apps/spareparts/api';
+import { getQuantityPromotions, createQuantityPromotion } from '@/apps/spareparts/api';
 import { getCurrentUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const active = searchParams.get('active');
 
-        const promotions = await getPromotions(user.tenantId, {
+        const promotions = await getQuantityPromotions(user.tenantId, {
             active: active === 'true' ? true : active === 'false' ? false : undefined,
         });
 
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json();
 
-        const promotion = await createPromotion({
+        const promotion = await createQuantityPromotion({
             ...body,
             tenantId: user.tenantId,
         });

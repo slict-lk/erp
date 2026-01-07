@@ -193,6 +193,7 @@ export async function getInvoices(tenantId: string, options?: {
     dateFrom?: Date;
     dateTo?: Date;
     customerId?: string;
+    source?: string;
     limit?: number;
     offset?: number;
 }) {
@@ -201,6 +202,7 @@ export async function getInvoices(tenantId: string, options?: {
     if (options?.status) where.status = options.status;
     if (options?.paymentStatus) where.paymentStatus = options.paymentStatus;
     if (options?.customerId) where.customerId = options.customerId;
+    if (options?.source) where.source = options.source;
     if (options?.dateFrom || options?.dateTo) {
         where.createdAt = {};
         if (options?.dateFrom) where.createdAt.gte = options.dateFrom;
@@ -269,8 +271,32 @@ export async function addInvoiceItem(invoiceId: string, item: InvoiceItemInput, 
     }
 
     const unitPrice = item.unitPrice ?? product.salePrice;
-    const discountPercent = item.discountPercent ?? 0;
-    const discountAmount = (unitPrice * item.quantity * discountPercent) / 100;
+
+    // Calculate Quantity Discount
+    const qtyDiscount = await calculateQuantityDiscount(tenantId, item.productId, product.category, item.quantity);
+    let qtyDiscountAmount = 0;
+
+    if (qtyDiscount) {
+        if (qtyDiscount.discountType === 'PERCENTAGE') {
+            qtyDiscountAmount = (unitPrice * item.quantity * qtyDiscount.discountValue) / 100;
+        } else {
+            // Fixed amount: applied to the total line item (once)
+            qtyDiscountAmount = qtyDiscount.discountValue;
+        }
+        console.log(`Applying quantity discount (${qtyDiscount.promotionName}): ${qtyDiscountAmount}`);
+    }
+
+    // Combine with manual discount (if any)
+    const manualDiscountPercent = item.discountPercent ?? 0;
+    const manualDiscountAmount = (unitPrice * item.quantity * manualDiscountPercent) / 100;
+
+    const discountAmount = manualDiscountAmount + qtyDiscountAmount;
+
+    // Back-calculate total percent for reference (approx)
+    const discountPercent = (unitPrice * item.quantity) > 0
+        ? (discountAmount / (unitPrice * item.quantity)) * 100
+        : 0;
+
     const subtotal = unitPrice * item.quantity - discountAmount;
     const taxRate = item.taxRate ?? 0;
     const taxAmount = (subtotal * taxRate) / 100;
@@ -1052,3 +1078,268 @@ export async function getRecentTransactions(tenantId: string, limit = 10) {
     });
 }
 
+// ============================================================================
+// QUANTITY PROMOTIONS - Tiered Discounts (SparePromotion model)
+// ============================================================================
+
+export async function getQuantityPromotions(tenantId: string, options?: {
+    active?: boolean;
+    type?: string;
+}) {
+    const where: any = { tenantId };
+
+    if (options?.active !== undefined) where.isActive = options.active;
+    if (options?.type) where.type = options.type;
+
+    return (prisma as any).sparePromotion.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        include: {
+            tiers: { orderBy: { minQuantity: 'asc' } },
+            _count: { select: { tiers: true } }
+        }
+    });
+}
+
+export async function getQuantityPromotionById(id: string, tenantId: string) {
+    return (prisma as any).sparePromotion.findFirst({
+        where: { id, tenantId },
+        include: {
+            tiers: { orderBy: { minQuantity: 'asc' } }
+        }
+    });
+}
+
+export async function createQuantityPromotion(data: {
+    tenantId: string;
+    name: string;
+    description?: string;
+    code?: string;
+    type: string;
+    discountType: string;
+    discountValue?: number;
+    targetScope?: string;
+    targetProducts?: string[];
+    targetCategories?: string[];
+    minimumPurchase?: number;
+    maximumDiscount?: number;
+    startDate?: Date;
+    endDate?: Date;
+    usageLimit?: number;
+    stackable?: boolean;
+    tiers?: Array<{
+        minQuantity: number;
+        maxQuantity?: number;
+        discountType: string;
+        discountValue: number;
+    }>;
+}) {
+    const { tiers, ...promotionData } = data;
+
+    return (prisma as any).sparePromotion.create({
+        data: {
+            ...promotionData,
+            discountValue: promotionData.discountValue || 0,
+            tiers: tiers ? {
+                create: tiers.map((tier: any) => ({
+                    minQuantity: tier.minQuantity,
+                    maxQuantity: tier.maxQuantity,
+                    discountType: tier.discountType,
+                    discountValue: tier.discountValue
+                }))
+            } : undefined
+        },
+        include: { tiers: true }
+    });
+}
+
+export async function updateQuantityPromotion(id: string, tenantId: string, data: {
+    name?: string;
+    description?: string;
+    code?: string;
+    type?: string;
+    discountType?: string;
+    discountValue?: number;
+    targetScope?: string;
+    targetProducts?: string[];
+    targetCategories?: string[];
+    minimumPurchase?: number;
+    maximumDiscount?: number;
+    startDate?: Date;
+    endDate?: Date;
+    isActive?: boolean;
+    usageLimit?: number;
+    stackable?: boolean;
+    tiers?: Array<{
+        minQuantity: number;
+        maxQuantity?: number;
+        discountType: string;
+        discountValue: number;
+    }>;
+}) {
+    const { tiers, ...promotionData } = data;
+
+    // Delete existing tiers if new ones provided
+    if (tiers) {
+        await (prisma as any).sparePromotionTier.deleteMany({
+            where: { promotionId: id }
+        });
+    }
+
+    return (prisma as any).sparePromotion.update({
+        where: { id },
+        data: {
+            ...promotionData,
+            tiers: tiers ? {
+                create: tiers.map((tier: any) => ({
+                    minQuantity: tier.minQuantity,
+                    maxQuantity: tier.maxQuantity,
+                    discountType: tier.discountType,
+                    discountValue: tier.discountValue
+                }))
+            } : undefined
+        },
+        include: { tiers: true }
+    });
+}
+
+/**
+ * Calculate quantity discount for a specific product
+ * 
+ * @param tenantId Tenant ID
+ * @param productId Product ID
+ * @param productCategory Product category
+ * @param quantity Quantity being purchased
+ * @returns Discount info or null if no applicable discount
+ */
+export async function calculateQuantityDiscount(
+    tenantId: string,
+    productId: string,
+    productCategory: string | null,
+    quantity: number
+): Promise<{
+    promotionId: string;
+    promotionName: string;
+    discountType: string;
+    discountValue: number;
+    tierId: string;
+} | null> {
+    // Find active QUANTITY promotions
+    const now = new Date();
+
+    const promotions = await (prisma as any).sparePromotion.findMany({
+        where: {
+            tenantId,
+            type: 'QUANTITY',
+            isActive: true,
+            startDate: { lte: now },
+            OR: [
+                { endDate: null },
+                { endDate: { gte: now } }
+            ]
+        },
+        include: {
+            tiers: { orderBy: { minQuantity: 'desc' } } // Highest tier first
+        }
+    });
+
+    for (const promo of promotions) {
+        // Check if product is targeted
+        let isTargeted = false;
+
+        if (promo.targetScope === 'ALL') {
+            isTargeted = true;
+        } else if (promo.targetScope === 'PRODUCT' && promo.targetProducts.includes(productId)) {
+            isTargeted = true;
+        } else if (promo.targetScope === 'CATEGORY' && productCategory && promo.targetCategories.includes(productCategory)) {
+            isTargeted = true;
+        }
+
+        if (!isTargeted) continue;
+
+        // Find matching tier (highest applicable)
+        for (const tier of promo.tiers) {
+            if (quantity >= tier.minQuantity) {
+                if (tier.maxQuantity === null || quantity <= tier.maxQuantity) {
+                    return {
+                        promotionId: promo.id,
+                        promotionName: promo.name,
+                        discountType: tier.discountType,
+                        discountValue: Number(tier.discountValue),
+                        tierId: tier.id
+                    };
+                }
+            }
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Get quantity discount tiers for a product (for display on product page)
+ */
+export async function getProductQuantityDiscounts(
+    tenantId: string,
+    productId: string,
+    productCategory: string | null
+): Promise<Array<{
+    promotionName: string;
+    minQuantity: number;
+    maxQuantity: number | null;
+    discountType: string;
+    discountValue: number;
+}>> {
+    const now = new Date();
+
+    const promotions = await (prisma as any).sparePromotion.findMany({
+        where: {
+            tenantId,
+            type: 'QUANTITY',
+            isActive: true,
+            startDate: { lte: now },
+            OR: [
+                { endDate: null },
+                { endDate: { gte: now } }
+            ]
+        },
+        include: {
+            tiers: { orderBy: { minQuantity: 'asc' } }
+        }
+    });
+
+    const result: Array<{
+        promotionName: string;
+        minQuantity: number;
+        maxQuantity: number | null;
+        discountType: string;
+        discountValue: number;
+    }> = [];
+
+    for (const promo of promotions) {
+        // Check if product is targeted
+        let isTargeted = false;
+
+        if (promo.targetScope === 'ALL') {
+            isTargeted = true;
+        } else if (promo.targetScope === 'PRODUCT' && promo.targetProducts.includes(productId)) {
+            isTargeted = true;
+        } else if (promo.targetScope === 'CATEGORY' && productCategory && promo.targetCategories.includes(productCategory)) {
+            isTargeted = true;
+        }
+
+        if (!isTargeted) continue;
+
+        for (const tier of promo.tiers) {
+            result.push({
+                promotionName: promo.name,
+                minQuantity: tier.minQuantity,
+                maxQuantity: tier.maxQuantity,
+                discountType: tier.discountType,
+                discountValue: Number(tier.discountValue)
+            });
+        }
+    }
+
+    return result;
+}

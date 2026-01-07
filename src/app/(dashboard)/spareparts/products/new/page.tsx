@@ -42,9 +42,27 @@ export default function NewProductPage() {
         condition: 'NEW',
     });
 
+    const [aliases, setAliases] = useState<{ aliasNumber: string; brand: string }[]>([]);
+
     const handleInputChange = (field: string, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
+
+    const handleAddAlias = () => {
+        setAliases([...aliases, { aliasNumber: '', brand: '' }]);
+    };
+
+    const handleRemoveAlias = (index: number) => {
+        setAliases(aliases.filter((_, i) => i !== index));
+    };
+
+    const handleAliasChange = (index: number, field: 'aliasNumber' | 'brand', value: string) => {
+        const newAliases = [...aliases];
+        newAliases[index][field] = value;
+        setAliases(newAliases);
+    };
+
+    // ... existing handlers ...
 
     const handleAddImageUrl = () => {
         if (imageUrlInput.trim()) {
@@ -53,59 +71,9 @@ export default function NewProductPage() {
         }
     };
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files;
-        if (!files) return;
+    // ... handleFileUpload ...
 
-        setLoading(true); // Show loading state during upload
-        const uploadedUrls: string[] = [];
-
-        try {
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('folder', 'products'); // Organize in products folder
-
-                const res = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.url) {
-                        uploadedUrls.push(data.url);
-                        toast({
-                            title: 'Image Uploaded',
-                            description: `${file.name} converted to WebP`,
-                        });
-                    }
-                } else {
-                    toast({
-                        title: 'Upload Failed',
-                        description: `Failed to upload ${file.name}`,
-                        variant: 'destructive',
-                    });
-                }
-            }
-            setImages(prev => [...prev, ...uploadedUrls]);
-        } catch (error) {
-            toast({
-                title: 'Error',
-                description: 'Error uploading images',
-                variant: 'destructive',
-            });
-        } finally {
-            setLoading(false);
-            // Reset input value to allow selecting same file again if needed
-            e.target.value = '';
-        }
-    };
-
-    const removeImage = (index: number) => {
-        setImages(prev => prev.filter((_, i) => i !== index));
-    };
+    // ... removeImage ...
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -143,6 +111,7 @@ export default function NewProductPage() {
                     condition: formData.condition || 'NEW',
                     images: images,
                     isActive: true,
+                    aliases: aliases.filter(a => a.aliasNumber.trim() !== '') // Send aliases
                 }),
             });
 
@@ -317,6 +286,7 @@ export default function NewProductPage() {
                                 <CardDescription>Additional part information</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
+                                {/* ... existing fields ... */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label htmlFor="partNumber">OEM Part Number</Label>
@@ -351,6 +321,59 @@ export default function NewProductPage() {
                                     />
                                     <p className="text-xs text-gray-500">Enter vehicle models separated by commas</p>
                                 </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Replacement Part Numbers / Aliases */}
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between">
+                                <div>
+                                    <CardTitle>Replacement Part Numbers</CardTitle>
+                                    <CardDescription>Add aliases or alternative part numbers</CardDescription>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleAddAlias}
+                                >
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Add Alias
+                                </Button>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {aliases.map((alias, index) => (
+                                    <div key={index} className="flex gap-4 items-end">
+                                        <div className="flex-1">
+                                            <Label>Alias Number</Label>
+                                            <Input
+                                                value={alias.aliasNumber}
+                                                onChange={(e) => handleAliasChange(index, 'aliasNumber', e.target.value)}
+                                                placeholder="e.g. C-1109"
+                                            />
+                                        </div>
+                                        <div className="flex-1">
+                                            <Label>Brand (Optional)</Label>
+                                            <Input
+                                                value={alias.brand}
+                                                onChange={(e) => handleAliasChange(index, 'brand', e.target.value)}
+                                                placeholder="e.g. VIC"
+                                            />
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                            onClick={() => handleRemoveAlias(index)}
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                                {aliases.length === 0 && (
+                                    <p className="text-sm text-gray-500 italic">No aliases added.</p>
+                                )}
                             </CardContent>
                         </Card>
                     </div>

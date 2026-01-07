@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,10 @@ const productSchema = z.object({
   volume: z.number().min(0).optional(),
   canBeSold: z.boolean().optional(),
   canBePurchased: z.boolean().optional(),
+  aliases: z.array(z.object({
+    aliasNumber: z.string().min(1, 'Alias number is required'),
+    brand: z.string().optional()
+  })).optional()
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -58,6 +62,7 @@ export function ProductForm({ initialData, categories = [], onSubmit, onCancel }
     formState: { errors },
     setValue,
     watch,
+    control // Add control
   } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
     defaultValues: {
@@ -74,12 +79,22 @@ export function ProductForm({ initialData, categories = [], onSubmit, onCancel }
       volume: initialData?.volume || 0,
       canBeSold: initialData?.canBeSold ?? true,
       canBePurchased: initialData?.canBePurchased ?? true,
+      aliases: (initialData as any)?.aliases || [] // Initialize aliases
     },
+  });
+
+  // Use Field Array for Aliases
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "aliases",
   });
 
   const productType = watch('type');
 
+  // ... buildCategoryOptions function and onSubmit ...
+
   const buildCategoryOptions = (categories: Category[], level = 0): Array<{ value: string; label: string; level: number }> => {
+    // ... existing logic
     const options: Array<{ value: string; label: string; level: number }> = [];
 
     categories.forEach(category => {
@@ -114,6 +129,7 @@ export function ProductForm({ initialData, categories = [], onSubmit, onCancel }
           <CardTitle>Product Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* ... SKU, Name, Description fields ... */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="sku">SKU / Product Code *</Label>
@@ -205,6 +221,58 @@ export function ProductForm({ initialData, categories = [], onSubmit, onCancel }
         </CardContent>
       </Card>
 
+      {/* Replacement Part Numbers / Aliases */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Replacement Part Numbers / Aliases</CardTitle>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => append({ aliasNumber: '', brand: '' })}
+          >
+            + Add Another Alias
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {fields.map((field, index) => (
+            <div key={field.id} className="flex gap-4 items-end">
+              <div className="flex-1">
+                <Label>Alias Number</Label>
+                <Input
+                  {...register(`aliases.${index}.aliasNumber` as const)}
+                  placeholder="e.g. C-1109"
+                  className={errors.aliases?.[index]?.aliasNumber ? 'border-red-500' : ''}
+                />
+                {errors.aliases?.[index]?.aliasNumber && (
+                  <p className="text-sm text-red-500 mt-1">{errors.aliases[index]?.aliasNumber?.message}</p>
+                )}
+              </div>
+              <div className="flex-1">
+                <Label>Brand (Optional)</Label>
+                <Input
+                  {...register(`aliases.${index}.brand` as const)}
+                  placeholder="e.g. VIC"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                onClick={() => remove(index)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+          {fields.length === 0 && (
+            <p className="text-sm text-gray-500 italic">No aliases added. Click "Add Another Alias" to add one.</p>
+          )}
+        </CardContent>
+      </Card>
+
+
       {/* Pricing */}
       <Card>
         <CardHeader>
@@ -241,6 +309,7 @@ export function ProductForm({ initialData, categories = [], onSubmit, onCancel }
         </CardContent>
       </Card>
 
+      {/* ... Inventory and Form Actions ... */}
       {/* Inventory */}
       {productType !== 'SERVICE' && (
         <Card>

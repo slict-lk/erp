@@ -15,12 +15,14 @@ export async function GET(request: NextRequest) {
         const status = searchParams.get('status') || undefined;
         const paymentStatus = searchParams.get('paymentStatus') || undefined;
         const customerId = searchParams.get('customerId') || undefined;
+        const source = searchParams.get('source') || undefined;
         const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
 
         const invoices = await getInvoices(user.tenantId, {
             status,
             paymentStatus,
             customerId,
+            source,
             limit,
         });
 

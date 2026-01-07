@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { getQuantityPromotions } from '@/apps/spareparts/api';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * GET /api/public/spareparts/products
+ * Query Params: subdomain, category, brand, search, page, limit
+ */
+// Type definition for the response
+type ProductWithPromos = any;
 
 /**
  * GET /api/public/spareparts/products
@@ -46,29 +53,104 @@ export async function GET(request: NextRequest) {
             where.brand = brand;
         }
 
+        // Vehicle compatibility filter
+        const vehicleMake = searchParams.get('make');
+        const vehicleModel = searchParams.get('model');
+        const vehicleYear = searchParams.get('year');
+
+        if (vehicleMake || vehicleModel || vehicleYear) {
+            // Build vehicle search pattern: "Make Model Year" format
+            const vehiclePatterns: string[] = [];
+            if (vehicleMake) vehiclePatterns.push(vehicleMake);
+            if (vehicleModel) vehiclePatterns.push(vehicleModel);
+            if (vehicleYear) vehiclePatterns.push(vehicleYear);
+
+            // Filter products where compatibleModels contains any matching pattern
+            where.compatibleModels = {
+                hasSome: vehiclePatterns
+            };
+        }
+
         if (search) {
             where.OR = [
                 { name: { contains: search, mode: 'insensitive' } },
                 { sku: { contains: search, mode: 'insensitive' } },
                 { description: { contains: search, mode: 'insensitive' } },
                 { partNumber: { contains: search, mode: 'insensitive' } },
+                // Add Alias Search
+                {
+                    aliases: {
+                        some: {
+                            aliasNumber: { contains: search, mode: 'insensitive' }
+                        }
+                    }
+                }
             ];
         }
 
-        // Execute query
-        // Using 'any' for counts if client types aren't regenerated
+        // Execute query - Include Aliases in response
         const [products, total] = await Promise.all([
             prisma.sparePart.findMany({
                 where,
                 skip: offset,
                 take: limit,
-                orderBy: { createdAt: 'desc' }
-            }),
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    aliases: true // Fetch aliases for post-processing
+                }
+            } as any),
             prisma.sparePart.count({ where })
         ]);
 
+        // Fetch active quantity promotions
+        const activePromotions = await getQuantityPromotions(tenant.id, {
+            active: true,
+            type: 'QUANTITY'
+        });
+
+        // Post-processing to find matched alias and attach promotions
+        const processedProducts = products.map((product: any) => {
+            // Logic to find which alias matched the search term
+            let matchedAlias = null;
+            if (search && product.aliases && product.aliases.length > 0) {
+                const searchLower = search.toLowerCase();
+                // Find the best match (exact or partial)
+                const found = product.aliases.find((a: any) =>
+                    a.aliasNumber.toLowerCase().includes(searchLower)
+                );
+                if (found) {
+                    matchedAlias = found.aliasNumber;
+                }
+            }
+
+            const applicablePromos = activePromotions.filter((promo: any) => {
+                // ... existing promo filter logic
+                if (promo.targetScope === 'ALL') return true;
+                if (promo.targetScope === 'PRODUCT' && promo.targetProducts.includes(product.id)) return true;
+                if (promo.targetScope === 'CATEGORY' && product.category && promo.targetCategories.includes(product.category)) return true;
+                return false;
+            });
+
+            const tiers = applicablePromos.flatMap((promo: any) =>
+                promo.tiers.map((tier: any) => ({
+                    promotionName: promo.name,
+                    minQuantity: tier.minQuantity,
+                    maxQuantity: tier.maxQuantity,
+                    discountType: tier.discountType,
+                    discountValue: Number(tier.discountValue)
+                }))
+            ).sort((a: any, b: any) => a.minQuantity - b.minQuantity);
+
+
+            return {
+                ...product,
+                matchedAlias, // New field for frontend
+                quantityDiscounts: tiers
+            };
+        });
+
         return NextResponse.json({
-            data: products,
+            data: processedProducts,
             meta: {
                 total,
                 page,
@@ -78,6 +160,7 @@ export async function GET(request: NextRequest) {
         });
 
     } catch (error) {
+        // ... error handling
         console.error('Error fetching spare parts:', error);
         return NextResponse.json(
             { error: 'Failed to fetch products' },
