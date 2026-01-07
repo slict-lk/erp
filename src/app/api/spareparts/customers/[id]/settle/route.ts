@@ -28,7 +28,7 @@ export async function POST(
         // Use transaction to ensure data integrity
         const result = await prisma.$transaction(async (tx) => {
             // 1. Get current customer to check balance
-            const customer = await (tx as any).shopCustomer.findUnique({
+            const customer = await (tx as any).shopCustomer.findFirst({
                 where: { id: id, tenantId: user.tenantId },
             });
 

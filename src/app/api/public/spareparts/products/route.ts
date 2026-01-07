@@ -30,10 +30,14 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Subdomain required' }, { status: 400 });
         }
 
+        console.log('[DEBUG] Public API Products - Subdomain:', subdomain);
+
         const tenant = await prisma.tenant.findUnique({
             where: { subdomain },
-            select: { id: true }
+            select: { id: true, name: true }
         });
+
+        console.log('[DEBUG] Public API Products - Resolved Tenant:', tenant?.id, tenant?.name);
 
         if (!tenant) {
             return NextResponse.json({ error: 'Store not found' }, { status: 404 });

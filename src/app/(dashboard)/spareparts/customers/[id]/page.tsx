@@ -71,6 +71,9 @@ export default function CustomerProfilePage() {
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [loading, setLoading] = useState(true);
 
+    const [error, setError] = useState<string | null>(null);
+    const [debugInfo, setDebugInfo] = useState<any>(null);
+
     const fetchCustomer = useCallback(async () => {
         try {
             const res = await fetch(`/api/spareparts/customers/${params.id}`);
@@ -78,14 +81,18 @@ export default function CustomerProfilePage() {
                 const data = await res.json();
                 setCustomer(data);
             } else {
+                const errData = await res.json().catch(() => ({ error: res.statusText }));
+                setError(errData.error || `Error ${res.status}`);
+                setDebugInfo({ status: res.status, ...errData });
                 toast({
                     title: 'Error',
-                    description: 'Failed to fetch customer details',
+                    description: errData.error || 'Failed to fetch customer details',
                     variant: 'destructive',
                 });
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error fetching customer:', error);
+            setError(error.message);
         } finally {
             setLoading(false);
         }
@@ -105,16 +112,27 @@ export default function CustomerProfilePage() {
         );
     }
 
-    if (!customer) {
+    if (error || !customer) {
         return (
             <div className="p-6 text-center">
-                <h1 className="text-2xl font-bold">Customer Not Found</h1>
-                <Link href="/spareparts/customers">
-                    <Button className="mt-4" variant="outline">
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to Customers
-                    </Button>
-                </Link>
+                <h1 className="text-2xl font-bold text-red-600">
+                    {error || 'Customer Not Found'}
+                </h1>
+                {debugInfo && (
+                    <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded text-left inline-block max-w-lg overflow-auto">
+                        <p className="font-mono text-xs text-red-500">
+                            Debug Info: {JSON.stringify(debugInfo, null, 2)}
+                        </p>
+                    </div>
+                )}
+                <div className="mt-8">
+                    <Link href="/spareparts/customers">
+                        <Button variant="outline">
+                            <ArrowLeft className="mr-2 h-4 w-4" />
+                            Back to Customers
+                        </Button>
+                    </Link>
+                </div>
             </div>
         );
     }
