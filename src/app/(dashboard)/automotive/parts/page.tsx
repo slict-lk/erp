@@ -1,6 +1,8 @@
 import { AutomotivePartForm } from '@/components/automotive/AutomotivePartForm';
 import { getVehicles } from '@/lib/actions/vehicle';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AutomotivePartsPage() {
     const vehicles = await getVehicles();
 

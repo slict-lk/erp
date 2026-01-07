@@ -3,6 +3,8 @@ import { Wrench, AlertTriangle, ArrowUpRight, DollarSign } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 async function getStats() {
     const user = await getCurrentUser();
     if (!user) return { partCount: 0, lowStockCount: 0, vehicleCount: 0 };
