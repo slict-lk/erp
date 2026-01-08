@@ -52,7 +52,8 @@ export async function POST(request: Request) {
     await mkdir(uploadDir, { recursive: true });
 
     // Generate unique filename with webp extension
-    const fileName = `${field}-${randomUUID()}.webp`;
+    const prefix = field || 'upload';
+    const fileName = `${prefix}-${randomUUID()}.webp`;
     const filePath = join(uploadDir, fileName);
 
     // Convert file to buffer

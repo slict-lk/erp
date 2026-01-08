@@ -37,7 +37,7 @@ export async function POST(req: Request) {
             }
         });
 
-        // Get tenant config for email styling
+        // Get tenant config for email styling and tax
         const tenantConfig = await prisma.sparePartsConfig.findUnique({
             where: { tenantId: tenant?.id || '' },
             select: {
@@ -45,12 +45,15 @@ export async function POST(req: Request) {
                 primaryColor: true,
                 contactPhone: true,
                 contactEmail: true,
+                taxRate: true,
             }
         });
 
         if (!tenant) {
             return new NextResponse('Invalid store.', { status: 404 });
         }
+
+        const taxRate = Number(tenantConfig?.taxRate || 0);
 
         // 2.5 Resolve Customer & Check Credit Limit (if applicable)
         let shopCustomer = null;
@@ -69,7 +72,11 @@ export async function POST(req: Request) {
         let estimatedTotal = 0;
         for (const item of items) {
             const product = await (prisma as any).sparePart.findUnique({ where: { id: item.productId } });
-            if (product) estimatedTotal += Number(product.salePrice) * item.quantity;
+            if (product) {
+                const lineTotal = Number(product.salePrice) * item.quantity;
+                const lineTax = (lineTotal * taxRate) / 100;
+                estimatedTotal += lineTotal + lineTax;
+            }
         }
 
         if (paymentMethod === 'CREDIT' && shopCustomer) {
@@ -138,7 +145,8 @@ export async function POST(req: Request) {
         for (const item of items) {
             await addInvoiceItem(invoice.id, {
                 productId: item.productId,
-                quantity: item.quantity
+                quantity: item.quantity,
+                taxRate: taxRate
             }, tenant.id);
         }
 

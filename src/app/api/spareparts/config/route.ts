@@ -1,13 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth-options';
 
 export async function GET(req: NextRequest) {
     try {
-        // TEMPORARY: Find the first tenant for development if auth is not fully set up
-        // In production, get tenantId from session
-        const tenant = await prisma.tenant.findFirst();
+        // Initialize session to get correct tenant
+        const session = await getServerSession(authOptions);
+
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Get tenantId from session
+        const tenantId = session.user.tenantId;
+
+        if (!tenantId) {
+            return NextResponse.json({ error: 'No tenant associated with user' }, { status: 403 });
+        }
+
+        const tenant = await prisma.tenant.findUnique({
+            where: { id: tenantId }
+        });
+
+        if (tenant) {
+            console.log('[DEBUG-INTERNAL-API] Found Tenant via Session:', tenant.id, tenant.name, tenant.subdomain);
+        } else {
+            console.log('[DEBUG-INTERNAL-API] Tenant not found for ID:', tenantId);
+        }
 
         if (!tenant) {
             return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
@@ -44,13 +64,16 @@ export async function GET(req: NextRequest) {
             facebookUrl: s.facebookUrl || config.facebookUrl,
             instagramUrl: s.instagramUrl || config.instagramUrl,
 
-            // New fields from settings
-            aboutUs: s.aboutUs || {},
-            businessHours: s.businessHours || {},
-            mapUrl: s.mapUrl || '',
-            whatsappNumber: s.whatsappNumber || '',
-            linkedinUrl: s.linkedinUrl || '',
+            // New fields from settings (fallback) or config
+            // Legacy Support: Check for 'banners' in settings if promoBanners is empty
+            promoBanners: (config as any).promoBanners || (tenant.settings as any)?.promoBanners || (tenant.settings as any)?.banners || [],
         };
+
+        console.log('[DEBUG-CONFIG] Tenant ID:', tenant.id);
+        console.log('[DEBUG-CONFIG] Config promoBanners (raw):', JSON.stringify((config as any).promoBanners));
+        console.log('[DEBUG-CONFIG] Settings promoBanners (raw):', JSON.stringify((tenant.settings as any)?.promoBanners));
+        console.log('[DEBUG-CONFIG] Settings banners (legacy):', JSON.stringify((tenant.settings as any)?.banners));
+        console.log('[DEBUG-CONFIG] Merged Config promoBanners length:', (mergedConfig.promoBanners as any[])?.length);
 
         return NextResponse.json(mergedConfig);
     } catch (error) {
@@ -64,12 +87,19 @@ export async function PATCH(req: NextRequest) {
         const body = await req.json();
         const { id, tenantId, ...data } = body;
 
+        // Legacy Support: Remap 'banners' to 'promoBanners'
+        if (data.banners && !data.promoBanners) {
+            console.log('[DEBUG-API] Remapping legacy banners to promoBanners');
+            data.promoBanners = data.banners;
+            delete data.banners;
+        }
+
         if (!id) {
             return NextResponse.json({ error: 'Config ID required' }, { status: 400 });
         }
 
         // Separate fields for SparePartsConfig vs Tenant.settings
-        const configFields = ['storeName', 'tagline', 'primaryColor', 'secondaryColor', 'logoUrl', 'heroSlides', 'banners', 'featuredCategories', 'currency', 'taxRate'];
+        const configFields = ['storeName', 'tagline', 'primaryColor', 'secondaryColor', 'logoUrl', 'heroSlides', 'promoBanners', 'featuredCategories', 'currency', 'taxRate', 'aboutUs', 'services'];
 
         const configData: any = {};
         const settingsData: any = {};

@@ -47,6 +47,48 @@ export default withAuth(
     const path = req.nextUrl.pathname;
     const hostname = req.headers.get('host') || '';
 
+    // --- Dynamic CORS Handling for Public API ---
+    if (path.startsWith('/api/public')) {
+      const origin = req.headers.get('origin');
+      console.log(`[Middleware] ${req.method} ${path} | Origin: ${origin}`);
+
+      const allowedOrigins = [
+        'http://localhost:3001',
+        'https://spareparts.slict.lk',
+        'https://www.spareparts.slict.lk',
+        'http://localhost:3000'
+      ];
+
+      // Prepare response (handle preflight or standard request)
+      let res = NextResponse.next();
+
+      if (req.method === 'OPTIONS') {
+        res = new NextResponse(null, { status: 200 });
+      }
+
+      // Allow if origin is in list OR if no origin (server-to-server/local)
+      if (origin && allowedOrigins.includes(origin)) {
+        res.headers.set('Access-Control-Allow-Origin', origin);
+      } else if (!origin) {
+        // Fallback for non-browser requests or local testing
+        res.headers.set('Access-Control-Allow-Origin', '*');
+      }
+
+      // Always set these for preflight
+      res.headers.set('Access-Control-Allow-Credentials', 'true');
+      res.headers.set('Access-Control-Allow-Methods', 'GET,DELETE,PATCH,POST,PUT,OPTIONS');
+      res.headers.set('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-Tenant-Subdomain, Authorization');
+
+
+      if (req.method === 'OPTIONS') {
+        return res;
+      }
+
+      // Pass through plain response with headers attached
+      return res;
+    }
+    // ---------------------------------------------
+
     // Tenant subdomain handling
     const hostParts = hostname.split('.');
     const requestHeaders = new Headers(req.headers);
@@ -90,23 +132,19 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
+      authorized: ({ token, req }) => {
+        // Allow public API routes without token
+        if (req.nextUrl.pathname.startsWith('/api/public')) return true;
+        // Require token for everything else
+        return !!token;
+      },
     },
   }
 );
 
 export const config = {
   matcher: [
-    // Match all request paths except:
-    // 1. /api/auth (NextAuth)
-    // 1b. /api/public (Public APIs)
-    // 1c. /api/public/hotel (Specific bypass just in case regex is tricky)
-    // 2. /_next (Next.js internals)
-    // 3. /_static (inside /public)
-    // 4. /login (Public login page)
-    // 5. /register (Public register page - if enabled)
-    // 6. all root files inside /public (e.g. /favicon.ico)
-    // 7. ROOT PATH / (Landing Page)
-    '/((?!api/auth|api/public|_next/|_static/|login|register|favicon.ico|$).*)',
+    // Include api/public in matcher so middleware runs for it
+    '/((?!api/auth|_next/|_static/|login|register|favicon.ico|$).*)',
   ],
 };

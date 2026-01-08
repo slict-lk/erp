@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Save, Upload, Plus, Trash2, Image as ImageIcon, Globe, Layout, Palette } from 'lucide-react';
+import { Save, Upload, Plus, Trash2, Image as ImageIcon, Globe, Layout, Palette, Wrench } from 'lucide-react';
 import Image from 'next/image';
 import { toast } from 'sonner';
 
@@ -24,7 +24,16 @@ interface SparePartsConfig {
     aboutUs?: {
         story?: string;
         mission?: string;
+        stats?: Array<{ value: string; label: string; icon: string }>;
+        values?: Array<{ title: string; desc: string }>;
     };
+    services?: Array<{
+        title: string;
+        description: string;
+        icon: string;
+        linkText: string;
+        linkUrl: string;
+    }>;
     businessHours?: {
         text?: string;
     };
@@ -44,8 +53,10 @@ interface HeroSlide {
 interface Banner {
     id: string;
     title: string;
+    subtitle?: string;
     imageUrl: string;
     link?: string;
+    bgColor?: string;
     size: 'large' | 'medium' | 'small';
 }
 
@@ -140,6 +151,12 @@ export default function StorefrontManagerPage() {
                         newCats[index].imageUrl = url;
                         setValue('featuredCategories', newCats, { shouldDirty: true });
                     }
+                } else if (fieldName === 'banner') {
+                    const newBanners = [...(watch('promoBanners') || [])];
+                    if (index !== undefined && newBanners[index]) {
+                        newBanners[index].imageUrl = url;
+                        setValue('promoBanners', newBanners, { shouldDirty: true });
+                    }
                 }
                 return 'Image uploaded successfully';
             },
@@ -196,7 +213,9 @@ export default function StorefrontManagerPage() {
                 {[
                     { id: 'general', label: 'General & Branding', icon: Palette },
                     { id: 'content', label: 'Page Content', icon: Layout },
+                    { id: 'services', label: 'Services', icon: Wrench },
                     { id: 'hero', label: 'Hero Slider', icon: Layout },
+                    { id: 'banners', label: 'Promo Banners', icon: Layout },
                     { id: 'categories', label: 'Visual Categories', icon: ImageIcon },
                     { id: 'contact', label: 'Contact Info', icon: Globe },
                 ].map(tab => (
@@ -270,7 +289,7 @@ export default function StorefrontManagerPage() {
 
                 {/* PAGE CONTENT TAB */}
                 {activeTab === 'content' && (
-                    <div className="space-y-6 max-w-3xl">
+                    <div className="space-y-8 max-w-4xl">
                         <div className="space-y-4">
                             <h3 className="text-lg font-bold">About Us Page</h3>
                             <div className="space-y-4">
@@ -279,7 +298,7 @@ export default function StorefrontManagerPage() {
                                     <textarea
                                         {...register('aboutUs.story')}
                                         rows={6}
-                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:border-blue-500 transition-all"
+                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:border-blue-500 transition-all font-sans text-sm"
                                         placeholder="Tell your customers about your journey..."
                                     />
                                 </div>
@@ -288,11 +307,133 @@ export default function StorefrontManagerPage() {
                                     <textarea
                                         {...register('aboutUs.mission')}
                                         rows={3}
-                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:border-blue-500 transition-all"
+                                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:border-blue-500 transition-all font-sans text-sm"
                                         placeholder="Our mission is to..."
                                     />
                                 </div>
                             </div>
+                        </div>
+
+                        {/* About Us Stats */}
+                        <div className="space-y-4 pt-6 border-t border-gray-100">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-lg font-bold">Key Stats</h3>
+                                <div className="text-xs text-gray-500">Edit values displayed on About page</div>
+                            </div>
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                {[0, 1, 2, 3].map((i) => (
+                                    <div key={i} className="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
+                                        <div>
+                                            <label className="text-xs font-semibold text-gray-500 uppercase">Value</label>
+                                            <input {...register(`aboutUs.stats.${i}.value` as any)} placeholder="10k+" className="w-full mt-1 px-3 py-2 bg-white rounded border border-gray-200 text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-semibold text-gray-500 uppercase">Label</label>
+                                            <input {...register(`aboutUs.stats.${i}.label` as any)} placeholder="Customers" className="w-full mt-1 px-3 py-2 bg-white rounded border border-gray-200 text-sm" />
+                                        </div>
+                                        <input type="hidden" {...register(`aboutUs.stats.${i}.icon` as any)} value={['Users', 'Award', 'Truck', 'HeadphonesIcon'][i]} />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* About Us Values */}
+                        <div className="space-y-4 pt-6 border-t border-gray-100">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-lg font-bold">Core Values <span className="text-sm font-normal text-gray-500">(Why Choose Us)</span></h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {[0, 1, 2].map((i) => (
+                                    <div key={i} className="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
+                                        <div>
+                                            <label className="text-xs font-semibold text-gray-500 uppercase">Title</label>
+                                            <input {...register(`aboutUs.values.${i}.title` as any)} placeholder="Quality" className="w-full mt-1 px-3 py-2 bg-white rounded border border-gray-200 text-sm font-medium" />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-semibold text-gray-500 uppercase">Description</label>
+                                            <textarea {...register(`aboutUs.values.${i}.desc` as any)} rows={4} placeholder="Description..." className="w-full mt-1 px-3 py-2 bg-white rounded border border-gray-200 text-sm" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* SERVICES TAB */}
+                {activeTab === 'services' && (
+                    <div className="space-y-6">
+                        <div className="flex justify-between items-center">
+                            <div className="space-y-1">
+                                <h3 className="text-lg font-bold">Services</h3>
+                                <p className="text-sm text-gray-500">Manage the services displayed on your Services page.</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const current = watch('services') || [];
+                                    setValue('services' as any, [...current, { title: 'New Service', description: '', icon: 'Wrench', linkText: 'Learn More', linkUrl: '#' }]);
+                                }}
+                                className="text-sm flex items-center gap-1 text-blue-600 font-medium hover:underline"
+                            >
+                                <Plus size={16} /> Add Service
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-6">
+                            {(watch('services' as any) || []).map((service: any, index: number) => (
+                                <div key={index} className="flex gap-6 p-6 border border-gray-100 rounded-xl bg-gray-50 relative group">
+                                    <div className="w-16 h-16 bg-white rounded-xl shadow-sm border border-gray-200 flex items-center justify-center shrink-0">
+                                        {/* Simple Icon Selector Visualization */}
+                                        <div className="text-2xl text-blue-600 font-bold">
+                                            {service.icon === 'Search' && '🔍'}
+                                            {service.icon === 'Car' && '🚗'}
+                                            {service.icon === 'Wrench' && '🔧'}
+                                            {service.icon === 'PenTool' && '🖊️'}
+                                            {!['Search', 'Car', 'Wrench', 'PenTool'].includes(service.icon) && '★'}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="md:col-span-2">
+                                            <label className="text-xs font-semibold text-gray-500 uppercase">Service Title</label>
+                                            <input {...register(`services.${index}.title` as any)} className="w-full mt-1 px-3 py-2 bg-white rounded border border-gray-200 text-sm font-medium" />
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <label className="text-xs font-semibold text-gray-500 uppercase">Description</label>
+                                            <textarea {...register(`services.${index}.description` as any)} rows={2} className="w-full mt-1 px-3 py-2 bg-white rounded border border-gray-200 text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-semibold text-gray-500 uppercase">Button Text</label>
+                                            <input {...register(`services.${index}.linkText` as any)} className="w-full mt-1 px-3 py-2 bg-white rounded border border-gray-200 text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-semibold text-gray-500 uppercase">Link URL</label>
+                                            <input {...register(`services.${index}.linkUrl` as any)} className="w-full mt-1 px-3 py-2 bg-white rounded border border-gray-200 text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-semibold text-gray-500 uppercase">Icon</label>
+                                            <select {...register(`services.${index}.icon` as any)} className="w-full mt-1 px-3 py-2 bg-white rounded border border-gray-200 text-sm">
+                                                <option value="Wrench">Wrench (Repair)</option>
+                                                <option value="Car">Car (Special Orders)</option>
+                                                <option value="Search">Search (Consultation)</option>
+                                                <option value="PenTool">Pen (Wholesale)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const current = watch('services' as any) || [];
+                                            setValue('services' as any, current.filter((_: any, i: number) => i !== index));
+                                        }}
+                                        className="absolute top-4 right-4 text-red-400 hover:text-red-600 p-1 bg-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 )}
@@ -354,6 +495,100 @@ export default function StorefrontManagerPage() {
                                     <button
                                         type="button"
                                         onClick={() => removeSlide(index)}
+                                        className="absolute top-4 right-4 text-red-400 hover:text-red-600 p-1 bg-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* PROMO BANNERS TAB */}
+                {activeTab === 'banners' && (
+                    <div className="space-y-6">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-lg font-bold">Promo Banners</h3>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const current = watch('banners') || [];
+                                    setValue('banners', [
+                                        ...current,
+                                        { id: Date.now().toString(), title: 'New Banner', subtitle: 'Subtitle', imageUrl: '', link: '#', bgColor: '#1E3A5F', size: 'medium' }
+                                    ]);
+                                }}
+                                className="text-sm flex items-center gap-1 text-blue-600 font-medium hover:underline"
+                            >
+                                <Plus size={16} /> Add Banner
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-6">
+                            {(watch('banners') || []).map((banner, index) => (
+                                <div key={index} className="flex gap-6 p-6 border border-gray-100 rounded-xl bg-gray-50 relative group">
+                                    {/* Image Upload Area */}
+                                    <div className="w-32 h-32 bg-white rounded-lg shadow-sm border border-gray-200 flex items-center justify-center relative overflow-hidden shrink-0">
+                                        {banner.imageUrl ? (
+                                            <Image src={banner.imageUrl} alt="Banner" fill className="object-cover" />
+                                        ) : (
+                                            <span className="text-xs text-gray-400">No Image</span>
+                                        )}
+                                        <label className="absolute inset-0 bg-black/0 hover:bg-black/10 cursor-pointer transition-colors flex items-center justify-center">
+                                            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'banner', index)} />
+                                            <Upload className="text-white opacity-0 group-hover:opacity-100 drop-shadow-md" />
+                                        </label>
+                                    </div>
+
+                                    {/* Inputs */}
+                                    <div className="flex-1 grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-xs font-medium text-gray-500">Title</label>
+                                            <input
+                                                {...register(`banners.${index}.title` as const)}
+                                                className="w-full mt-1 px-3 py-2 rounded border border-gray-200 text-sm"
+                                                placeholder="Car Audio"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-medium text-gray-500">Subtitle</label>
+                                            <input
+                                                {...register(`banners.${index}.subtitle` as any)} // Using any slightly to avoid strict TS if interface mismatch
+                                                className="w-full mt-1 px-3 py-2 rounded border border-gray-200 text-sm"
+                                                placeholder="Super Natural Sound"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-medium text-gray-500">Link URL</label>
+                                            <input
+                                                {...register(`banners.${index}.link` as const)}
+                                                className="w-full mt-1 px-3 py-2 rounded border border-gray-200 text-sm"
+                                                placeholder="/category/audio"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-medium text-gray-500">Background Color</label>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <input
+                                                    type="color"
+                                                    {...register(`banners.${index}.bgColor` as any)}
+                                                    className="w-8 h-8 p-0.5 rounded border border-gray-200 cursor-pointer"
+                                                />
+                                                <input
+                                                    {...register(`banners.${index}.bgColor` as any)}
+                                                    className="flex-1 px-3 py-1.5 rounded border border-gray-200 text-sm uppercase"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const current = watch('banners') || [];
+                                            setValue('banners', current.filter((_, i) => i !== index));
+                                        }}
                                         className="absolute top-4 right-4 text-red-400 hover:text-red-600 p-1 bg-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
                                         <Trash2 size={16} />

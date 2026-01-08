@@ -92,13 +92,29 @@ export async function GET(request: NextRequest) {
             ];
         }
 
+        const sort = searchParams.get('sort') || 'latest';
+
+        // Determine sorting
+        let orderBy: any = { createdAt: 'desc' };
+        if (sort === 'popular') {
+            orderBy = { views: 'desc' };
+        } else if (sort === 'bestsellers') {
+            orderBy = { totalSales: 'desc' };
+        } else if (sort === 'price_asc') {
+            orderBy = { salePrice: 'asc' };
+        } else if (sort === 'price_desc') {
+            orderBy = { salePrice: 'desc' };
+        } else if (sort === 'name_asc') {
+            orderBy = { name: 'asc' };
+        }
+
         // Execute query - Include Aliases in response
         const [products, total] = await Promise.all([
             prisma.sparePart.findMany({
                 where,
                 skip: offset,
                 take: limit,
-                orderBy: { createdAt: 'desc' },
+                orderBy,
                 include: {
                     aliases: true // Fetch aliases for post-processing
                 }

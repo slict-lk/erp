@@ -3058,6 +3058,8 @@ model SparePart {
   condition        String?
   images           String[] @default([])
   isActive         Boolean  @default(true)
+  views            Int      @default(0)
+  totalSales       Int      @default(0)
   aliases          SparePartAlias[]
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -3118,6 +3120,10 @@ model SparePartsConfig {
   // SEO
   metaTitle       String?
   metaDescription String?
+
+  // Custom Pages Content
+  aboutUs         Json?   // { story, mission, stats: [], values: [] }
+  services        Json?   // { items: [{ title, description, icon, link }] }
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -3247,6 +3253,7 @@ model ShopCustomer {
   totalPurchases  Decimal          @default(0)
   tenantId        String
   status          String           @default("ACTIVE")
+  tier            String           @default("Standard") // Standard, Gold, Platinum
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   
@@ -3254,6 +3261,7 @@ model ShopCustomer {
   audiences       ShopCustomerAudienceMember[]
   vehicleHistory  ShopCustomerVehicle[]
   creditHistory   CustomerCreditTransaction[]
+  addresses       ShopCustomerAddress[]
   
   creditEnabled    Boolean  @default(false)
   creditApprovedBy String?
@@ -3427,6 +3435,24 @@ model ShopPromotion {
   @@index([code])
   @@index([isActive])
   @@index([tenantId])
+}
+
+model ShopCustomerAddress {
+  id          String       @id @default(cuid())
+  customerId  String
+  customer    ShopCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  type        String       @default("SHIPPING") // BILLING, SHIPPING
+  name        String?      // Name of the person/location
+  address     String
+  city        String
+  postalCode  String?
+  country     String?
+  phone       String?
+  isDefault   Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([customerId])
 }
 
 model ShopPromotionProduct {

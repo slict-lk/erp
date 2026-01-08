@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getQuantityPromotions } from '@/apps/spareparts/api';
+import { getProductQuantityDiscounts } from '@/apps/spareparts/api';
+
+
 
 export const dynamic = 'force-dynamic';
 
@@ -31,12 +33,16 @@ export async function GET(
             return NextResponse.json({ error: 'Store not found' }, { status: 404 });
         }
 
-        // Find product by ID (also check if it matches the tenant)
-        const product = await (prisma as any).sparePart.findFirst({
+        // Find product by ID or SKU
+        // Find product by ID or SKU
+        let product = await (prisma as any).sparePart.findFirst({
             where: {
-                id: id,
                 tenantId: tenant.id,
                 isActive: true,
+                OR: [
+                    { id: id },
+                    { sku: id }
+                ]
             },
             select: {
                 id: true,
@@ -44,28 +50,62 @@ export async function GET(
                 sku: true,
                 description: true,
                 category: true,
-                brand: true,
-                salePrice: true,
                 costPrice: true,
-                qtyAvailable: true,
+
+                stockQty: true,
                 images: true,
                 isActive: true,
                 compatibleModels: true,
                 aliases: {
                     select: {
-                        aliasCode: true,
-                        description: true,
+                        aliasNumber: true,
+                        brand: true,
                     },
                 },
             },
         });
+
+        // Fallback: If not found, try to match by Name (Slug-like behavior)
+        // e.g. "chery-qq-engine-valve-inlet" -> "Chery QQ Engine Valve Inlet"
+        if (!product && id.includes('-')) {
+            const nameFromSlug = id.replace(/-/g, ' ');
+            product = await (prisma as any).sparePart.findFirst({
+                where: {
+                    tenantId: tenant.id,
+                    isActive: true, // we might want to show out of stock, but must be active
+                    name: {
+                        equals: nameFromSlug,
+                        mode: 'insensitive' // case-insensitive match
+                    }
+                },
+                select: {
+                    id: true,
+                    name: true,
+                    sku: true,
+                    description: true,
+                    category: true,
+                    costPrice: true,
+
+                    stockQty: true,
+                    images: true,
+                    isActive: true,
+                    compatibleModels: true,
+                    aliases: {
+                        select: {
+                            aliasNumber: true,
+                            brand: true,
+                        },
+                    },
+                },
+            });
+        }
 
         if (!product) {
             return NextResponse.json({ error: 'Product not found' }, { status: 404 });
         }
 
         // Get quantity promotions
-        const promotions = await getQuantityPromotions(product.id, tenant.id);
+        const promotions = await getProductQuantityDiscounts(tenant.id, product.id, product.category);
 
         // Transform to public format
         const publicProduct = {
@@ -76,12 +116,14 @@ export async function GET(
             category: product.category || '',
             brand: product.brand || '',
             salePrice: Number(product.salePrice) || 0,
-            stockQty: product.qtyAvailable || 0,
+            stockQty: Number(product.stockQty) || 0,
             images: product.images || [],
             compatibleModels: product.compatibleModels || [],
             aliases: product.aliases || [],
             quantityDiscounts: promotions.map((p: any) => ({
+                promotionName: p.promotionName,
                 minQuantity: p.minQuantity,
+                maxQuantity: p.maxQuantity,
                 discountType: p.discountType,
                 discountValue: Number(p.discountValue),
             })),
