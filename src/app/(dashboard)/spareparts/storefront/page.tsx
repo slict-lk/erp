@@ -14,7 +14,8 @@ interface SparePartsConfig {
     secondaryColor: string;
     logoUrl?: string;
     heroSlides: HeroSlide[];
-    banners: Banner[];
+    promoBanners: Banner[];
+    featuredCategories: FeaturedCategory[];
     contactEmail?: string;
     contactPhone?: string;
     address?: string;
@@ -73,7 +74,7 @@ export default function StorefrontManagerPage() {
     const [saving, setSaving] = useState(false);
     const [activeTab, setActiveTab] = useState('general');
 
-    const { register, handleSubmit, setValue, watch, reset } = useForm<SparePartsConfig & { featuredCategories: FeaturedCategory[] }>();
+    const { register, handleSubmit, setValue, watch, reset } = useForm<SparePartsConfig>();
 
     // Fetch Config on Load
     useEffect(() => {
@@ -513,8 +514,8 @@ export default function StorefrontManagerPage() {
                             <button
                                 type="button"
                                 onClick={() => {
-                                    const current = watch('banners') || [];
-                                    setValue('banners', [
+                                    const current = watch('promoBanners') || [];
+                                    setValue('promoBanners', [
                                         ...current,
                                         { id: Date.now().toString(), title: 'New Banner', subtitle: 'Subtitle', imageUrl: '', link: '#', bgColor: '#1E3A5F', size: 'medium' }
                                     ]);
@@ -526,7 +527,7 @@ export default function StorefrontManagerPage() {
                         </div>
 
                         <div className="grid grid-cols-1 gap-6">
-                            {(watch('banners') || []).map((banner, index) => (
+                            {(watch('promoBanners') || []).map((banner, index) => (
                                 <div key={index} className="flex gap-6 p-6 border border-gray-100 rounded-xl bg-gray-50 relative group">
                                     {/* Image Upload Area */}
                                     <div className="w-32 h-32 bg-white rounded-lg shadow-sm border border-gray-200 flex items-center justify-center relative overflow-hidden shrink-0">
@@ -546,7 +547,7 @@ export default function StorefrontManagerPage() {
                                         <div>
                                             <label className="text-xs font-medium text-gray-500">Title</label>
                                             <input
-                                                {...register(`banners.${index}.title` as const)}
+                                                {...register(`promoBanners.${index}.title` as const)}
                                                 className="w-full mt-1 px-3 py-2 rounded border border-gray-200 text-sm"
                                                 placeholder="Car Audio"
                                             />
@@ -554,7 +555,7 @@ export default function StorefrontManagerPage() {
                                         <div>
                                             <label className="text-xs font-medium text-gray-500">Subtitle</label>
                                             <input
-                                                {...register(`banners.${index}.subtitle` as any)} // Using any slightly to avoid strict TS if interface mismatch
+                                                {...register(`promoBanners.${index}.subtitle` as any)} // Using any slightly to avoid strict TS if interface mismatch
                                                 className="w-full mt-1 px-3 py-2 rounded border border-gray-200 text-sm"
                                                 placeholder="Super Natural Sound"
                                             />
@@ -562,7 +563,7 @@ export default function StorefrontManagerPage() {
                                         <div>
                                             <label className="text-xs font-medium text-gray-500">Link URL</label>
                                             <input
-                                                {...register(`banners.${index}.link` as const)}
+                                                {...register(`promoBanners.${index}.link` as const)}
                                                 className="w-full mt-1 px-3 py-2 rounded border border-gray-200 text-sm"
                                                 placeholder="/category/audio"
                                             />
@@ -572,11 +573,11 @@ export default function StorefrontManagerPage() {
                                             <div className="flex items-center gap-2 mt-1">
                                                 <input
                                                     type="color"
-                                                    {...register(`banners.${index}.bgColor` as any)}
+                                                    {...register(`promoBanners.${index}.bgColor` as any)}
                                                     className="w-8 h-8 p-0.5 rounded border border-gray-200 cursor-pointer"
                                                 />
                                                 <input
-                                                    {...register(`banners.${index}.bgColor` as any)}
+                                                    {...register(`promoBanners.${index}.bgColor` as any)}
                                                     className="flex-1 px-3 py-1.5 rounded border border-gray-200 text-sm uppercase"
                                                 />
                                             </div>
@@ -586,8 +587,8 @@ export default function StorefrontManagerPage() {
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            const current = watch('banners') || [];
-                                            setValue('banners', current.filter((_, i) => i !== index));
+                                            const current = watch('promoBanners') || [];
+                                            setValue('promoBanners', current.filter((_, i) => i !== index));
                                         }}
                                         className="absolute top-4 right-4 text-red-400 hover:text-red-600 p-1 bg-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
                                     >

@@ -129,16 +129,12 @@ export async function GET(request: NextRequest) {
 
 
         return NextResponse.json({
-            tenantId: tenant.id,
-            subdomain: tenant.subdomain,
+            tenantId: tenant!.id,
+            subdomain: tenant!.subdomain,
             config: mergedConfig
         });
 
-        return NextResponse.json({
-            tenantId: tenant.id,
-            subdomain: tenant.subdomain,
-            config: mergedConfig
-        });
+
 
     } catch (error: any) {
         console.error('Error fetching spare parts config:', error);
