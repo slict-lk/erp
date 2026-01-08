@@ -364,7 +364,7 @@ export async function sendEmail(to: string, template: EmailTemplate): Promise<bo
   console.log('Sending email to:', to);
   console.log('Subject:', template.subject);
   console.log('Would integrate with SendGrid/Resend/etc.');
-  
+
   // TODO: Integrate with actual email service
   // Example with SendGrid:
   // await sgMail.send({
@@ -374,6 +374,173 @@ export async function sendEmail(to: string, template: EmailTemplate): Promise<bo
   //   html: template.html,
   //   text: template.text,
   // });
-  
+
   return true;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// SPARE PARTS ONLINE STORE - Email Templates
+// ═══════════════════════════════════════════════════════════════
+
+interface SparePartsOrderEmailData {
+  storeName: string;
+  primaryColor: string;
+  invoiceNumber: string;
+  customerName: string;
+  customerPhone: string;
+  shippingAddress: string;
+  items: Array<{
+    name: string;
+    sku: string;
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
+  }>;
+  subtotal: number;
+  total: number;
+  orderDate: Date;
+  storeUrl?: string;
+  supportEmail?: string;
+  supportPhone?: string;
+}
+
+export function sparePartsOrderConfirmationEmail(data: SparePartsOrderEmailData): EmailTemplate {
+  const primaryColor = data.primaryColor || '#C8102E';
+
+  const itemsHtml = data.items.map(item => `
+        <tr>
+            <td style="padding: 16px; border-bottom: 1px solid #f3f4f6;">
+                <div style="font-weight: 600; color: #111827;">${item.name}</div>
+                <div style="font-size: 12px; color: #6b7280; font-family: monospace;">SKU: ${item.sku}</div>
+            </td>
+            <td style="padding: 16px; border-bottom: 1px solid #f3f4f6; text-align: center; color: #374151;">${item.quantity}</td>
+            <td style="padding: 16px; border-bottom: 1px solid #f3f4f6; text-align: right; color: #374151;">LKR ${item.unitPrice.toLocaleString()}</td>
+            <td style="padding: 16px; border-bottom: 1px solid #f3f4f6; text-align: right; font-weight: 600; color: #111827;">LKR ${item.lineTotal.toLocaleString()}</td>
+        </tr>
+    `).join('');
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        
+        <!-- Header with Gradient -->
+        <div style="background: linear-gradient(135deg, ${primaryColor} 0%, #1f2937 100%); padding: 40px 30px; text-align: center;">
+            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">${data.storeName}</h1>
+            <p style="margin: 8px 0 0; color: rgba(255,255,255,0.8); font-size: 14px;">Order Confirmation</p>
+        </div>
+
+        <!-- Success Badge -->
+        <div style="text-align: center; padding: 30px; background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);">
+            <div style="display: inline-block; background-color: #22c55e; width: 64px; height: 64px; border-radius: 50%; line-height: 64px; margin-bottom: 16px;">
+                <span style="color: white; font-size: 32px;">✓</span>
+            </div>
+            <h2 style="margin: 0; color: #111827; font-size: 24px; font-weight: 700;">Thank You for Your Order!</h2>
+            <p style="margin: 8px 0 0; color: #6b7280; font-size: 14px;">We've received your order and are processing it now.</p>
+        </div>
+
+        <!-- Order Number Card -->
+        <div style="margin: 0 30px; padding: 20px; background: linear-gradient(135deg, #fef2f2 0%, #fff7ed 100%); border-radius: 12px; border-left: 4px solid ${primaryColor};">
+            <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Order Number</div>
+            <div style="font-size: 24px; font-weight: 700; color: ${primaryColor}; font-family: monospace;">${data.invoiceNumber}</div>
+            <div style="font-size: 12px; color: #9ca3af; margin-top: 4px;">${new Date(data.orderDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+        </div>
+
+        <!-- Customer Info -->
+        <div style="padding: 30px;">
+            <h3 style="margin: 0 0 16px; font-size: 16px; color: #374151; font-weight: 600;">📦 Shipping To</h3>
+            <div style="background-color: #f9fafb; padding: 16px; border-radius: 8px;">
+                <div style="font-weight: 600; color: #111827;">${data.customerName}</div>
+                <div style="color: #6b7280; font-size: 14px; margin-top: 4px;">${data.customerPhone}</div>
+                <div style="color: #6b7280; font-size: 14px; margin-top: 4px;">${data.shippingAddress}</div>
+            </div>
+        </div>
+
+        <!-- Order Items -->
+        <div style="padding: 0 30px 30px;">
+            <h3 style="margin: 0 0 16px; font-size: 16px; color: #374151; font-weight: 600;">🛒 Order Items</h3>
+            <table style="width: 100%; border-collapse: collapse; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+                <thead>
+                    <tr style="background-color: #f9fafb;">
+                        <th style="padding: 12px 16px; text-align: left; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Product</th>
+                        <th style="padding: 12px 16px; text-align: center; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Qty</th>
+                        <th style="padding: 12px 16px; text-align: right; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Price</th>
+                        <th style="padding: 12px 16px; text-align: right; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${itemsHtml}
+                </tbody>
+            </table>
+
+            <!-- Totals -->
+            <div style="margin-top: 16px; padding: 16px; background-color: #f9fafb; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="color: #6b7280;">Subtotal</span>
+                    <span style="color: #374151;">LKR ${data.subtotal.toLocaleString()}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="color: #6b7280;">Shipping</span>
+                    <span style="color: #22c55e; font-weight: 500;">FREE</span>
+                </div>
+                <div style="border-top: 2px solid #e5e7eb; padding-top: 12px; margin-top: 12px; display: flex; justify-content: space-between;">
+                    <span style="font-size: 18px; font-weight: 700; color: #111827;">Total</span>
+                    <span style="font-size: 18px; font-weight: 700; color: ${primaryColor};">LKR ${data.total.toLocaleString()}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- CTA Button -->
+        <div style="padding: 0 30px 30px; text-align: center;">
+            <a href="${data.storeUrl || '#'}/track-order?order=${data.invoiceNumber}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, ${primaryColor} 0%, #991b1b 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; letter-spacing: 0.5px;">
+                Track Your Order
+            </a>
+        </div>
+
+        <!-- Footer -->
+        <div style="background-color: #1f2937; padding: 30px; text-align: center;">
+            <p style="margin: 0 0 8px; color: #9ca3af; font-size: 14px;">Questions about your order?</p>
+            ${data.supportPhone ? `<p style="margin: 0 0 8px;"><a href="tel:${data.supportPhone}" style="color: #60a5fa; text-decoration: none;">${data.supportPhone}</a></p>` : ''}
+            ${data.supportEmail ? `<p style="margin: 0;"><a href="mailto:${data.supportEmail}" style="color: #60a5fa; text-decoration: none;">${data.supportEmail}</a></p>` : ''}
+            <p style="margin: 20px 0 0; color: #6b7280; font-size: 12px;">© ${new Date().getFullYear()} ${data.storeName}. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+    `;
+
+  const text = `
+ORDER CONFIRMATION - ${data.invoiceNumber}
+
+Thank you for your order, ${data.customerName}!
+
+Order Number: ${data.invoiceNumber}
+Order Date: ${new Date(data.orderDate).toLocaleDateString()}
+
+Shipping To:
+${data.customerName}
+${data.customerPhone}
+${data.shippingAddress}
+
+Items:
+${data.items.map(item => `- ${item.name} (x${item.quantity}) - LKR ${item.lineTotal.toLocaleString()}`).join('\n')}
+
+Total: LKR ${data.total.toLocaleString()}
+
+Track your order at: ${data.storeUrl || ''}/track-order?order=${data.invoiceNumber}
+
+${data.storeName}
+    `;
+
+  return {
+    subject: `🎉 Order Confirmed - ${data.invoiceNumber} | ${data.storeName}`,
+    html,
+    text,
+  };
+}
+

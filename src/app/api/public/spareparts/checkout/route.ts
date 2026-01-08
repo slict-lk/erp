@@ -5,6 +5,7 @@ import {
     confirmInvoice
 } from '@/apps/spareparts/api';
 import { generateInvoiceNumber } from '@/lib/invoiceGenerator';
+import { sparePartsOrderConfirmationEmail, sendEmail } from '@/lib/email-templates';
 
 export async function POST(req: Request) {
     try {
@@ -26,10 +27,25 @@ export async function POST(req: Request) {
             return new NextResponse('Missing required fields', { status: 400 });
         }
 
-        // 2. Resolve Tenant
+        // 2. Resolve Tenant with config for email
         const tenant = await prisma.tenant.findUnique({
             where: { subdomain },
-            select: { id: true }
+            select: {
+                id: true,
+                name: true,
+                subdomain: true,
+            }
+        });
+
+        // Get tenant config for email styling
+        const tenantConfig = await prisma.sparePartsConfig.findUnique({
+            where: { tenantId: tenant?.id || '' },
+            select: {
+                storeName: true,
+                primaryColor: true,
+                contactPhone: true,
+                contactEmail: true,
+            }
         });
 
         if (!tenant) {
@@ -175,6 +191,56 @@ export async function POST(req: Request) {
                     creditBalance: { increment: finalTotal }
                 }
             });
+        }
+
+        // 9. Send Order Confirmation Email
+        try {
+            const invoiceWithItems = await prisma.shopInvoice.findUnique({
+                where: { id: invoice.id },
+                include: {
+                    items: true
+                }
+            });
+
+            if (invoiceWithItems) {
+                const emailData = {
+                    storeName: tenantConfig?.storeName || 'Auto Parts Store',
+                    primaryColor: tenantConfig?.primaryColor || '#C8102E',
+                    invoiceNumber: invoice.invoiceNumber,
+                    customerName,
+                    customerPhone,
+                    shippingAddress,
+                    items: invoiceWithItems.items.map((item: any) => ({
+                        name: item.productName || item.product?.name || 'Product',
+                        sku: item.sku || item.product?.sku || '',
+                        quantity: item.qty,
+                        unitPrice: Number(item.unitPrice),
+                        lineTotal: Number(item.lineTotal),
+                    })),
+                    subtotal: Number(invoiceWithItems.subtotal),
+                    total: Number(invoiceWithItems.total),
+                    orderDate: invoiceWithItems.createdAt,
+                    storeUrl: `https://spareparts.slict.lk/${subdomain}`,
+                    supportEmail: tenantConfig?.contactEmail || undefined,
+                    supportPhone: tenantConfig?.contactPhone || undefined,
+                };
+
+                // If customer has email, send confirmation (currently logging only)
+                // TODO: Get customer email from shopCustomer or order form
+                const customerEmail = shopCustomer?.email || null;
+                if (customerEmail) {
+                    const emailTemplate = sparePartsOrderConfirmationEmail(emailData);
+                    await sendEmail(customerEmail, emailTemplate);
+                    console.log('[EMAIL] Order confirmation sent to:', customerEmail);
+                } else {
+                    console.log('[EMAIL] No customer email - skipping notification for order:', invoice.invoiceNumber);
+                    // Log the email that would be sent for debugging
+                    console.log('[EMAIL] Would send:', JSON.stringify(emailData, null, 2));
+                }
+            }
+        } catch (emailError) {
+            console.error('[EMAIL] Failed to send order confirmation:', emailError);
+            // Don't fail the order if email fails
         }
 
         return NextResponse.json({
