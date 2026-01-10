@@ -142,7 +142,7 @@ async function isEligible(promo: any, context: any): Promise<boolean> {
     // Check target type
     if (promo.targetType === 'SPECIFIC_PRODUCTS') {
         const targetProductIds = promo.targetProducts.map((tp: any) => tp.productId);
-        const hasTargetProduct = items.some(item => targetProductIds.includes(item.productId));
+        const hasTargetProduct = items.some((item: any) => targetProductIds.includes(item.productId));
         if (!hasTargetProduct) return false;
     }
 
@@ -154,7 +154,7 @@ async function isEligible(promo: any, context: any): Promise<boolean> {
         });
         const customerAudienceIds = customerAudiences.map(ca => ca.audienceId);
         const targetAudienceIds = promo.targetAudiences.map((ta: any) => ta.audienceId);
-        const inTargetAudience = targetAudienceIds.some(id => customerAudienceIds.includes(id));
+        const inTargetAudience = targetAudienceIds.some((id: string) => customerAudienceIds.includes(id));
         if (!inTargetAudience) return false;
     }
 
