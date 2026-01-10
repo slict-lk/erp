@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,9 +40,18 @@ export default function NewProductPage() {
         partNumber: '',
         compatibleModels: '',
         condition: 'NEW',
+        taxCategoryId: '',
     });
 
     const [aliases, setAliases] = useState<{ aliasNumber: string; brand: string }[]>([]);
+    const [taxCategories, setTaxCategories] = useState<{ id: string; name: string; rate: number }[]>([]);
+
+    useEffect(() => {
+        fetch('/api/spareparts/config/tax-categories')
+            .then(res => res.ok ? res.json() : [])
+            .then(setTaxCategories)
+            .catch(console.error);
+    }, []);
 
     const handleInputChange = (field: string, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -65,9 +74,19 @@ export default function NewProductPage() {
     // ... existing handlers ...
 
     const handleAddImageUrl = () => {
-        if (imageUrlInput.trim()) {
-            setImages(prev => [...prev, imageUrlInput.trim()]);
+        const urlToCheck = imageUrlInput.trim();
+        if (!urlToCheck) return;
+
+        try {
+            new URL(urlToCheck); // Validate URL
+            setImages(prev => [...prev, urlToCheck]);
             setImageUrlInput('');
+        } catch (e) {
+            toast({
+                title: "Invalid URL",
+                description: "Please enter a valid valid image URL (e.g., https://example.com/image.jpg)",
+                variant: "destructive",
+            });
         }
     };
 
@@ -118,6 +137,7 @@ export default function NewProductPage() {
                     costPrice: parseFloat(formData.costPrice) || 0,
                     stockQty: parseFloat(formData.stockQty) || 0,
                     minStockQty: parseFloat(formData.minStockQty) || 0,
+                    taxCategoryId: formData.taxCategoryId || null,
                     partNumber: formData.partNumber || null,
                     compatibleModels: compatibleModelsArray,
                     condition: formData.condition || 'NEW',
@@ -251,6 +271,23 @@ export default function NewProductPage() {
                                             onChange={(e) => handleInputChange('salePrice', e.target.value)}
                                             placeholder="0.00"
                                         />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="taxCategoryId">Tax Category</Label>
+                                        <Select
+                                            value={formData.taxCategoryId || "_default"}
+                                            onValueChange={(val) => handleInputChange('taxCategoryId', val === "_default" ? "" : val)}
+                                        >
+                                            <SelectTrigger><SelectValue placeholder="Default Tax" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="_default">Default</SelectItem>
+                                                {taxCategories.map(tc => (
+                                                    <SelectItem key={tc.id} value={tc.id}>
+                                                        {tc.name} ({tc.rate}%)
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="costPrice">Cost Price (LKR)</Label>

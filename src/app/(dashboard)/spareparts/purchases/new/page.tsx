@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
     Select,
     SelectContent,
@@ -22,7 +23,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Save, Loader2, FileText, Plus, Trash2, Search } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, FileText, Plus, Trash2, Search, Percent } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 interface Supplier {
@@ -37,6 +38,10 @@ interface Product {
     sku: string;
     costPrice: number;
     stockQty: number;
+    taxCategory?: {
+        rate: number;
+        name: string;
+    };
 }
 
 interface OrderItem {
@@ -45,6 +50,8 @@ interface OrderItem {
     productSku: string;
     quantity: number;
     unitPrice: number;
+    taxRate: number;
+    taxAmount: number;
     lineTotal: number;
 }
 
@@ -59,6 +66,7 @@ export default function NewPurchaseOrderPage() {
     const [items, setItems] = useState<OrderItem[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [notes, setNotes] = useState('');
+    const [isTaxEnabled, setIsTaxEnabled] = useState(false);
 
     const fetchSuppliers = useCallback(async () => {
         const res = await fetch('/api/spareparts/suppliers');
@@ -81,43 +89,101 @@ export default function NewPurchaseOrderPage() {
         fetchProducts();
     }, [fetchSuppliers, fetchProducts]);
 
+    // Recalculate taxes when tax enabled status changes
+    useEffect(() => {
+        setItems(prevItems => prevItems.map(item => {
+            const taxRate = isTaxEnabled ? item.taxRate : 0;
+            // Retrieve original tax rate from product if possible? 
+            // Actually, we stored the taxRate in the item when adding.
+            // But if we toggle OFF, we want tax to be 0.
+            // If we toggle ON, we want to restore the product's tax rate.
+            // Problem: We lost the product's original rate if we set it to 0.
+
+            // Better approach: Store 'originalTaxRate' or just re-fetch/re-calculate based on product memory?
+            // To keep it simple: We won't support dynamic toggling perfectly without product lookup.
+            // Let's rely on finding the product in the 'products' list or just re-adding.
+            // OR: Store 'productTaxRate' in item and use it to calc 'taxAmount' dynamically.
+
+            return item; // We will handle calculation in render/submit mainly?
+            // No, 'lineTotal' is stored.
+            // Let's update `addItem` to store `productTaxRate`.
+        }));
+    }, [isTaxEnabled]);
+
     const addItem = (product: Product) => {
+        // Determine tax rate
+        const productTaxRate = product.taxCategory?.rate || 0;
+
         const existing = items.find(i => i.productId === product.id);
         if (existing) {
-            setItems(items.map(i =>
-                i.productId === product.id
-                    ? { ...i, quantity: i.quantity + 1, lineTotal: (i.quantity + 1) * i.unitPrice }
-                    : i
-            ));
+            // Update existing
+            const newQty = existing.quantity + 1;
+            recalculateItem(existing.productId, newQty, existing.unitPrice, productTaxRate);
         } else {
+            // Add new
+            const quantity = 1;
+            const unitPrice = Number(product.costPrice);
+
+            const effectiveTaxRate = isTaxEnabled ? productTaxRate : 0;
+            const lineSubtotal = quantity * unitPrice;
+            const taxAmount = (lineSubtotal * effectiveTaxRate) / 100;
+            const lineTotal = lineSubtotal + taxAmount;
+
             setItems([...items, {
                 productId: product.id,
                 productName: product.name,
                 productSku: product.sku,
-                quantity: 1,
-                unitPrice: product.costPrice,
-                lineTotal: product.costPrice,
+                quantity,
+                unitPrice,
+                taxRate: productTaxRate, // Store the PRODUCT'S rate permanently
+                taxAmount,
+                lineTotal,
             }]);
         }
     };
+
+    const recalculateItem = (productId: string, quantity: number, unitPrice: number, baseTaxRate: number) => {
+        const effectiveTaxRate = isTaxEnabled ? baseTaxRate : 0;
+        const lineSubtotal = quantity * unitPrice;
+        const taxAmount = (lineSubtotal * effectiveTaxRate) / 100;
+        const lineTotal = lineSubtotal + taxAmount;
+
+        setItems(prev => prev.map(i =>
+            i.productId === productId
+                ? { ...i, quantity, unitPrice, taxAmount, lineTotal, taxRate: baseTaxRate }
+                : i
+        ));
+    };
+
+    // Use effect to recalculate ALL items when isTaxEnabled changes
+    useEffect(() => {
+        setItems(prev => prev.map(item => {
+            const effectiveTaxRate = isTaxEnabled ? item.taxRate : 0;
+            const lineSubtotal = item.quantity * item.unitPrice;
+            const taxAmount = (lineSubtotal * effectiveTaxRate) / 100;
+            const lineTotal = lineSubtotal + taxAmount;
+            return { ...item, taxAmount, lineTotal };
+        }));
+    }, [isTaxEnabled]);
 
     const updateQuantity = (productId: string, quantity: number) => {
         if (quantity <= 0) {
             removeItem(productId);
             return;
         }
-        setItems(items.map(i =>
-            i.productId === productId
-                ? { ...i, quantity, lineTotal: quantity * i.unitPrice }
-                : i
-        ));
+        const item = items.find(i => i.productId === productId);
+        if (item) {
+            recalculateItem(productId, quantity, item.unitPrice, item.taxRate);
+        }
     };
 
     const removeItem = (productId: string) => {
         setItems(items.filter(i => i.productId !== productId));
     };
 
-    const subtotal = items.reduce((sum, i) => sum + i.lineTotal, 0);
+    const subtotal = items.reduce((sum, i) => sum + (i.unitPrice * i.quantity), 0);
+    const totalTax = items.reduce((sum, i) => sum + i.taxAmount, 0);
+    const total = subtotal + totalTax;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -139,12 +205,14 @@ export default function NewPurchaseOrderPage() {
                     supplierId: selectedSupplier,
                     expectedDate: expectedDate || null,
                     notes,
+                    isTaxEnabled,
                     items: items.map(i => ({
                         productId: i.productId,
                         productName: i.productName,
                         productSku: i.productSku,
                         quantity: i.quantity,
                         unitPrice: i.unitPrice,
+                        // taxRate/Amount will be recalculated on backend to be safe
                     })),
                 }),
             });
@@ -221,6 +289,14 @@ export default function NewPurchaseOrderPage() {
                                         />
                                     </div>
                                 </div>
+                                <div className="flex items-center space-x-2 pt-2">
+                                    <Switch
+                                        id="tax-mode"
+                                        checked={isTaxEnabled}
+                                        onCheckedChange={setIsTaxEnabled}
+                                    />
+                                    <Label htmlFor="tax-mode">Enable VAT / Tax Calculation</Label>
+                                </div>
                             </CardContent>
                         </Card>
 
@@ -252,6 +328,11 @@ export default function NewPurchaseOrderPage() {
                                                 <p className="text-sm text-gray-500">{product.sku} • Stock: {product.stockQty}</p>
                                             </div>
                                             <div className="flex items-center gap-2">
+                                                {product.taxCategory && (
+                                                    <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-gray-300">
+                                                        {product.taxCategory.rate}% VAT
+                                                    </span>
+                                                )}
                                                 <span className="font-medium">LKR {Number(product.costPrice).toLocaleString()}</span>
                                                 <Button type="button" size="sm" variant="ghost">
                                                     <Plus className="h-4 w-4" />
@@ -283,6 +364,7 @@ export default function NewPurchaseOrderPage() {
                                                 <TableHead>Product</TableHead>
                                                 <TableHead className="text-right">Unit Price</TableHead>
                                                 <TableHead className="text-center">Quantity</TableHead>
+                                                {isTaxEnabled && <TableHead className="text-right">Tax</TableHead>}
                                                 <TableHead className="text-right">Total</TableHead>
                                                 <TableHead></TableHead>
                                             </TableRow>
@@ -308,6 +390,12 @@ export default function NewPurchaseOrderPage() {
                                                             className="w-20 text-center mx-auto"
                                                         />
                                                     </TableCell>
+                                                    {isTaxEnabled && (
+                                                        <TableCell className="text-right text-sm text-gray-600">
+                                                            <div>LKR {item.taxAmount.toLocaleString()}</div>
+                                                            <div className="text-xs opacity-75">({item.taxRate}%)</div>
+                                                        </TableCell>
+                                                    )}
                                                     <TableCell className="text-right font-medium">
                                                         LKR {item.lineTotal.toLocaleString()}
                                                     </TableCell>
@@ -347,9 +435,15 @@ export default function NewPurchaseOrderPage() {
                                         <span>Subtotal</span>
                                         <span>LKR {subtotal.toLocaleString()}</span>
                                     </div>
+                                    {isTaxEnabled && (
+                                        <div className="flex justify-between text-sm text-gray-600">
+                                            <span>Tax (VAT)</span>
+                                            <span>LKR {totalTax.toLocaleString()}</span>
+                                        </div>
+                                    )}
                                     <div className="border-t pt-2 flex justify-between font-bold">
                                         <span>Total</span>
-                                        <span>LKR {subtotal.toLocaleString()}</span>
+                                        <span>LKR {total.toLocaleString()}</span>
                                     </div>
                                 </div>
 

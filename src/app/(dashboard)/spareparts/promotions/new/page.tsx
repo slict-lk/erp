@@ -52,14 +52,15 @@ export default function NewPromotionPage() {
         setLoading(true);
 
         try {
+            const { targetType, ...restFormData } = formData;
             const payload: any = {
-                ...formData,
+                ...restFormData,
+                targetScope: formData.targetType, // Map targetType to targetScope for backend
                 discountValue: parseFloat(formData.discountValue) || 0,
                 minimumPurchase: formData.minimumPurchase ? parseFloat(formData.minimumPurchase) : null,
                 maximumDiscount: formData.maximumDiscount ? parseFloat(formData.maximumDiscount) : null,
                 startDate: new Date(formData.startDate),
                 endDate: formData.endDate ? new Date(formData.endDate) : null,
-                targetScope: formData.targetType, // Map targetType to targetScope for backend
                 targetProducts: formData.targetProducts ? formData.targetProducts.split(',').map(s => s.trim()) : [],
                 targetCategories: formData.targetCategories ? formData.targetCategories.split(',').map(s => s.trim()) : [],
                 isActive: true,
@@ -122,7 +123,7 @@ export default function NewPromotionPage() {
     };
 
     return (
-        <div className="p-6 max-w-3xl mx-auto">
+        <div className="p-6 max-w-screen-2xl mx-auto">
             {/* Header */}
             <div className="mb-6">
                 <Link href="/spareparts/promotions">
@@ -141,271 +142,288 @@ export default function NewPromotionPage() {
             </div>
 
             <form onSubmit={handleSubmit}>
-                <Card className="mb-6">
-                    <CardHeader>
-                        <CardTitle>Promotion Details</CardTitle>
-                        <CardDescription>Basic information about the promotion</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="name">Promotion Name *</Label>
-                                <Input
-                                    id="name"
-                                    value={formData.name}
-                                    onChange={(e) => handleChange('name', e.target.value)}
-                                    placeholder="e.g., New Year Sale"
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="code">Promo Code</Label>
-                                <Input
-                                    id="code"
-                                    value={formData.code}
-                                    onChange={(e) => handleChange('code', e.target.value.toUpperCase())}
-                                    placeholder="e.g., NEWYEAR2025"
-                                />
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="description">Description</Label>
-                            <Textarea
-                                id="description"
-                                value={formData.description}
-                                onChange={(e) => handleChange('description', e.target.value)}
-                                placeholder="Describe the promotion..."
-                                rows={3}
-                            />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="mb-6">
-                    <CardHeader>
-                        <CardTitle>Discount Configuration</CardTitle>
-                        <CardDescription>Set up how the discount works</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="type">Promotion Type</Label>
-                                <Select value={formData.type} onValueChange={(v) => handleChange('type', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="CODE">Promo Code</SelectItem>
-                                        <SelectItem value="AUTOMATIC">Automatic</SelectItem>
-                                        <SelectItem value="COUPON">Coupon</SelectItem>
-                                        <SelectItem value="QUANTITY">Quantity (Tiered)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            {formData.type !== 'QUANTITY' && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left Column - Main Details */}
+                    <div className="lg:col-span-2 space-y-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Promotion Details</CardTitle>
+                                <CardDescription>Basic information about the promotion</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="name">Promotion Name *</Label>
+                                        <Input
+                                            id="name"
+                                            value={formData.name}
+                                            onChange={(e) => handleChange('name', e.target.value)}
+                                            placeholder="e.g., New Year Sale"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="code">Promo Code</Label>
+                                        <Input
+                                            id="code"
+                                            value={formData.code}
+                                            onChange={(e) => handleChange('code', e.target.value.toUpperCase())}
+                                            placeholder="e.g., NEWYEAR2025"
+                                        />
+                                    </div>
+                                </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="discountType">Discount Type</Label>
-                                    <Select value={formData.discountType} onValueChange={(v) => handleChange('discountType', v)}>
+                                    <Label htmlFor="description">Description</Label>
+                                    <Textarea
+                                        id="description"
+                                        value={formData.description}
+                                        onChange={(e) => handleChange('description', e.target.value)}
+                                        placeholder="Describe the promotion..."
+                                        rows={3}
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Discount Configuration</CardTitle>
+                                <CardDescription>Set up how the discount works</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="type">Promotion Type</Label>
+                                        <Select value={formData.type} onValueChange={(v) => handleChange('type', v)}>
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="CODE">Promo Code</SelectItem>
+                                                <SelectItem value="AUTOMATIC">Automatic</SelectItem>
+                                                <SelectItem value="COUPON">Coupon</SelectItem>
+                                                <SelectItem value="QUANTITY">Quantity (Tiered)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    {formData.type !== 'QUANTITY' && (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="discountType">Discount Type</Label>
+                                            <Select value={formData.discountType} onValueChange={(v) => handleChange('discountType', v)}>
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="PERCENTAGE">Percentage (%)</SelectItem>
+                                                    <SelectItem value="FIXED_AMOUNT">Fixed Amount (LKR)</SelectItem>
+                                                    <SelectItem value="BUY_X_GET_Y">Buy X Get Y</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {formData.type === 'QUANTITY' ? (
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-center">
+                                            <Label>Quantity Tiers</Label>
+                                            <Button type="button" variant="outline" size="sm" onClick={addTier}>
+                                                Add Tier
+                                            </Button>
+                                        </div>
+                                        {tiers.map((tier, index) => (
+                                            <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end border p-3 rounded-lg relative">
+                                                <div className="space-y-1">
+                                                    <Label className="text-xs">Min Qty</Label>
+                                                    <Input
+                                                        type="number"
+                                                        value={tier.minQuantity}
+                                                        onChange={(e) => handleTierChange(index, 'minQuantity', e.target.value)}
+                                                        placeholder="10"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-xs">Max Qty (Optional)</Label>
+                                                    <Input
+                                                        type="number"
+                                                        value={tier.maxQuantity}
+                                                        onChange={(e) => handleTierChange(index, 'maxQuantity', e.target.value)}
+                                                        placeholder="99"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-xs">Type</Label>
+                                                    <Select value={tier.discountType} onValueChange={(v) => handleTierChange(index, 'discountType', v)}>
+                                                        <SelectTrigger className="h-10">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="PERCENTAGE">%</SelectItem>
+                                                            <SelectItem value="FIXED_AMOUNT">LKR</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-xs">Value</Label>
+                                                    <Input
+                                                        type="number"
+                                                        value={tier.discountValue}
+                                                        onChange={(e) => handleTierChange(index, 'discountValue', e.target.value)}
+                                                        placeholder="5"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    {index > 0 && (
+                                                        <Button type="button" variant="destructive" size="sm" onClick={() => removeTier(index)}>
+                                                            Remove
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="discountValue">
+                                                Discount Value * {formData.discountType === 'PERCENTAGE' ? '(%)' : '(LKR)'}
+                                            </Label>
+                                            <Input
+                                                id="discountValue"
+                                                type="number"
+                                                step="0.01"
+                                                value={formData.discountValue}
+                                                onChange={(e) => handleChange('discountValue', e.target.value)}
+                                                placeholder={formData.discountType === 'PERCENTAGE' ? '10' : '500'}
+                                                required={formData.type !== 'QUANTITY'}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="minimumPurchase">Minimum Purchase (LKR)</Label>
+                                            <Input
+                                                id="minimumPurchase"
+                                                type="number"
+                                                value={formData.minimumPurchase}
+                                                onChange={(e) => handleChange('minimumPurchase', e.target.value)}
+                                                placeholder="5000"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="maximumDiscount">Max Discount (LKR)</Label>
+                                            <Input
+                                                id="maximumDiscount"
+                                                type="number"
+                                                value={formData.maximumDiscount}
+                                                onChange={(e) => handleChange('maximumDiscount', e.target.value)}
+                                                placeholder="10000"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Right Column - Targeting & Actions */}
+                    <div className="space-y-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Schedule & Actions</CardTitle>
+                                <CardDescription>Duration and creation</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-1 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="startDate">Start Date *</Label>
+                                        <Input
+                                            id="startDate"
+                                            type="date"
+                                            value={formData.startDate}
+                                            onChange={(e) => handleChange('startDate', e.target.value)}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="endDate">End Date</Label>
+                                        <Input
+                                            id="endDate"
+                                            type="date"
+                                            value={formData.endDate}
+                                            onChange={(e) => handleChange('endDate', e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2 pt-2">
+                                    <Button type="submit" className="w-full" disabled={loading}>
+                                        {loading ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Creating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Save className="mr-2 h-4 w-4" />
+                                                Create Promotion
+                                            </>
+                                        )}
+                                    </Button>
+                                    <Link href="/spareparts/promotions" className="block">
+                                        <Button variant="outline" type="button" className="w-full">
+                                            Cancel
+                                        </Button>
+                                    </Link>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Target Audience</CardTitle>
+                                <CardDescription>Who can use this?</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="targetType">Type</Label>
+                                    <Select value={formData.targetType} onValueChange={(v) => handleChange('targetType', v)}>
                                         <SelectTrigger>
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="PERCENTAGE">Percentage (%)</SelectItem>
-                                            <SelectItem value="FIXED_AMOUNT">Fixed Amount (LKR)</SelectItem>
-                                            <SelectItem value="BUY_X_GET_Y">Buy X Get Y</SelectItem>
+                                            <SelectItem value="ALL">All Customers</SelectItem>
+                                            <SelectItem value="CUSTOMER_TYPE">Specific Customer Types</SelectItem>
+                                            <SelectItem value="AUDIENCE">Customer Audience</SelectItem>
+                                            <SelectItem value="PRODUCT">Specific Products</SelectItem>
+                                            <SelectItem value="CATEGORY">Product Categories</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
-                            )}
-                        </div>
-
-                        {formData.type === 'QUANTITY' ? (
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center">
-                                    <Label>Quantity Tiers</Label>
-                                    <Button type="button" variant="outline" size="sm" onClick={addTier}>
-                                        Add Tier
-                                    </Button>
-                                </div>
-                                {tiers.map((tier, index) => (
-                                    <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end border p-3 rounded-lg relative">
-                                        <div className="space-y-1">
-                                            <Label className="text-xs">Min Qty</Label>
-                                            <Input
-                                                type="number"
-                                                value={tier.minQuantity}
-                                                onChange={(e) => handleTierChange(index, 'minQuantity', e.target.value)}
-                                                placeholder="10"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-xs">Max Qty (Optional)</Label>
-                                            <Input
-                                                type="number"
-                                                value={tier.maxQuantity}
-                                                onChange={(e) => handleTierChange(index, 'maxQuantity', e.target.value)}
-                                                placeholder="99"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-xs">Type</Label>
-                                            <Select value={tier.discountType} onValueChange={(v) => handleTierChange(index, 'discountType', v)}>
-                                                <SelectTrigger className="h-10">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="PERCENTAGE">%</SelectItem>
-                                                    <SelectItem value="FIXED_AMOUNT">LKR</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-xs">Value</Label>
-                                            <Input
-                                                type="number"
-                                                value={tier.discountValue}
-                                                onChange={(e) => handleTierChange(index, 'discountValue', e.target.value)}
-                                                placeholder="5"
-                                            />
-                                        </div>
-                                        <div>
-                                            {index > 0 && (
-                                                <Button type="button" variant="destructive" size="sm" onClick={() => removeTier(index)}>
-                                                    Remove
-                                                </Button>
-                                            )}
-                                        </div>
+                                {formData.targetType === 'PRODUCT' && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="targetProducts">Product IDs</Label>
+                                        <Input
+                                            id="targetProducts"
+                                            value={formData.targetProducts}
+                                            onChange={(e) => handleChange('targetProducts', e.target.value)}
+                                            placeholder="prod_123, prod_456"
+                                        />
+                                        <p className="text-xs text-gray-500">Comma separated IDs</p>
                                     </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="discountValue">
-                                        Discount Value * {formData.discountType === 'PERCENTAGE' ? '(%)' : '(LKR)'}
-                                    </Label>
-                                    <Input
-                                        id="discountValue"
-                                        type="number"
-                                        step="0.01"
-                                        value={formData.discountValue}
-                                        onChange={(e) => handleChange('discountValue', e.target.value)}
-                                        placeholder={formData.discountType === 'PERCENTAGE' ? '10' : '500'}
-                                        required={formData.type !== 'QUANTITY'}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="minimumPurchase">Minimum Purchase (LKR)</Label>
-                                    <Input
-                                        id="minimumPurchase"
-                                        type="number"
-                                        value={formData.minimumPurchase}
-                                        onChange={(e) => handleChange('minimumPurchase', e.target.value)}
-                                        placeholder="5000"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="maximumDiscount">Max Discount (LKR)</Label>
-                                    <Input
-                                        id="maximumDiscount"
-                                        type="number"
-                                        value={formData.maximumDiscount}
-                                        onChange={(e) => handleChange('maximumDiscount', e.target.value)}
-                                        placeholder="10000"
-                                    />
-                                </div>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                <Card className="mb-6">
-                    <CardHeader>
-                        <CardTitle>Duration & Targeting</CardTitle>
-                        <CardDescription>When and who can use this promotion</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="startDate">Start Date *</Label>
-                                <Input
-                                    id="startDate"
-                                    type="date"
-                                    value={formData.startDate}
-                                    onChange={(e) => handleChange('startDate', e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="endDate">End Date</Label>
-                                <Input
-                                    id="endDate"
-                                    type="date"
-                                    value={formData.endDate}
-                                    onChange={(e) => handleChange('endDate', e.target.value)}
-                                />
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="targetType">Target Audience</Label>
-                            <Select value={formData.targetType} onValueChange={(v) => handleChange('targetType', v)}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="ALL">All Customers</SelectItem>
-                                    <SelectItem value="CUSTOMER_TYPE">Specific Customer Types</SelectItem>
-                                    <SelectItem value="AUDIENCE">Customer Audience</SelectItem>
-                                    <SelectItem value="PRODUCT">Specific Products</SelectItem>
-                                    <SelectItem value="CATEGORY">Product Categories</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        {formData.targetType === 'PRODUCT' && (
-                            <div className="space-y-2">
-                                <Label htmlFor="targetProducts">Product IDs (Comma separated)</Label>
-                                <Input
-                                    id="targetProducts"
-                                    value={formData.targetProducts}
-                                    onChange={(e) => handleChange('targetProducts', e.target.value)}
-                                    placeholder="prod_123, prod_456"
-                                />
-                            </div>
-                        )}
-                        {formData.targetType === 'CATEGORY' && (
-                            <div className="space-y-2">
-                                <Label htmlFor="targetCategories">Categories (Comma separated)</Label>
-                                <Input
-                                    id="targetCategories"
-                                    value={formData.targetCategories}
-                                    onChange={(e) => handleChange('targetCategories', e.target.value)}
-                                    placeholder="Engine, Brakes"
-                                />
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Actions */}
-                <div className="flex justify-end gap-4">
-                    <Link href="/spareparts/promotions">
-                        <Button variant="outline" type="button">
-                            Cancel
-                        </Button>
-                    </Link>
-                    <Button type="submit" disabled={loading}>
-                        {loading ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Creating...
-                            </>
-                        ) : (
-                            <>
-                                <Save className="mr-2 h-4 w-4" />
-                                Create Promotion
-                            </>
-                        )}
-                    </Button>
+                                )}
+                                {formData.targetType === 'CATEGORY' && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="targetCategories">Categories</Label>
+                                        <Input
+                                            id="targetCategories"
+                                            value={formData.targetCategories}
+                                            onChange={(e) => handleChange('targetCategories', e.target.value)}
+                                            placeholder="Engine, Brakes"
+                                        />
+                                        <p className="text-xs text-gray-500">Comma separated names</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
             </form>
         </div>

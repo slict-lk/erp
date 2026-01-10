@@ -26,9 +26,15 @@ export async function getOrCreateDefaultTenant() {
 
     // Explicitly check for demo first if multiple returned (though findFirst returns one)
     // If we want to be sure we get 'demo' if it exists:
-    const demoTenant = await prisma.tenant.findUnique({ where: { subdomain: 'demo' } });
-    if (demoTenant) {
-      tenant = demoTenant;
+    // Explicitly check for slict first (Project requirement)
+    const slictTenant = await prisma.tenant.findUnique({ where: { subdomain: 'slict' } });
+    if (slictTenant) {
+      tenant = slictTenant;
+    } else {
+      const demoTenant = await prisma.tenant.findUnique({ where: { subdomain: 'demo' } });
+      if (demoTenant) {
+        tenant = demoTenant;
+      }
     }
 
     // If no tenant exists, create one

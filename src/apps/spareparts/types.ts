@@ -290,6 +290,7 @@ export interface CreatePurchaseOrderInput {
     supplierId: string;
     expectedDate?: Date;
     notes?: string;
+    isTaxEnabled?: boolean;
     items: {
         productId: string;
         quantity: number;

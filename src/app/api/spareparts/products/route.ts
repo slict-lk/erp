@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
             take: limit ? parseInt(limit) : undefined,
             include: {
                 aliases: true,
+                taxCategory: true,
             }
         });
 
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest) {
                 condition: body.condition || 'NEW',
                 images: body.images || [],
                 isActive: true,
+                taxCategoryId: body.taxCategoryId,
                 aliases: body.aliases ? {
                     create: body.aliases.map((alias: any) => ({
                         aliasNumber: alias.aliasNumber,

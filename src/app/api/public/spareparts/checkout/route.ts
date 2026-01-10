@@ -46,6 +46,7 @@ export async function POST(req: Request) {
                 contactPhone: true,
                 contactEmail: true,
                 taxRate: true,
+                isTaxEnabled: true,
             }
         });
 
@@ -53,7 +54,10 @@ export async function POST(req: Request) {
             return new NextResponse('Invalid store.', { status: 404 });
         }
 
-        const taxRate = Number(tenantConfig?.taxRate || 0);
+        // Fetch default tax category for fallback
+        const defaultTaxCategory = await prisma.shopTaxCategory.findFirst({
+            where: { tenantId: tenant.id, isDefault: true }
+        });
 
         // 2.5 Resolve Customer & Check Credit Limit (if applicable)
         let shopCustomer = null;
@@ -70,11 +74,31 @@ export async function POST(req: Request) {
         // For accurate check, we should calculate total first. 
         // Let's iterate items to calculate total for credit check.
         let estimatedTotal = 0;
+
+        // Helper map to store calculated rates to reuse
+        const itemTaxRates = new Map<string, number>();
+
         for (const item of items) {
-            const product = await (prisma as any).sparePart.findUnique({ where: { id: item.productId } });
+            const product = await (prisma as any).sparePart.findUnique({
+                where: { id: item.productId },
+                include: { taxCategory: true }
+            });
+
             if (product) {
+                // Calculate specific tax rate
+                let lineTaxRate = 0;
+                if (tenantConfig?.isTaxEnabled) {
+                    if (product.taxCategory) {
+                        lineTaxRate = Number(product.taxCategory.rate);
+                    } else {
+                        lineTaxRate = defaultTaxCategory ? Number(defaultTaxCategory.rate) : Number(tenantConfig?.taxRate || 0);
+                    }
+                }
+
+                itemTaxRates.set(item.productId, lineTaxRate);
+
                 const lineTotal = Number(product.salePrice) * item.quantity;
-                const lineTax = (lineTotal * taxRate) / 100;
+                const lineTax = (lineTotal * lineTaxRate) / 100;
                 estimatedTotal += lineTotal + lineTax;
             }
         }
@@ -143,6 +167,8 @@ export async function POST(req: Request) {
         // 5. Add all items to invoice
         // ... (This function updates invoice totals)
         for (const item of items) {
+            const taxRate = itemTaxRates.get(item.productId) ?? 0;
+
             await addInvoiceItem(invoice.id, {
                 productId: item.productId,
                 quantity: item.quantity,

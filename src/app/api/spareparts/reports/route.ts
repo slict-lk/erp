@@ -101,8 +101,8 @@ async function getTopProducts(tenantId: string, startDate: Date, endDate: Date) 
     // Get invoice items from completed invoices
     const items = await (prisma as any).shopInvoiceItem.findMany({
         where: {
-            tenantId,
             invoice: {
+                tenantId,
                 status: 'COMPLETED',
                 createdAt: { gte: startDate, lte: endDate },
             },
@@ -275,8 +275,8 @@ async function getDailySales(tenantId: string, startDate: Date, endDate: Date) {
 async function getProfitMargin(tenantId: string, startDate: Date, endDate: Date) {
     const items = await (prisma as any).shopInvoiceItem.findMany({
         where: {
-            tenantId,
             invoice: {
+                tenantId,
                 status: 'COMPLETED',
                 createdAt: { gte: startDate, lte: endDate },
             },

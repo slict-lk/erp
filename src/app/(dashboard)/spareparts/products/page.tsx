@@ -22,6 +22,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Package, Search, Plus, RefreshCw, Edit, Trash2 } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 interface Product {
     id: string;
@@ -49,6 +50,33 @@ export default function ProductsPage() {
     const [search, setSearch] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<string>('all');
     const [refreshing, setRefreshing] = useState(false);
+    const { toast } = useToast();
+
+    const handleDelete = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this product?')) return;
+
+        try {
+            const res = await fetch(`/api/spareparts/products/${id}`, {
+                method: 'DELETE',
+            });
+
+            if (res.ok) {
+                toast({
+                    title: 'Success',
+                    description: 'Product deleted successfully',
+                });
+                fetchProducts();
+            } else {
+                throw new Error('Failed to delete');
+            }
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Failed to delete product',
+                variant: 'destructive',
+            });
+        }
+    };
 
     const fetchProducts = useCallback(async () => {
         try {
@@ -210,10 +238,17 @@ export default function ProductsPage() {
                                                 <TableCell>{getStockBadge(product)}</TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="flex justify-end gap-2">
-                                                        <Button variant="ghost" size="sm">
-                                                            <Edit className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button variant="ghost" size="sm" className="text-red-600">
+                                                        <Link href={`/spareparts/products/${product.id}`}>
+                                                            <Button variant="ghost" size="sm">
+                                                                <Edit className="h-4 w-4" />
+                                                            </Button>
+                                                        </Link>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-red-600"
+                                                            onClick={() => handleDelete(product.id)}
+                                                        >
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
                                                     </div>
@@ -260,11 +295,18 @@ export default function ProductsPage() {
                                             </div>
 
                                             <div className="flex gap-2 pt-3 border-t">
-                                                <Button variant="outline" size="sm" className="flex-1">
-                                                    <Edit className="h-4 w-4 mr-1" />
-                                                    Edit
-                                                </Button>
-                                                <Button variant="outline" size="sm" className="text-red-600">
+                                                <Link href={`/spareparts/products/${product.id}`} className="flex-1">
+                                                    <Button variant="outline" size="sm" className="w-full">
+                                                        <Edit className="h-4 w-4 mr-1" />
+                                                        Edit
+                                                    </Button>
+                                                </Link>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="text-red-600"
+                                                    onClick={() => handleDelete(product.id)}
+                                                >
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             </div>

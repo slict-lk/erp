@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     Table,
     TableBody,
@@ -14,10 +16,27 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    DialogFooter,
+} from '@/components/ui/dialog';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, FileText, User, Calendar, Package, DollarSign, Printer, Download } from 'lucide-react';
+import { ArrowLeft, FileText, User, Calendar, Package, DollarSign, Printer, Download, CheckCircle, XCircle, CreditCard, Percent } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useToast } from '@/components/ui/use-toast';
 
 interface InvoiceItem {
     id: string;
@@ -52,6 +71,21 @@ interface Invoice {
         method: string;
         createdAt: string;
     }>;
+    appliedPromos?: Array<{
+        id: string;
+        discountAmount: number;
+        promotion: {
+            id: string;
+            name: string;
+            code: string | null;
+            type: string;
+        };
+    }>;
+    tenant?: {
+        sparePartsConfig?: {
+            taxRegistrationNumber: string | null;
+        }
+    }
 }
 
 function formatCurrency(amount: number): string {
@@ -75,25 +109,38 @@ function formatDate(date: string): string {
 export default function InvoiceDetailPage() {
     const params = useParams();
     const router = useRouter();
+    const { toast } = useToast();
     const [invoice, setInvoice] = useState<Invoice | null>(null);
     const [loading, setLoading] = useState(true);
+    const [processing, setProcessing] = useState(false);
+
+    // Payment Form State
+    const [paymentAmount, setPaymentAmount] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState('CASH');
+    const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+
+    const fetchInvoice = async () => {
+        try {
+            const res = await fetch(`/api/spareparts/invoices/${params.id}`);
+            const data = await res.json();
+
+            if (res.ok) {
+                setInvoice(data.invoice);
+                // Pre-fill payment amount with due amount
+                if (data.invoice.dueAmount > 0) {
+                    setPaymentAmount(data.invoice.dueAmount.toString());
+                }
+            } else {
+                console.error('Invoice not found', data);
+            }
+        } catch (error) {
+            console.error('Error fetching invoice:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchInvoice = async () => {
-            try {
-                const res = await fetch(`/api/spareparts/invoices/${params.id}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setInvoice(data.invoice);
-                } else {
-                    console.error('Invoice not found');
-                }
-            } catch (error) {
-                console.error('Error fetching invoice:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchInvoice();
     }, [params.id]);
 
@@ -116,6 +163,11 @@ export default function InvoiceDetailPage() {
         doc.text(`Date: ${formatDate(invoice.createdAt)}`, 20, 38);
         doc.text(`Status: ${invoice.status}`, 20, 46);
         doc.text(`Payment: ${invoice.paymentStatus}`, 20, 54);
+
+        const taxRegNo = invoice.tenant?.sparePartsConfig?.taxRegistrationNumber;
+        if (taxRegNo) {
+            doc.text(`VAT Reg No: ${taxRegNo}`, 20, 62);
+        }
 
         // Add customer info
         doc.setFontSize(14);
@@ -171,6 +223,103 @@ export default function InvoiceDetailPage() {
 
         // Save the PDF
         doc.save(`invoice-${invoice.invoiceNumber}.pdf`);
+    };
+
+    const handleConfirmOrder = async () => {
+        if (!confirm('Are you sure you want to confirm this order? This will deduct stock.')) return;
+        setProcessing(true);
+        try {
+            const res = await fetch(`/api/spareparts/invoices/${params.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'CONFIRM' }),
+            });
+            if (res.ok) {
+                toast({ title: 'Success', description: 'Order confirmed successfully' });
+                fetchInvoice();
+            } else {
+                throw new Error('Failed to confirm order');
+            }
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to confirm order', variant: 'destructive' });
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const handleCancelOrder = async () => {
+        if (!confirm('Are you sure you want to cancel this order? Stock will be restored if previously confirmed.')) return;
+        setProcessing(true);
+        try {
+            const res = await fetch(`/api/spareparts/invoices/${params.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'CANCEL', reason: 'User cancelled via UI' }),
+            });
+            if (res.ok) {
+                toast({ title: 'Success', description: 'Order cancelled successfully' });
+                fetchInvoice();
+            } else {
+                throw new Error('Failed to cancel order');
+            }
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to cancel order', variant: 'destructive' });
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const handleCompleteOrder = async () => {
+        if (!confirm('Are you sure you want to mark this order as Completed? This implies the goods have been delivered/handed over.')) return;
+        setProcessing(true);
+        try {
+            const res = await fetch(`/api/spareparts/invoices/${params.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'COMPLETE' }),
+            });
+            if (res.ok) {
+                toast({ title: 'Success', description: 'Order completed successfully' });
+                fetchInvoice();
+            } else {
+                throw new Error('Failed to complete order');
+            }
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to complete order', variant: 'destructive' });
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const handleRecordPayment = async () => {
+        if (!paymentAmount || Number(paymentAmount) <= 0) {
+            toast({ title: 'Error', description: 'Please enter a valid amount', variant: 'destructive' });
+            return;
+        }
+        setProcessing(true);
+        try {
+            const res = await fetch(`/api/spareparts/invoices/${params.id}/payments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    amount: paymentAmount,
+                    method: paymentMethod,
+                    reference: '' // Optional
+                }),
+            });
+            if (res.ok) {
+                toast({ title: 'Success', description: 'Payment recorded successfully' });
+                setIsPaymentOpen(false);
+                fetchInvoice();
+                setPaymentAmount(''); // Reset, but fetchInvoice will update due amount if remaining
+            } else {
+                throw new Error('Failed to record payment');
+            }
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to record payment', variant: 'destructive' });
+        } finally {
+            setProcessing(false);
+        }
     };
 
     if (loading) {
@@ -233,6 +382,82 @@ export default function InvoiceDetailPage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
+                    {/* Action Buttons */}
+                    {invoice.status === 'DRAFT' && (
+                        <Button onClick={handleConfirmOrder} disabled={processing} className="bg-green-600 hover:bg-green-700">
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Confirm Order
+                        </Button>
+                    )}
+
+                    {invoice.status === 'CONFIRMED' && (
+                        <Button onClick={handleCompleteOrder} disabled={processing} className="bg-green-600 hover:bg-green-700">
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Mark as Delivered
+                        </Button>
+                    )}
+
+                    {invoice.status !== 'CANCELLED' && invoice.status !== 'COMPLETED' && (
+                        <Button variant="destructive" onClick={handleCancelOrder} disabled={processing}>
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Cancel
+                        </Button>
+                    )}
+
+                    {/* Payment Button - Show if not fully paid and not cancelled */}
+                    {invoice.status !== 'CANCELLED' && invoice.paymentStatus !== 'PAID' && (
+                        <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
+                            <DialogTrigger asChild>
+                                <Button className="bg-blue-600 hover:bg-blue-700">
+                                    <CreditCard className="mr-2 h-4 w-4" />
+                                    Add Payment
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Record Payment</DialogTitle>
+                                    <DialogDescription>
+                                        Record a payment for Invoice {invoice.invoiceNumber}
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4 py-4">
+                                    <div className="space-y-2">
+                                        <Label>Amount (LKR)</Label>
+                                        <Input
+                                            type="number"
+                                            value={paymentAmount}
+                                            onChange={(e) => setPaymentAmount(e.target.value)}
+                                            placeholder="0.00"
+                                        />
+                                        <p className="text-xs text-gray-500">
+                                            Due Amount: {formatCurrency(invoice.dueAmount)}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Payment Method</Label>
+                                        <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="CASH">Cash</SelectItem>
+                                                <SelectItem value="CARD">Card</SelectItem>
+                                                <SelectItem value="TRANSFER">Bank Transfer</SelectItem>
+                                                <SelectItem value="CHEQUE">Cheque</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setIsPaymentOpen(false)}>Cancel</Button>
+                                    <Button onClick={handleRecordPayment} disabled={processing}>
+                                        {processing ? 'Processing...' : 'Record Payment'}
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    )}
+
                     <Button variant="outline" onClick={handlePrint}>
                         <Printer className="mr-2 h-4 w-4" />
                         Print
@@ -276,6 +501,65 @@ export default function InvoiceDetailPage() {
                             ) : null}
                         </CardContent>
                     </Card>
+
+                    {/* Applied Promotions Section */}
+                    {invoice.appliedPromos && invoice.appliedPromos.length > 0 && (
+                        <Card className="mt-6">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Percent className="h-5 w-5" />
+                                    Applied Promotions
+                                </CardTitle>
+                                <CardDescription>
+                                    Discounts applied to this invoice
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Promotion</TableHead>
+                                            <TableHead>Type</TableHead>
+                                            <TableHead>Code</TableHead>
+                                            <TableHead className="text-right">Discount</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {invoice.appliedPromos.map((ap) => (
+                                            <TableRow key={ap.id}>
+                                                <TableCell className="font-medium">
+                                                    {ap.promotion.name}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge>{ap.promotion.type}</Badge>
+                                                </TableCell>
+                                                <TableCell className="font-mono text-sm">
+                                                    {ap.promotion.code || '-'}
+                                                </TableCell>
+                                                <TableCell className="text-right text-green-600 font-semibold">
+                                                    -{formatCurrency(ap.discountAmount)}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                                <div className="mt-4 flex justify-end border-t pt-4">
+                                    <div className="text-right">
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">Total Promotional Savings</p>
+                                        <p className="text-2xl font-bold text-green-600 dark:text-green-500">
+                                            {formatCurrency(
+                                                invoice.appliedPromos.reduce(
+                                                    (sum, ap) => sum + Number(ap.discountAmount),
+                                                    0
+                                                )
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
 
                     {/* Items */}
                     <Card>

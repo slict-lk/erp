@@ -262,7 +262,8 @@ export async function addInvoiceItem(invoiceId: string, item: InvoiceItemInput, 
 
     // Get product details
     const product = await (prisma as any).sparePart.findFirst({
-        where: { id: item.productId, tenantId }
+        where: { id: item.productId, tenantId },
+        include: { taxCategory: true }
     });
 
     if (!product) {
@@ -297,8 +298,17 @@ export async function addInvoiceItem(invoiceId: string, item: InvoiceItemInput, 
         ? (discountAmount / (unitPrice * item.quantity)) * 100
         : 0;
 
+    // Calculate tax
+    let taxRate = item.taxRate ?? 0;
+
+    // If no tax rate provided, try to get from product tax category
+    if (!item.taxRate && product.taxCategory) {
+        taxRate = Number(product.taxCategory.rate);
+    }
+
     const subtotal = unitPrice * item.quantity - discountAmount;
-    const taxRate = item.taxRate ?? 0;
+
+    // Config: Tax is EXCLUSIVE (added on top)
     const taxAmount = (subtotal * taxRate) / 100;
     const lineTotal = subtotal + taxAmount;
 
@@ -386,7 +396,10 @@ async function recalculateInvoiceTotals(invoiceId: string) {
     });
 }
 
-export async function confirmInvoice(id: string, tenantId: string) {
+export async function confirmInvoice(id: string, tenantId: string, appliedPromotions?: Array<{
+    promotionId: string;
+    discountAmount: number;
+}>) {
     const invoice = await prisma.shopInvoice.findFirst({
         where: { id, tenantId },
         include: { items: true }
@@ -420,6 +433,25 @@ export async function confirmInvoice(id: string, tenantId: string) {
         });
     }
 
+    // Track applied promotions
+    if (appliedPromotions && appliedPromotions.length > 0) {
+        for (const ap of appliedPromotions) {
+            await prisma.shopAppliedPromotion.create({
+                data: {
+                    invoiceId: id,
+                    promotionId: ap.promotionId,
+                    discountAmount: ap.discountAmount
+                }
+            });
+
+            // Increment usage count
+            await prisma.shopPromotion.update({
+                where: { id: ap.promotionId },
+                data: { usageCount: { increment: 1 } }
+            });
+        }
+    }
+
     return prisma.shopInvoice.update({
         where: { id },
         data: { status: 'CONFIRMED' }
@@ -448,13 +480,17 @@ export async function recordPayment(invoiceId: string, payment: PaymentInput & {
     const newPaidAmount = Number(invoice.paidAmount) + payment.amount;
     const newDueAmount = Number(invoice.total) - newPaidAmount;
 
+    // For POS orders, full payment usually means completion (customer takes goods).
+    // For ONLINE orders, payment is separate from delivery, so we don't auto-complete.
+    const shouldComplete = newPaidAmount >= Number(invoice.total) && invoice.source !== 'ONLINE';
+
     return prisma.shopInvoice.update({
         where: { id: invoiceId },
         data: {
             paidAmount: newPaidAmount,
             dueAmount: newDueAmount,
             paymentStatus: newPaidAmount >= Number(invoice.total) ? 'PAID' : 'PARTIAL',
-            status: newPaidAmount >= Number(invoice.total) ? 'COMPLETED' : invoice.status,
+            status: shouldComplete ? 'COMPLETED' : invoice.status,
         }
     });
 }
@@ -796,39 +832,75 @@ export async function getPurchaseOrders(tenantId: string, options?: { status?: s
     });
 }
 
-export async function createPurchaseOrder(data: CreatePurchaseOrderInput & { tenantId: string; createdById: string }) {
+export async function createPurchaseOrder(data: CreatePurchaseOrderInput & { tenantId: string; createdById: string; isTaxEnabled?: boolean }) {
     const orderNumber = await generatePONumber(data.tenantId);
 
     // Calculate totals
     let subtotal = 0;
+    let totalTax = 0;
     const itemsData = [];
+
+    // Get default tax category just in case (though usually we use product specific or 0)
+    const defaultTaxCategory = await prisma.shopTaxCategory.findFirst({
+        where: { tenantId: data.tenantId, isDefault: true }
+    });
 
     for (const item of data.items) {
         const product = await (prisma as any).sparePart.findUnique({
-            where: { id: item.productId }
+            where: { id: item.productId },
+            include: { taxCategory: true }
         });
 
         if (!product) throw new Error(`Product ${item.productId} not found`);
 
-        const lineTotal = item.quantity * item.unitCost;
-        subtotal += lineTotal;
+        const unitCost = item.unitCost ? Number(item.unitCost) : Number(product.costPrice || 0);
+        const quantity = Number(item.quantity);
+
+        let taxRate = 0;
+        let taxAmount = 0;
+
+        // Calculate Tax if enabled
+        if (data.isTaxEnabled) {
+            if (product.taxCategory) {
+                taxRate = Number(product.taxCategory.rate);
+            } else if (defaultTaxCategory) {
+                taxRate = Number(defaultTaxCategory.rate);
+            }
+            // If no specific or default category, tax stays 0
+        }
+
+        const lineSubtotal = quantity * unitCost;
+        // Tax is EXCLUSIVE for POs usually (added on top)
+        taxAmount = (lineSubtotal * taxRate) / 100;
+        const lineTotal = lineSubtotal + taxAmount;
+
+        subtotal += lineSubtotal;
+        totalTax += taxAmount;
 
         itemsData.push({
             productId: item.productId,
             productName: product.name,
             productSku: product.sku,
-            quantity: item.quantity,
-            unitCost: item.unitCost,
-            lineTotal
+            quantity: quantity,
+            unitCost: unitCost,
+            taxRate: taxRate,
+            taxAmount: taxAmount,
+            lineTotal: lineTotal
         });
     }
+
+    const total = subtotal + totalTax;
 
     return prisma.shopPurchaseOrder.create({
         data: {
             orderNumber,
-            supplierId: data.supplierId,
+            supplier: {
+                connect: { id: data.supplierId }
+            },
             subtotal,
-            total: subtotal,
+            taxAmount: totalTax,
+            total,
+            isTaxEnabled: data.isTaxEnabled || false,
             expectedDate: data.expectedDate,
             notes: data.notes,
             createdById: data.createdById,
@@ -1134,7 +1206,7 @@ export async function createQuantityPromotion(data: {
         discountValue: number;
     }>;
 }) {
-    const { tiers, ...promotionData } = data;
+    const { tiers, targetType, ...promotionData } = data as any;
 
     return (prisma as any).sparePromotion.create({
         data: {

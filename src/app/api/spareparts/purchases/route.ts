@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
             ...body,
             tenantId: user.tenantId,
             createdById: user.id,
+            isTaxEnabled: body.isTaxEnabled,
         });
 
         return NextResponse.json(order, { status: 201 });

@@ -32,6 +32,13 @@ interface Promotion {
     usageLimit: number | null;
     targetType: string;
     _count: { appliedTo: number };
+    tiers?: Array<{
+        id: string;
+        minQuantity: number;
+        maxQuantity: number | null;
+        discountType: string;
+        discountValue: number;
+    }>;
 }
 
 function formatDate(date: string): string {
@@ -213,11 +220,22 @@ export default function PromotionsPage() {
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell className="font-medium">
-                                                    {promo.discountValue}{discountTypeLabels[promo.discountType]}
-                                                    {promo.minimumPurchase && (
-                                                        <p className="text-xs text-gray-500">
-                                                            Min: LKR {promo.minimumPurchase}
-                                                        </p>
+                                                    {promo.type === 'QUANTITY' && promo.tiers && promo.tiers.length > 0 ? (
+                                                        <div>
+                                                            <p>Tiered</p>
+                                                            <p className="text-xs text-gray-500">
+                                                                {promo.tiers.length} tier{promo.tiers.length > 1 ? 's' : ''}
+                                                            </p>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            {promo.discountValue}{discountTypeLabels[promo.discountType]}
+                                                            {promo.minimumPurchase && (
+                                                                <p className="text-xs text-gray-500">
+                                                                    Min: LKR {promo.minimumPurchase}
+                                                                </p>
+                                                            )}
+                                                        </>
                                                     )}
                                                 </TableCell>
                                                 <TableCell className="text-sm">

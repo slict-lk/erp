@@ -45,7 +45,9 @@ export async function GET(
         }
 
         // Logic to determine steps based on status
-        const isCompleted = order.paymentStatus === 'PAID' || order.status === 'COMPLETED';
+        // For tracking, "Shipped" and "Delivered" imply the order fulfillment is complete.
+        // Payment can be paid while order is still processing/shipping (especially for online orders).
+        const isCompleted = order.status === 'COMPLETED';
         const isConfirmed = order.status !== 'DRAFT';
 
         // Mocking estimated delivery for now as schema doesn't have it

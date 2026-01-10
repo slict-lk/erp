@@ -35,6 +35,8 @@ import {
     X,
     Check,
     Loader2,
+    Tag,
+    Percent,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -46,6 +48,11 @@ interface Product {
     costPrice: number;
     stockQty: number;
     category: string | null;
+    taxCategory?: {
+        id: string;
+        name: string;
+        rate: number;
+    } | null;
 }
 
 interface CartItem {
@@ -53,6 +60,8 @@ interface CartItem {
     quantity: number;
     unitPrice: number;
     discountPercent: number;
+    taxRate: number;
+    taxAmount: number;
     lineTotal: number;
 }
 
@@ -62,6 +71,28 @@ interface Customer {
     name: string;
     phone: string;
     customerType: string;
+}
+
+interface Promotion {
+    id: string;
+    name: string;
+    description?: string;
+    code?: string;
+    type: string;
+    discountType: string;
+    discountValue: number;
+    discountAmount: number;
+    minimumPurchase?: number | null;
+    minQuantity?: number;
+    productId?: string;
+    productName?: string;
+    source: 'ORDER' | 'QUANTITY';
+}
+
+interface AppliedPromotion {
+    promotionId: string;
+    name: string;
+    discountAmount: number;
 }
 
 function formatCurrency(amount: number): string {
@@ -89,12 +120,18 @@ export default function POSPage() {
     const [processing, setProcessing] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
     const [cashReceived, setCashReceived] = useState('');
+    const [isTaxEnabled, setIsTaxEnabled] = useState(true);
+    const [availablePromotions, setAvailablePromotions] = useState<Promotion[]>([]);
+    const [appliedPromotions, setAppliedPromotions] = useState<AppliedPromotion[]>([]);
 
-    // Calculations
-    const subtotal = cart.reduce((sum, item) => sum + item.lineTotal, 0);
-    const taxRate = 0; // Can be configured
-    const taxAmount = subtotal * (taxRate / 100);
-    const total = subtotal + taxAmount;
+    // Calculations - taxes are calculated per item based on each product's tax category
+    const subtotal = cart.reduce((sum, item) => {
+        const itemSubtotal = item.unitPrice * item.quantity * (1 - item.discountPercent / 100);
+        return sum + itemSubtotal;
+    }, 0);
+    const taxAmount = isTaxEnabled ? cart.reduce((sum, item) => sum + item.taxAmount, 0) : 0;
+    const promoDiscount = appliedPromotions.reduce((sum, p) => sum + p.discountAmount, 0);
+    const total = subtotal + taxAmount - promoDiscount;
     const change = parseFloat(cashReceived) - total;
 
     // Fetch products
@@ -116,6 +153,94 @@ export default function POSPage() {
         }, 300);
         return () => clearTimeout(debounce);
     }, [fetchProducts]);
+
+    // Fetch tax configuration
+    useEffect(() => {
+        const fetchTaxConfig = async () => {
+            try {
+                const res = await fetch('/api/spareparts/config/tax');
+                if (res.ok) {
+                    const data = await res.json();
+                    setIsTaxEnabled(data.isTaxEnabled ?? true);
+                }
+            } catch (error) {
+                console.error('Error fetching tax config:', error);
+            }
+        };
+        fetchTaxConfig();
+    }, []);
+
+    // Fetch available promotions when cart changes
+    useEffect(() => {
+        const fetchPromotions = async () => {
+            if (cart.length === 0) {
+                setAvailablePromotions([]);
+                setAppliedPromotions([]);
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/spareparts/promotions/check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        items: cart.map(item => ({
+                            productId: item.product.id,
+                            productName: item.product.name,
+                            category: item.product.category,
+                            quantity: item.quantity,
+                            unitPrice: item.unitPrice
+                        })),
+                        customerId: selectedCustomer?.id || null
+                    })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setAvailablePromotions(data.promotions || []);
+                    // Remove any applied promotions that are no longer valid
+                    setAppliedPromotions(prev =>
+                        prev.filter(ap => data.promotions.some((p: Promotion) => p.id === ap.promotionId))
+                    );
+                }
+            } catch (error) {
+                console.error('Error fetching promotions:', error);
+            }
+        };
+
+        const debounce = setTimeout(fetchPromotions, 500);
+        return () => clearTimeout(debounce);
+    }, [cart, selectedCustomer]);
+
+    // Apply a promotion
+    const applyPromotion = (promo: Promotion) => {
+        if (appliedPromotions.some(ap => ap.promotionId === promo.id)) {
+            toast({
+                title: 'Already Applied',
+                description: `${promo.name} is already applied`,
+                variant: 'destructive'
+            });
+            return;
+        }
+
+        setAppliedPromotions(prev => [
+            ...prev,
+            {
+                promotionId: promo.id,
+                name: promo.name,
+                discountAmount: promo.discountAmount
+            }
+        ]);
+
+        toast({
+            title: 'Promotion Applied',
+            description: `${promo.name} - ${formatCurrency(promo.discountAmount)} off`
+        });
+    };
+
+    // Remove a promotion
+    const removePromotion = (promotionId: string) => {
+        setAppliedPromotions(prev => prev.filter(ap => ap.promotionId !== promotionId));
+    };
 
     // Search customers
     const searchCustomers = useCallback(async () => {
@@ -165,27 +290,41 @@ export default function POSPage() {
             return;
         }
 
+        // Get tax rate from product's tax category
+        const productTaxRate = isTaxEnabled && product.taxCategory ? Number(product.taxCategory.rate) : 0;
+
         if (existing) {
             setCart((prev) =>
-                prev.map((item) =>
-                    item.product.id === product.id
-                        ? {
+                prev.map((item) => {
+                    if (item.product.id === product.id) {
+                        const newQty = item.quantity + 1;
+                        const subtotal = newQty * Number(item.unitPrice) * (1 - item.discountPercent / 100);
+                        const itemTaxAmount = isTaxEnabled ? (subtotal * item.taxRate) / 100 : 0;
+                        return {
                             ...item,
-                            quantity: item.quantity + 1,
-                            lineTotal: (item.quantity + 1) * Number(item.unitPrice) * (1 - item.discountPercent / 100),
-                        }
-                        : item
-                )
+                            quantity: newQty,
+                            taxAmount: itemTaxAmount,
+                            lineTotal: subtotal,
+                        };
+                    }
+                    return item;
+                })
             );
         } else {
+            const unitPrice = Number(product.salePrice);
+            const subtotal = unitPrice; // qty = 1, no discount
+            const itemTaxAmount = isTaxEnabled ? (subtotal * productTaxRate) / 100 : 0;
+
             setCart((prev) => [
                 ...prev,
                 {
                     product,
                     quantity: 1,
-                    unitPrice: Number(product.salePrice),
+                    unitPrice,
                     discountPercent: 0,
-                    lineTotal: Number(product.salePrice),
+                    taxRate: productTaxRate,
+                    taxAmount: itemTaxAmount,
+                    lineTotal: subtotal,
                 },
             ]);
         }
@@ -209,10 +348,14 @@ export default function POSPage() {
                             return item; // Don't update quantity
                         }
 
+                        const subtotal = newQty * Number(item.unitPrice) * (1 - item.discountPercent / 100);
+                        const itemTaxAmount = isTaxEnabled ? (subtotal * item.taxRate) / 100 : 0;
+
                         return {
                             ...item,
                             quantity: newQty,
-                            lineTotal: newQty * Number(item.unitPrice) * (1 - item.discountPercent / 100),
+                            taxAmount: itemTaxAmount,
+                            lineTotal: subtotal,
                         };
                     }
                     return item;
@@ -232,6 +375,7 @@ export default function POSPage() {
         setSelectedCustomer(null);
         setCashReceived('');
         setPaymentMethod('CASH');
+        setAppliedPromotions([]);
     };
 
     // Process sale
@@ -601,6 +745,82 @@ export default function POSPage() {
                         )}
                     </div>
 
+                    {/* Available Promotions */}
+                    {availablePromotions.length > 0 && (
+                        <div className="border-t p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Tag className="h-4 w-4 text-green-600" />
+                                <span className="text-sm font-medium text-green-700 dark:text-green-400">
+                                    Available Promotions
+                                </span>
+                            </div>
+                            <div className="space-y-2">
+                                {availablePromotions
+                                    .filter(p => !appliedPromotions.some(ap => ap.promotionId === p.id))
+                                    .map((promo) => (
+                                        <div
+                                            key={promo.id}
+                                            className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-green-800 cursor-pointer hover:border-green-400 transition-colors"
+                                            onClick={() => applyPromotion(promo)}
+                                        >
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium truncate">{promo.name}</p>
+                                                <p className="text-xs text-gray-500">
+                                                    {promo.source === 'ORDER'
+                                                        ? `${promo.discountType === 'PERCENTAGE' ? `${promo.discountValue}% off` : formatCurrency(promo.discountValue) + ' off'}`
+                                                        : `Qty ${promo.minQuantity}+ - ${promo.discountType === 'PERCENTAGE' ? `${promo.discountValue}%` : formatCurrency(promo.discountValue)}`
+                                                    }
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-bold text-green-600">
+                                                    -{formatCurrency(promo.discountAmount)}
+                                                </span>
+                                                <Button size="sm" variant="ghost" className="h-7 px-2 text-green-600">
+                                                    <Plus className="h-3 w-3" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Applied Promotions */}
+                    {appliedPromotions.length > 0 && (
+                        <div className="border-t p-3 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Percent className="h-4 w-4 text-purple-600" />
+                                <span className="text-sm font-medium text-purple-700 dark:text-purple-400">
+                                    Applied Discounts
+                                </span>
+                            </div>
+                            <div className="space-y-1">
+                                {appliedPromotions.map((ap) => (
+                                    <div
+                                        key={ap.promotionId}
+                                        className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-800"
+                                    >
+                                        <span className="text-sm truncate">{ap.name}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-bold text-purple-600">
+                                                -{formatCurrency(ap.discountAmount)}
+                                            </span>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                                                onClick={() => removePromotion(ap.promotionId)}
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Totals & Actions */}
                     <div className="border-t p-4 space-y-4">
                         <div className="space-y-2">
@@ -610,11 +830,17 @@ export default function POSPage() {
                             </div>
                             {taxAmount > 0 && (
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-gray-500">Tax ({taxRate}%)</span>
+                                    <span className="text-gray-500">Tax</span>
                                     <span>{formatCurrency(taxAmount)}</span>
                                 </div>
                             )}
-                            <div className="flex justify-between text-lg font-bold">
+                            {promoDiscount > 0 && (
+                                <div className="flex justify-between text-sm text-green-600">
+                                    <span>Discount</span>
+                                    <span>-{formatCurrency(promoDiscount)}</span>
+                                </div>
+                            )}
+                            <div className="flex justify-between text-lg font-bold pt-1 border-t">
                                 <span>Total</span>
                                 <span className="text-primary">{formatCurrency(total)}</span>
                             </div>
@@ -745,10 +971,29 @@ export default function POSPage() {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Complete Payment</DialogTitle>
-                        <DialogDescription>
-                            Total: {formatCurrency(total)}
-                        </DialogDescription>
                     </DialogHeader>
+                    <div className="space-y-1 text-sm border-b pb-4 mb-2">
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Subtotal:</span>
+                            <span>{formatCurrency(subtotal)}</span>
+                        </div>
+                        {taxAmount > 0 && (
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Tax:</span>
+                                <span>+{formatCurrency(taxAmount)}</span>
+                            </div>
+                        )}
+                        {promoDiscount > 0 && (
+                            <div className="flex justify-between text-green-600">
+                                <span>Discount:</span>
+                                <span>-{formatCurrency(promoDiscount)}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between font-bold text-lg pt-1 border-t">
+                            <span>Total:</span>
+                            <span>{formatCurrency(total)}</span>
+                        </div>
+                    </div>
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <Label>Payment Method</Label>
@@ -934,7 +1179,7 @@ export default function POSPage() {
                         </div>
                         {taxAmount > 0 && (
                             <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Tax ({taxRate}%):</span>
+                                <span className="text-gray-600">Tax:</span>
                                 <span className="font-semibold">{formatCurrency(taxAmount)}</span>
                             </div>
                         )}

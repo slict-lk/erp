@@ -477,6 +477,7 @@ model Tenant {
   properties     Property[]
   propertyAgents PropertyAgent[]
   sparePartsConfig SparePartsConfig[]
+  shopTaxCategories ShopTaxCategory[]
 
   @@index([subdomain])
   @@index([domain])
@@ -3061,6 +3062,10 @@ model SparePart {
   views            Int      @default(0)
   totalSales       Int      @default(0)
   aliases          SparePartAlias[]
+  
+  taxCategoryId    String?
+  taxCategory      ShopTaxCategory? @relation(fields: [taxCategoryId], references: [id])
+  
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -3105,6 +3110,8 @@ model SparePartsConfig {
   // Store Settings
   currency        String   @default("LKR")
   taxRate         Decimal  @default(0)
+  isTaxEnabled    Boolean  @default(true)
+  taxRegistrationNumber String?
   enableCredit    Boolean  @default(true)
   creditTermDays  Int      @default(30)
   
@@ -3428,6 +3435,7 @@ model ShopPromotion {
   isActive         Boolean                 @default(true)
   priority         Int                     @default(0)
   appliedTo        ShopAppliedPromotion[]
+  tiers            ShopPromotionTier[]     // Quantity-based tier discounts
   tenantId         String
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
@@ -3483,6 +3491,21 @@ model ShopAppliedPromotion {
   discountAmount Decimal
 
   @@index([invoiceId])
+}
+
+model ShopPromotionTier {
+  id            String        @id @default(cuid())
+  promotionId   String
+  promotion     ShopPromotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  
+  minQuantity   Int
+  maxQuantity   Int?      // null = unlimited (e.g., 100+)
+  discountType  ShopDiscountType
+  discountValue Decimal
+  
+  createdAt     DateTime  @default(now())
+  
+  @@index([promotionId])
 }
 
 model ShopCustomerAudience {
@@ -3591,6 +3614,7 @@ model ShopPurchaseOrder {
   expectedDate   DateTime?
   receivedDate   DateTime?
   notes          String?
+  isTaxEnabled   Boolean                 @default(false)
   items          ShopPurchaseOrderItem[]
   createdById    String
   tenantId       String
@@ -3612,7 +3636,27 @@ model ShopPurchaseOrderItem {
   quantity        Decimal
   receivedQty     Decimal           @default(0)
   unitCost        Decimal
+  taxRate         Decimal           @default(0)
+  taxAmount       Decimal           @default(0)
   lineTotal       Decimal
 
   @@index([purchaseOrderId])
+}
+
+model ShopTaxCategory {
+  id          String   @id @default(cuid())
+  name        String
+  rate        Float
+  description String?
+  isDefault   Boolean  @default(false)
+  
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  spareParts  SparePart[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
 }
