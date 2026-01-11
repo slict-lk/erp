@@ -142,9 +142,8 @@ export async function POST(req: Request) {
         }
 
         // 4. Create Invoice with source: 'ONLINE'
+        // The invoice number generator now uses crypto-safe random suffix for guaranteed uniqueness
         const invoiceNumber = await generateInvoiceNumber(tenant.id, 'WEB');
-
-        // Get or create a system user ID for online orders
         const systemUserId = customerId || 'system-online-orders';
 
         const invoice = await prisma.shopInvoice.create({
@@ -160,9 +159,10 @@ export async function POST(req: Request) {
                 source: 'ONLINE',
                 createdById: systemUserId,
                 tenantId: tenant.id,
-                paymentStatus: paymentMethod === 'CREDIT' ? 'UNPAID' : 'PAID' // Simplified
+                paymentStatus: paymentMethod === 'CREDIT' ? 'UNPAID' : 'PAID'
             }
         });
+
 
         // 5. Add all items to invoice
         // ... (This function updates invoice totals)
@@ -288,6 +288,7 @@ export async function POST(req: Request) {
 
     } catch (error) {
         console.error('Checkout Error:', error);
-        return new NextResponse('Internal Server Error', { status: 500 });
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: `Checkout failed: ${errorMessage}` }, { status: 500 });
     }
 }

@@ -237,7 +237,7 @@ export default function SalesPage() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    {invoice.customer?.name || invoice.customerName || 'Walk-in'}
+                                                    {invoice.customerName || invoice.customer?.name || 'Walk-in'}
                                                 </TableCell>
                                                 <TableCell className="text-sm">
                                                     {formatDate(invoice.createdAt)}
@@ -283,7 +283,7 @@ export default function SalesPage() {
                                                         {invoice.invoiceNumber}
                                                     </h3>
                                                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
-                                                        {invoice.customer?.name || invoice.customerName || 'Walk-in'}
+                                                        {invoice.customerName || invoice.customer?.name || 'Walk-in'}
                                                     </p>
                                                     <p className="text-xs text-gray-500 mt-1">
                                                         {formatDate(invoice.createdAt)} • {invoice._count.items} items

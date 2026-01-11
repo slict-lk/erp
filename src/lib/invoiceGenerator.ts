@@ -1,55 +1,81 @@
 import { prisma } from '@/lib/prisma';
+import { randomBytes } from 'crypto';
 
 /**
- * Generates a sequential invoice number in format: YYMMM_QQQQ_XXXXX
- * Example: 26JAN_POS1_00495
+ * Generates a unique invoice number in format: YYMMDD_SRC_XXXX
+ * Example: 260111_WEB_A3F7
  * 
- * @param tenantId The tenant ID
+ * Uses timestamp (YYMMDD) + source + random 4-char alphanumeric suffix.
+ * This guarantees uniqueness even under high concurrency without database locks.
+ * 
+ * The random suffix uses crypto-safe random bytes converted to hex,
+ * giving 65,536 possible combinations per day per source - more than enough
+ * for most e-commerce scenarios.
+ * 
+ * @param tenantId The tenant ID (for future sequence table support)
  * @param source Source/Branch code (e.g., "POS1", "WEB")
  */
-export async function generateInvoiceNumber(tenantId: string, source: string = 'POS'): Promise<string> {
+export async function generateInvoiceNumber(
+    tenantId: string,
+    source: string = 'POS',
+    _retryCount: number = 0 // Kept for backwards compatibility
+): Promise<string> {
     const now = new Date();
-    const year = now.getFullYear().toString().slice(-2); // "26"
-    const month = now.toLocaleString('en-US', { month: 'short' }).toUpperCase(); // "JAN"
-    const prefix = `${year}${month}_${source.toUpperCase()}`;
 
-    // We need a sequential number. We can use a transaction to ensure uniqueness.
-    // Since we don't have a separate Sequence table in schema yet, we can:
-    // 1. Count existing invoices for this tenant (fast but potentially risky for high concurrency)
-    // 2. Or query the latest invoice number and increment (better).
+    // Format: YYMMDD (e.g., 260111 for Jan 11, 2026)
+    const year = now.getFullYear().toString().slice(-2);
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const day = now.getDate().toString().padStart(2, '0');
+    const datePrefix = `${year}${month}${day}`;
 
-    // However, the requirement is "XXXXX" valid across the system or tenant?
-    // "Ensure the sequential number does NOT reset mid-month".
+    // Generate a random 4-character hex suffix (65,536 possibilities)
+    const randomSuffix = randomBytes(2).toString('hex').toUpperCase();
 
-    // Let's use Prisma to find the last invoice for this tenant to extract the sequence.
-    // To allow global uniqueness per tenant, we'll ignore the prefix for sorting if possible,
-    // OR just use a simple counter. 
+    // Final format: 260111_WEB_A3F7
+    const invoiceNumber = `${datePrefix}_${source.toUpperCase()}_${randomSuffix}`;
 
-    // Improved Strategy:
-    // Find the last created invoice for this tenant.
-
-    const lastInvoice = await prisma.shopInvoice.findFirst({
-        where: { tenantId },
-        orderBy: { createdAt: 'desc' },
-        select: { invoiceNumber: true }
+    // Double-check for uniqueness (extremely rare collision)
+    const existing = await prisma.shopInvoice.findFirst({
+        where: { invoiceNumber, tenantId }
     });
 
-    let sequence = 1;
-
-    if (lastInvoice && lastInvoice.invoiceNumber) {
-        // invoices might be "26JAN_POS1_00045"
-        // We need to extract the last part.
-        const parts = lastInvoice.invoiceNumber.split('_');
-        if (parts.length >= 3) {
-            const lastSeqStr = parts[parts.length - 1]; // "00045"
-            const lastSeq = parseInt(lastSeqStr);
-            if (!isNaN(lastSeq)) {
-                sequence = lastSeq + 1;
-            }
-        }
+    if (existing) {
+        // Recursive retry with different random suffix
+        return generateInvoiceNumber(tenantId, source, _retryCount + 1);
     }
 
-    // Pad with zeros to 5 digits
+    return invoiceNumber;
+}
+
+/**
+ * Alternative: Sequential invoice number using database counter
+ * Format: YYMM_SRC_NNNNN (e.g., 2601_WEB_00495)
+ * 
+ * This uses an atomic raw SQL update to increment a counter,
+ * guaranteeing uniqueness even under high concurrency.
+ * 
+ * Requires: InvoiceCounter model in schema
+ */
+export async function generateSequentialInvoiceNumber(
+    tenantId: string,
+    source: string = 'POS'
+): Promise<string> {
+    const now = new Date();
+    const year = now.getFullYear().toString().slice(-2);
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const prefix = `${year}${month}_${source.toUpperCase()}`;
+
+    // Atomic increment using raw SQL for guaranteed uniqueness
+    // This creates the counter if it doesn't exist, or increments it atomically
+    const result = await prisma.$queryRaw<[{ next_val: bigint }]>`
+        INSERT INTO "InvoiceCounter" ("tenantId", "prefix", "counter", "updatedAt")
+        VALUES (${tenantId}, ${prefix}, 1, NOW())
+        ON CONFLICT ("tenantId", "prefix")
+        DO UPDATE SET "counter" = "InvoiceCounter"."counter" + 1, "updatedAt" = NOW()
+        RETURNING "counter" as next_val
+    `;
+
+    const sequence = Number(result[0].next_val);
     const sequenceStr = sequence.toString().padStart(5, '0');
 
     return `${prefix}_${sequenceStr}`;

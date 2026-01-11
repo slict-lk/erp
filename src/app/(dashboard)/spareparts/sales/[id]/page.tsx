@@ -173,9 +173,9 @@ export default function InvoiceDetailPage() {
         doc.setFontSize(14);
         doc.text('Customer Information', 20, 68);
         doc.setFontSize(10);
-        doc.text(`Name: ${invoice.customer?.name || invoice.customerName || 'Walk-in Customer'}`, 20, 76);
-        if (invoice.customer?.phone || invoice.customerPhone) {
-            doc.text(`Phone: ${invoice.customer?.phone || invoice.customerPhone}`, 20, 82);
+        doc.text(`Name: ${invoice.customerName || invoice.customer?.name || 'Walk-in Customer'}`, 20, 76);
+        if (invoice.customerPhone || invoice.customer?.phone) {
+            doc.text(`Phone: ${invoice.customerPhone || invoice.customer?.phone}`, 20, 82);
         }
         if (invoice.customer?.email) {
             doc.text(`Email: ${invoice.customer.email}`, 20, 88);
@@ -484,13 +484,13 @@ export default function InvoiceDetailPage() {
                             <div>
                                 <p className="text-sm text-gray-500">Name</p>
                                 <p className="font-medium">
-                                    {invoice.customer?.name || invoice.customerName || 'Walk-in Customer'}
+                                    {invoice.customerName || invoice.customer?.name || 'Walk-in Customer'}
                                 </p>
                             </div>
-                            {invoice.customer?.phone || invoice.customerPhone ? (
+                            {invoice.customerPhone || invoice.customer?.phone ? (
                                 <div>
                                     <p className="text-sm text-gray-500">Phone</p>
-                                    <p className="font-medium">{invoice.customer?.phone || invoice.customerPhone}</p>
+                                    <p className="font-medium">{invoice.customerPhone || invoice.customer?.phone}</p>
                                 </div>
                             ) : null}
                             {invoice.customer?.email ? (
