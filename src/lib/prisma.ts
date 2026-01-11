@@ -4,12 +4,11 @@ import { PrismaClient } from '@prisma/client';
 // exhausting your database connection limit.
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-// Create Prisma Client instance
+// Create Prisma Client instance with serverless-optimized settings
 const createPrismaClient = () => {
   // If DATABASE_URL is not set, we're likely in build mode
   if (!process.env.DATABASE_URL) {
     console.warn('⚠️  DATABASE_URL not set - using placeholder for build time');
-    // Return a client with a placeholder URL that won't be used during build
     return new PrismaClient({
       datasources: {
         db: {
@@ -19,14 +18,35 @@ const createPrismaClient = () => {
     });
   }
 
+  // For serverless environments (Vercel), we need to limit connections
+  // Each serverless function instance should use minimal connections
+  const databaseUrl = new URL(process.env.DATABASE_URL);
+
+  // Add connection pooling params if not already present
+  if (!databaseUrl.searchParams.has('connection_limit')) {
+    databaseUrl.searchParams.set('connection_limit', '5'); // Limit per function instance
+  }
+  if (!databaseUrl.searchParams.has('connect_timeout')) {
+    databaseUrl.searchParams.set('connect_timeout', '10'); // 10 second timeout
+  }
+  if (!databaseUrl.searchParams.has('pool_timeout')) {
+    databaseUrl.searchParams.set('pool_timeout', '10'); // Wait 10s for available connection
+  }
+
   return new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    datasources: {
+      db: {
+        url: databaseUrl.toString(),
+      },
+    },
   });
 };
 
 export const prisma = globalForPrisma.prisma || createPrismaClient();
 
-if (process.env.NODE_ENV !== 'production') {
+// In production, also cache the prisma instance to prevent connection leaks
+if (process.env.NODE_ENV === 'production') {
   globalForPrisma.prisma = prisma;
 }
 
