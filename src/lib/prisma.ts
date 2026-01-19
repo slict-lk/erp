@@ -4,50 +4,53 @@ import { PrismaClient } from '@prisma/client';
 // exhausting your database connection limit.
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
+// Build the connection URL with serverless-optimized pooling parameters
+function getOptimizedDatabaseUrl(): string {
+  const baseUrl = process.env.DATABASE_URL || '';
+
+  if (!baseUrl) {
+    return 'postgresql://placeholder:placeholder@localhost:5432/placeholder';
+  }
+
+  // Check if URL already has query params
+  const separator = baseUrl.includes('?') ? '&' : '?';
+
+  // Ultra-conservative settings for Aiven free tier / serverless
+  // connection_limit=1 means each function instance uses only 1 connection
+  const params = [
+    'connection_limit=1',    // Only 1 connection per serverless function
+    'connect_timeout=15',    // Wait up to 15s for connection
+    'pool_timeout=15',       // Wait up to 15s for pool
+  ].join('&');
+
+  return `${baseUrl}${separator}${params}`;
+}
+
 // Create Prisma Client instance with serverless-optimized settings
 const createPrismaClient = () => {
-  // If DATABASE_URL is not set, we're likely in build mode
-  if (!process.env.DATABASE_URL) {
-    console.warn('⚠️  DATABASE_URL not set - using placeholder for build time');
-    return new PrismaClient({
-      datasources: {
-        db: {
-          url: 'postgresql://placeholder:placeholder@localhost:5432/placeholder',
-        },
-      },
-    });
-  }
+  const url = getOptimizedDatabaseUrl();
 
-  // For serverless environments (Vercel), we need to limit connections
-  // Each serverless function instance should use minimal connections
-  const databaseUrl = new URL(process.env.DATABASE_URL);
-
-  // Add connection pooling params if not already present
-  if (!databaseUrl.searchParams.has('connection_limit')) {
-    databaseUrl.searchParams.set('connection_limit', '5'); // Limit per function instance
-  }
-  if (!databaseUrl.searchParams.has('connect_timeout')) {
-    databaseUrl.searchParams.set('connect_timeout', '10'); // 10 second timeout
-  }
-  if (!databaseUrl.searchParams.has('pool_timeout')) {
-    databaseUrl.searchParams.set('pool_timeout', '10'); // Wait 10s for available connection
-  }
+  console.log('[Prisma] Initializing with optimized connection settings');
 
   return new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
     datasources: {
-      db: {
-        url: databaseUrl.toString(),
-      },
+      db: { url },
     },
   });
 };
 
-export const prisma = globalForPrisma.prisma || createPrismaClient();
+// Use cached instance or create new one
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-// In production, also cache the prisma instance to prevent connection leaks
-if (process.env.NODE_ENV === 'production') {
-  globalForPrisma.prisma = prisma;
+// Cache in BOTH dev and production to prevent connection leaks
+globalForPrisma.prisma = prisma;
+
+// Ensure connections are cleaned up on process termination
+if (typeof process !== 'undefined') {
+  process.on('beforeExit', async () => {
+    await prisma.$disconnect();
+  });
 }
 
 // Connection health check helper
@@ -56,14 +59,14 @@ export async function testDatabaseConnection(retries = 3): Promise<boolean> {
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      await prisma.$connect();
+      await prisma.$queryRaw`SELECT 1`;
       console.log('✅ Database connection successful');
       return true;
     } catch (error) {
       console.error(`Database connection attempt ${attempt}/${retries} failed:`, error);
 
       if (attempt === retries) {
-        throw error;
+        return false;
       }
 
       // Exponential backoff: 1s, 2s, 4s
@@ -77,3 +80,4 @@ export async function testDatabaseConnection(retries = 3): Promise<boolean> {
 }
 
 export default prisma;
+
