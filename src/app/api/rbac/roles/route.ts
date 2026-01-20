@@ -14,21 +14,20 @@ export async function GET() {
       where: {
         tenantId: tenant.id,
       },
+      include: {
+        _count: {
+          select: { users: true },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
 
-    // Count users for each role manually (since there's no direct relation)
-    const rolesWithCount = await Promise.all(
-      roles.map(async (role) => {
-        // For now, set userCount to 0 since there's no direct relation
-        // This can be updated when the relation is added to the schema
-        return {
-          ...role,
-          userCount: 0,
-          users: [],
-        };
-      })
-    );
+    // Format response to match expected structure
+    const rolesWithCount = roles.map((role) => ({
+      ...role,
+      userCount: role._count.users,
+      // users: [], // Legacy field if needed by UI
+    }));
 
     return NextResponse.json({ data: rolesWithCount });
   } catch (error) {

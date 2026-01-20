@@ -9,6 +9,11 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const tenant = await getOrCreateDefaultTenant();
+
+    // Check permissions
+    const { requirePermission } = await import('@/lib/auth');
+    await requirePermission('inventory', 'view');
+
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
     const typeParam = searchParams.get('type');
@@ -37,7 +42,10 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json(products);
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === 'Forbidden: Insufficient Permissions') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     console.error('Error fetching products:', error);
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
   }
@@ -47,6 +55,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const tenant = await getOrCreateDefaultTenant();
+
+    // Check permissions
+    const { requirePermission } = await import('@/lib/auth');
+    await requirePermission('inventory', 'create');
+
     const body = await request.json();
 
     const product = await prisma.product.create({
@@ -68,7 +81,10 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(product, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === 'Forbidden: Insufficient Permissions') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     console.error('Error creating product:', error);
     return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });
   }

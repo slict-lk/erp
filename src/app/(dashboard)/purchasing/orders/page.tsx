@@ -54,8 +54,8 @@ export default function PurchaseOrdersPage() {
     try {
       const response = await fetch('/api/purchasing/orders');
       if (response.ok) {
-        const data = await response.json();
-        setPurchaseOrders(data);
+        const responseData = await response.json();
+        setPurchaseOrders(responseData.data || []);
       }
     } catch (error) {
       console.error('Failed to load purchase orders:', error);

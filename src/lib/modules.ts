@@ -327,16 +327,7 @@ export const AVAILABLE_MODULES: Module[] = [
     permissions: { view: true, create: true, edit: true, delete: true },
   },
 
-  // Healthcare
-  {
-    id: 'healthcare',
-    name: 'Healthcare',
-    description: 'Healthcare management',
-    category: 'healthcare',
-    icon: 'Heart',
-    route: '/healthcare',
-    permissions: { view: true, create: true, edit: true, delete: true },
-  },
+
 
   // Hospitality
   {

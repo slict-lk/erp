@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Save, X, Eye, EyeOff } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 import { AVAILABLE_MODULES, MODULE_CATEGORIES, generateDefaultModulePermissions, ModulePermissions } from '@/lib/modules';
 
 // Dynamically generate permissions schema
@@ -18,11 +19,12 @@ const userSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters').optional(),
-  role: z.enum(['ADMIN', 'MANAGER', 'USER', 'VIEWER']),
+  role: z.string().min(1, 'Role is required'), // Changed from enum to string
   department: z.string().optional(),
   isActive: z.boolean(),
   // Allow dynamic keys for permissions
   permissions: z.record(z.any()),
+  roleId: z.string().optional(),
 });
 
 type UserFormData = z.infer<typeof userSchema>;
@@ -37,11 +39,28 @@ export function UserForm({ initialData, onSubmit, onCancel }: UserFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const [roles, setRoles] = useState<any[]>([]);
+
   // Initialize default permissions based on available modules
   const defaultPermissions: Record<string, boolean> = {};
   AVAILABLE_MODULES.forEach(m => {
     defaultPermissions[m.id] = false;
   });
+
+  useEffect(() => {
+    async function fetchRoles() {
+      try {
+        const res = await fetch('/api/rbac/roles');
+        if (res.ok) {
+          const json = await res.json();
+          setRoles(json.data || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch roles', err);
+      }
+    }
+    fetchRoles();
+  }, []);
 
   const {
     register,
@@ -64,21 +83,49 @@ export function UserForm({ initialData, onSubmit, onCancel }: UserFormProps) {
   });
 
   const role = watch('role');
+  const roleId = watch('roleId');
   const isActive = watch('isActive');
   const currentPermissions = watch('permissions');
 
   // Update permissions when role changes
-  const handleRoleChange = (newRole: string) => {
-    setValue('role', newRole as any);
+  const handleRoleChange = (selectedRoleId: string) => {
+    // Find selected role object
+    const selectedRole = roles.find(r => r.id === selectedRoleId);
 
-    const defaults = generateDefaultModulePermissions(newRole as any);
-    const newPermissions: Record<string, boolean> = {};
+    if (selectedRole) {
+      // It's a DB role
+      setValue('roleId', selectedRole.id);
+      setValue('role', selectedRole.code as any);
 
-    Object.keys(defaults).forEach(key => {
-      newPermissions[key] = defaults[key].enabled;
-    });
+      // Update permissions from role
+      const newPermissions: Record<string, boolean> = {};
+      const rolePerms = selectedRole.permissions; // Array of strings e.g. "sales:view"
 
-    setValue('permissions', newPermissions);
+      // We need to map RBAC permissions (strings) to ModulePermissions (object)
+      // Actually, currently role.permissions is just JSON. 
+      // The backend 'migrate-roles.ts' created it using generateDefaultModulePermissions(roleCode).
+      // So it is likely object structure or array.
+      // Let's assume it matches the structure expected by the form for now?
+      // Wait, migrate-roles script: permissions: generateDefaultModulePermissions(roleCode) -> This returns ModulePermissions object (nested).
+      // But UserForm expects flat permissions: { 'sales': true, 'inventory': true } keys?
+      // UserForm L62: `permissions: initialData?.permissions || defaultPermissions` (flat)
+      // UserForm L78: `newPermissions[key] = defaults[key].enabled`.
+
+      // So we need to flatten the role permissions if they are nested.
+      if (rolePerms && typeof rolePerms === 'object') {
+        Object.keys(rolePerms).forEach(key => {
+          newPermissions[key] = rolePerms[key].enabled;
+        });
+      }
+
+      setValue('permissions', newPermissions);
+
+    } else {
+      // Fallback for hardcoded values if we keep them in the list (we probably won't)
+      // But if the value passed IS a code (e.g. "ADMIN"), handle it?
+      // Let's assume the Select uses ID as value.
+      console.warn('Selected role ID not found in roles list:', selectedRoleId);
+    }
   };
 
   const onFormSubmit = async (data: UserFormData) => {
@@ -108,17 +155,28 @@ export function UserForm({ initialData, onSubmit, onCancel }: UserFormProps) {
 
       await onSubmit({
         ...data,
-        modulePermissions
+        modulePermissions,
+        // roleId is already in data if we added it to schema
+        roleId: data.roleId
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Get current user's enabled modules to filter the list
+  const { data: session } = useSession();
+  const enabledModuleIds = session?.user?.enabledModuleIds || [];
+  const isSuperAdmin = session?.user?.isSuperAdmin;
+
   // Group modules by category
   const modulesByCategory = MODULE_CATEGORIES.map(category => ({
     ...category,
-    modules: AVAILABLE_MODULES.filter(m => m.category === category.id)
+    modules: AVAILABLE_MODULES.filter(m => {
+      // Show module if it belongs to category AND
+      // (User is Super Admin OR Module is in user's enabled list)
+      return m.category === category.id && (isSuperAdmin || enabledModuleIds.includes(m.id));
+    })
   })).filter(cat => cat.modules.length > 0);
 
   return (
@@ -184,15 +242,16 @@ export function UserForm({ initialData, onSubmit, onCancel }: UserFormProps) {
 
             <div>
               <Label htmlFor="role">Role *</Label>
-              <Select value={role} onValueChange={handleRoleChange}>
+              <Select value={watch('roleId') || ''} onValueChange={handleRoleChange}>
                 <SelectTrigger className={errors.role ? 'border-red-500' : ''}>
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ADMIN">Administrator</SelectItem>
-                  <SelectItem value="MANAGER">Manager</SelectItem>
-                  <SelectItem value="USER">User</SelectItem>
-                  <SelectItem value="VIEWER">Viewer</SelectItem>
+                  {roles.map((role) => (
+                    <SelectItem key={role.id} value={role.id}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {errors.role && (

@@ -19,6 +19,7 @@ export async function GET(
         const tenant = await prisma.tenant.findUnique({
             where: { id },
             include: {
+                _count: { select: { users: true } },
                 users: {
                     select: {
                         id: true,
@@ -28,12 +29,8 @@ export async function GET(
                         isActive: true,
                         createdAt: true,
                     },
-                },
-                _count: {
-                    select: {
-                        users: true,
-                        properties: true,
-                    },
+                    orderBy: { createdAt: 'desc' },
+                    take: 10,
                 },
             },
         });
@@ -61,17 +58,22 @@ export async function PATCH(
 
         const { id } = await params;
         const body = await req.json();
-        const { name, companyName, plan, status, domain } = body;
+
+        // Extract allowed fields
+        const { name, companyName, plan, status, subdomain } = body;
+
+        // Build update data
+        const updateData: any = {};
+        if (name !== undefined) updateData.name = name;
+        if (companyName !== undefined) updateData.companyName = companyName;
+        if (plan !== undefined) updateData.plan = plan;
+        if (status !== undefined) updateData.status = status;
+        // Note: subdomain changes are risky, only allow if explicitly needed
+        // if (subdomain !== undefined) updateData.subdomain = subdomain;
 
         const tenant = await prisma.tenant.update({
             where: { id },
-            data: {
-                name,
-                companyName,
-                plan,
-                status,
-                domain: domain || null,
-            },
+            data: updateData,
         });
 
         return NextResponse.json(tenant);
@@ -93,9 +95,21 @@ export async function DELETE(
 
         const { id } = await params;
 
-        await prisma.tenant.delete({
+        // Check if tenant has users
+        const tenant = await prisma.tenant.findUnique({
             where: { id },
+            include: { _count: { select: { users: true } } },
         });
+
+        if (!tenant) {
+            return new NextResponse('Tenant not found', { status: 404 });
+        }
+
+        if (tenant._count.users > 0) {
+            return new NextResponse('Cannot delete tenant with active users', { status: 400 });
+        }
+
+        await prisma.tenant.delete({ where: { id } });
 
         return new NextResponse(null, { status: 204 });
     } catch (error) {

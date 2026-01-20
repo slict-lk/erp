@@ -12,6 +12,7 @@ declare module 'next-auth' {
       role: string | null;
       isSuperAdmin: boolean;
       enabledModuleIds: string[];
+      modulePermissions?: Record<string, any>;
       employee?: any;
       image?: string | null;
     };
@@ -34,6 +35,7 @@ declare module 'next-auth/jwt' {
     role: string | null;
     isSuperAdmin: boolean;
     enabledModuleIds: string[];
+    modulePermissions?: Record<string, any>;
     employee?: any;
   }
 }

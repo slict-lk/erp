@@ -45,7 +45,9 @@ import {
   ChevronRight,
   LogOut,
   Wrench,
-  Store
+  Store,
+  Shield,
+  Building2
 } from 'lucide-react';
 import { useModulePermissions } from '@/hooks/useModulePermissions';
 import type { LucideIcon } from 'lucide-react';
@@ -66,6 +68,7 @@ interface NavigationItem {
   moduleId?: string;
   children?: NavigationChild[];
   requiresAdmin?: boolean;
+  requiresSuperAdmin?: boolean;
 }
 
 const navigation: NavigationItem[] = [
@@ -394,11 +397,22 @@ const navigation: NavigationItem[] = [
       { name: 'Company', href: '/settings/company', moduleId: 'settings' },
       { name: 'Users', href: '/settings/users', moduleId: 'users' },
       { name: 'Roles', href: '/settings/roles', moduleId: 'settings' },
-      { name: 'Tenants', href: '/settings/tenants', moduleId: 'settings' },
       { name: 'Appearance', href: '/settings/appearance', moduleId: 'settings' },
       { name: 'Integrations', href: '/settings/integrations', moduleId: 'settings' },
       { name: 'Notifications', href: '/settings/notifications', moduleId: 'settings' },
       { name: 'System', href: '/settings/system', moduleId: 'settings' },
+    ],
+  },
+
+  // Super Admin (God Mode)
+  {
+    name: 'Super Admin',
+    href: '/admin',
+    icon: Shield,
+    requiresSuperAdmin: true,
+    children: [
+      { name: 'All Tenants', href: '/admin/tenants' },
+      { name: 'Create Tenant', href: '/admin/tenants/new' },
     ],
   },
 ];
@@ -412,7 +426,7 @@ function canAccessNavigationItem(
   isAdmin: boolean,
   isSuperAdmin: boolean
 ): boolean {
-  if (isSuperAdmin || isAdmin) return true;
+  if (isSuperAdmin) return true;
   if ('icon' in item && item.name === 'Dashboard') return true;
   if (!item.moduleId) return true;
   const permission = modulePermissions[item.moduleId];
@@ -452,6 +466,16 @@ export function Sidebar({
   // Filter navigation based on module permissions
   const filteredNavigation = useMemo(() => {
     return navigation.reduce<NavigationItem[]>((acc, item) => {
+      // Skip Super Admin items for non-super-admins
+      if (item.requiresSuperAdmin && !isSuperAdmin) {
+        return acc;
+      }
+
+      // Skip Admin items for non-admins
+      if (item.requiresAdmin && !isAdmin) {
+        return acc;
+      }
+
       if (item.children) {
         const filteredChildren = filterNavigationChildren(
           item.children,

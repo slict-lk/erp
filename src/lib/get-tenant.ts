@@ -131,8 +131,11 @@ export function formatUserForSession(user: UserWithTenant) {
     email: user.email,
     name: user.name,
     role: userRole,
+    isSuperAdmin: user.isSuperAdmin,
     tenantId: user.tenantId,
     tenant: user.tenant?.name ?? user.tenant?.companyName ?? 'Default',
+    modulePermissions: (user.modulePermissions as Record<string, any>) || {},
+    enabledModuleIds: Object.keys((user.modulePermissions as Record<string, any>) || {}).filter(key => (user.modulePermissions as any)?.[key]?.enabled),
   };
 }
 

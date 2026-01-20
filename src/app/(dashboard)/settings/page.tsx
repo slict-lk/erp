@@ -51,14 +51,7 @@ export default async function SettingsPage() {
           icon={Settings}
           href="/settings/system"
         />
-        {session?.user?.isSuperAdmin && (
-          <SettingCard
-            title="Tenant Management"
-            description="Manage organizations and subscriptions"
-            icon={Building}
-            href="/settings/tenants"
-          />
-        )}
+
       </div>
 
       <Card>

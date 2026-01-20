@@ -25,23 +25,23 @@ const companyFormSchema = z.object({
   foundedYear: z.string().regex(/^\d{4}$/, 'Enter a valid year'),
   website: z.string().url('Enter a valid URL').or(z.literal('')),
   description: z.string().max(500, 'Description is too long').optional(),
-  
+
   // Contact Details
   email: z.string().email('Enter a valid email'),
   phone: z.string().min(5, 'Enter a valid phone number'),
   fax: z.string().optional(),
-  
+
   // Address
   address: z.string().min(5, 'Address is required'),
   city: z.string().min(2, 'City is required'),
   state: z.string().min(2, 'State is required'),
   postalCode: z.string().min(3, 'Postal code is required'),
   country: z.string().min(2, 'Country is required'),
-  
+
   // Tax Information
   taxId: z.string().min(3, 'Tax ID is required'),
   vatNumber: z.string().optional(),
-  
+
   // Bank Details
   bankName: z.string().min(3, 'Bank name is required'),
   accountName: z.string().min(3, 'Account name is required'),
@@ -49,13 +49,13 @@ const companyFormSchema = z.object({
   routingNumber: z.string().optional(),
   iban: z.string().optional(),
   swiftCode: z.string().optional(),
-  
+
   // Social Media
   facebook: z.string().url('Enter a valid URL').or(z.literal('')),
   twitter: z.string().url('Enter a valid URL').or(z.literal('')),
   linkedin: z.string().url('Enter a valid URL').or(z.literal('')),
   instagram: z.string().url('Enter a valid URL').or(z.literal('')),
-  
+
   // Business Hours
   businessHours: z.array(
     z.object({
@@ -65,7 +65,7 @@ const companyFormSchema = z.object({
       closeTime: z.string(),
     })
   ),
-  
+
   // Documents
   logo: z.string().optional(),
   signature: z.string().optional(),
@@ -89,7 +89,7 @@ const defaultBusinessHours = [
 export default function CompanySettingsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('company');
-  
+
   const form = useForm<CompanyFormValues>({
     resolver: zodResolver(companyFormSchema),
     defaultValues: {
@@ -189,18 +189,27 @@ export default function CompanySettingsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Company Settings</h2>
-        <p className="text-muted-foreground">
-          Manage your company information, contact details, and business settings
-        </p>
+    <div className="p-6 space-y-8 max-w-[1600px] mx-auto">
+      {/* Premium Header */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-gradient-to-r from-slate-900 to-slate-800 p-8 rounded-3xl text-white shadow-2xl relative overflow-hidden">
+        <div className="relative z-10">
+          <h1 className="text-4xl font-bold tracking-tight mb-2">Company Profile</h1>
+          <p className="text-slate-300 text-lg">Manage your organization's identity, contact info, and branding.</p>
+          <div className="flex gap-4 mt-4 text-sm text-slate-400">
+            <span className="flex items-center gap-1"><Building2 className="h-4 w-4" /> Organization Details</span>
+            <span className="flex items-center gap-1"><Globe className="h-4 w-4" /> Public Profile</span>
+            <span className="flex items-center gap-1"><div className="h-2 w-2 rounded-full bg-green-500" /> Active Status</span>
+          </div>
+        </div>
+
+        {/* Background Pattern */}
+        <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-blue-600/10 to-transparent pointer-events-none" />
       </div>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          <Tabs 
-            value={activeTab} 
+          <Tabs
+            value={activeTab}
             onValueChange={setActiveTab}
             className="space-y-6"
           >
@@ -277,7 +286,7 @@ export default function CompanySettingsPage() {
                       )}
                     />
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField
                       control={form.control}
@@ -319,7 +328,7 @@ export default function CompanySettingsPage() {
                       )}
                     />
                   </div>
-                  
+
                   <FormField
                     control={form.control}
                     name="website"
@@ -333,7 +342,7 @@ export default function CompanySettingsPage() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="description"
@@ -433,7 +442,7 @@ export default function CompanySettingsPage() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField
                       control={form.control}
@@ -454,18 +463,18 @@ export default function CompanySettingsPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>State/Province *</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select state" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="AL">Alabama</SelectItem>
-                                <SelectItem value="AK">Alaska</SelectItem>
-                                {/* Add more states as needed */}
-                              </SelectContent>
-                            </Select>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select state" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="AL">Alabama</SelectItem>
+                              <SelectItem value="AK">Alaska</SelectItem>
+                              {/* Add more states as needed */}
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -484,7 +493,7 @@ export default function CompanySettingsPage() {
                       )}
                     />
                   </div>
-                  
+
                   <FormField
                     control={form.control}
                     name="country"
@@ -592,7 +601,7 @@ export default function CompanySettingsPage() {
                       )}
                     />
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -621,7 +630,7 @@ export default function CompanySettingsPage() {
                       )}
                     />
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -684,7 +693,7 @@ export default function CompanySettingsPage() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="twitter"
@@ -705,7 +714,7 @@ export default function CompanySettingsPage() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="linkedin"
@@ -726,7 +735,7 @@ export default function CompanySettingsPage() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="instagram"
@@ -777,7 +786,7 @@ export default function CompanySettingsPage() {
                           {day.isOpen ? 'Open' : 'Closed'}
                         </span>
                       </div>
-                      
+
                       {day.isOpen && (
                         <div className="flex items-center gap-2 ml-auto">
                           <FormField
@@ -844,14 +853,14 @@ export default function CompanySettingsPage() {
                     </div>
                     {form.watch('logo') ? (
                       <div className="mt-2 flex items-center gap-4">
-                        <img 
-                          src={form.watch('logo')} 
-                          alt="Company Logo" 
+                        <img
+                          src={form.watch('logo')}
+                          alt="Company Logo"
                           className="h-12 object-contain"
                         />
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
+                        <Button
+                          type="button"
+                          variant="ghost"
                           size="sm"
                           onClick={() => form.setValue('logo', '')}
                         >
@@ -887,14 +896,14 @@ export default function CompanySettingsPage() {
                     </div>
                     {form.watch('signature') ? (
                       <div className="mt-2 flex items-center gap-4">
-                        <img 
-                          src={form.watch('signature')} 
-                          alt="Signature" 
+                        <img
+                          src={form.watch('signature')}
+                          alt="Signature"
                           className="h-20 object-contain"
                         />
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
+                        <Button
+                          type="button"
+                          variant="ghost"
                           size="sm"
                           onClick={() => form.setValue('signature', '')}
                         >

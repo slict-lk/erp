@@ -8,6 +8,11 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const tenant = await getOrCreateDefaultTenant();
+
+    // Check permissions
+    const { requirePermission } = await import('@/lib/auth');
+    await requirePermission('sales', 'view');
+
     const { searchParams } = new URL(request.url);
     const statusParam = searchParams.get('status');
     const customerId = searchParams.get('customerId');
@@ -26,7 +31,10 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json(orders);
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === 'Forbidden: Insufficient Permissions') {
+      return NextResponse.json({ error: 'Forsidden' }, { status: 403 });
+    }
     console.error('Error fetching sales orders:', error);
     return NextResponse.json({ error: 'Failed to fetch sales orders' }, { status: 500 });
   }
@@ -36,6 +44,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const tenant = await getOrCreateDefaultTenant();
+
+    // Check permissions
+    const { requirePermission } = await import('@/lib/auth');
+    await requirePermission('sales', 'create');
+
     const body = await request.json();
 
     const order = await prisma.salesOrder.create({
@@ -58,7 +71,10 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(order, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === 'Forbidden: Insufficient Permissions') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     console.error('Error creating sales order:', error);
     return NextResponse.json({ error: 'Failed to create sales order' }, { status: 500 });
   }

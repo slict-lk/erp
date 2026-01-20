@@ -49,10 +49,36 @@ export async function getCurrentUser() {
 
 export async function requireAuth() {
   const user = await getCurrentUser();
-  
+
   if (!user) {
     throw new Error('Unauthorized');
   }
-  
+
+  return user;
+}
+
+export async function requirePermission(
+  moduleId: string,
+  action: 'view' | 'create' | 'edit' | 'delete' | 'export' | 'import' | 'approve'
+) {
+  const user = await requireAuth();
+
+  const permissions = (user.modulePermissions as Record<string, any>) || {};
+  // Admin bypass is already handled in hasModulePermission? No, it's not.
+  // We should check admin role here or trust hasModulePermission?
+  // hasModulePermission checks the object. Authentication layer (this file) should handle role bypass if needed.
+  // Actually, generateDefaultModulePermissions ensures Admins have all permissions enabled.
+  // But let's add an explicit super admin / admin bypass for safety.
+
+  if (user.isSuperAdmin || user.role === 'ADMIN') {
+    return user;
+  }
+
+  const { hasModulePermission } = await import('./modules'); // Dynamic import to avoid circular dependency if any (though likely fine)
+
+  if (!hasModulePermission(permissions, moduleId, action)) {
+    throw new Error('Forbidden: Insufficient Permissions');
+  }
+
   return user;
 }

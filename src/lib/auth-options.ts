@@ -94,6 +94,7 @@ export const authOptions: NextAuthOptions = {
         // Optimize JWT: Store only enabled module IDs
         const permissions = (user.modulePermissions as Record<string, any>) || {};
         token.enabledModuleIds = Object.keys(permissions).filter(key => permissions[key]?.enabled);
+        token.modulePermissions = permissions;
 
         token.tenantId = user.tenantId as string;
         token.tenant = user.tenant;
@@ -133,6 +134,7 @@ export const authOptions: NextAuthOptions = {
             // Optimize JWT: Store only enabled module IDs
             const permissions = (dbUser.modulePermissions as Record<string, any>) || {};
             token.enabledModuleIds = Object.keys(permissions).filter(key => permissions[key]?.enabled);
+            token.modulePermissions = permissions;
 
             token.tenantId = dbUser.tenantId;
             token.tenant = dbUser.tenant?.name ?? dbUser.tenant?.companyName ?? 'Default';
@@ -151,6 +153,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = (token.role as string | null) ?? null;
         session.user.isSuperAdmin = token.isSuperAdmin as boolean;
         session.user.enabledModuleIds = token.enabledModuleIds as string[];
+        session.user.modulePermissions = token.modulePermissions as Record<string, any>;
         session.user.tenantId = token.tenantId as string;
         session.user.tenant = token.tenant as string;
         session.user.employee = token.employee;

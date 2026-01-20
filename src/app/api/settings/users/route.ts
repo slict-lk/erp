@@ -57,6 +57,9 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
+        include: {
+          userRole: true,
+        },
       }),
       prisma.user.count({ where }),
     ]);
@@ -87,29 +90,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user has admin role
-    // Note: In development, the user.role might be 'ADMIN' from session or the user might be a super admin
-    const isAdmin = user.role === 'ADMIN' || user.role === 'SUPERADMIN';
-
-    console.log('🔐 Permission check:', {
-      userRole: user.role,
-      isAdmin,
-      checksPassed: user.role === 'ADMIN',
-      checksPassedAlt: user.role === 'SUPERADMIN'
-    });
-
-    if (!isAdmin) {
-      console.error('❌ Permission denied for user:', {
-        email: user.email,
-        role: user.role,
-        roleType: typeof user.role,
-        tenantId: user.tenantId
-      });
-      return NextResponse.json(
-        { error: 'Insufficient permissions. Only administrators can create users.' },
-        { status: 403 }
-      );
-    }
+    // Check permissions
+    const { requirePermission } = await import('@/lib/auth');
+    await requirePermission('users', 'create');
 
     console.log('✅ Permission granted - proceeding with user creation');
 
@@ -154,24 +137,44 @@ export async function POST(request: NextRequest) {
       hashedPassword = await bcrypt.default.hash(tempPassword, 10);
     }
 
-    // Determine user role (default to USER if not provided)
-    const userRole = (body.role as 'ADMIN' | 'MANAGER' | 'USER' | 'VIEWER') || 'USER';
-
-    // Generate module permissions
+    // Determine user role and permissions
+    let userRole = (body.role as 'ADMIN' | 'MANAGER' | 'USER' | 'VIEWER') || 'USER';
     let modulePermissions;
+    let titleRole = userRole;
+    let assignedRoleId = body.roleId;
 
-    if (body.modulePermissions && typeof body.modulePermissions === 'object') {
-      // If custom permissions provided, merge with defaults to ensure structure
-      const defaultPermissions = generateDefaultModulePermissions(userRole);
-      modulePermissions = { ...defaultPermissions, ...body.modulePermissions };
+    // If roleId is provided, fetch the role from DB
+    if (assignedRoleId) {
+      const dbRole = await prisma.role.findFirst({
+        where: { id: assignedRoleId, tenantId: user.tenantId }
+      });
 
-      // Security: Ensure ADMIN always has full access regardless of input
-      if (userRole === 'ADMIN') {
-        modulePermissions = generateDefaultModulePermissions('ADMIN');
+      if (dbRole) {
+        userRole = dbRole.code as any; // Set legacy role code
+        modulePermissions = dbRole.permissions; // Inherit permissions from Role
+        console.log(`✅ Using DB Role: ${dbRole.name} (${dbRole.code})`);
+      } else {
+        console.warn(`⚠️ Role ID ${assignedRoleId} not found for tenant, falling back to legacy role: ${userRole}`);
+        assignedRoleId = undefined;
       }
-    } else {
-      // Fallback to role-based defaults
-      modulePermissions = generateDefaultModulePermissions(userRole);
+    }
+
+    // Fallback or override logic
+    if (!assignedRoleId) {
+      // ... existing logic for custom permissions or defaults
+    }
+
+    if (!modulePermissions) {
+      if (body.modulePermissions && typeof body.modulePermissions === 'object') {
+        const defaultPermissions = generateDefaultModulePermissions(userRole);
+        modulePermissions = { ...defaultPermissions, ...body.modulePermissions };
+
+        if (userRole === 'ADMIN') {
+          modulePermissions = generateDefaultModulePermissions('ADMIN');
+        }
+      } else {
+        modulePermissions = generateDefaultModulePermissions(userRole);
+      }
     }
 
     const newUser = await prisma.user.create({
@@ -183,6 +186,7 @@ export async function POST(request: NextRequest) {
         isActive: body.isActive !== undefined ? body.isActive : true,
         role: userRole,
         modulePermissions: modulePermissions as any,
+        userRoleId: assignedRoleId,
       },
     });
 

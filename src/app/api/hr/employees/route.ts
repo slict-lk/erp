@@ -9,6 +9,11 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   return tryCatch(async () => {
     const tenant = await getOrCreateDefaultTenant();
+
+    // Check permissions
+    const { requirePermission } = await import('@/lib/auth');
+    await requirePermission('hr', 'view');
+
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
@@ -67,6 +72,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return tryCatch(async () => {
     const tenant = await getOrCreateDefaultTenant();
+
+    // Check permissions
+    const { requirePermission } = await import('@/lib/auth');
+    await requirePermission('hr', 'create');
+
     const body = await request.json();
 
     // Validate required fields

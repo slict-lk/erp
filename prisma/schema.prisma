@@ -493,6 +493,11 @@ model User {
   isSuperAdmin Boolean @default(false)
 
   role              String? @default("USER")
+  
+  // Dynamic Role Relation
+  userRoleId        String?
+  userRole          Role?   @relation(fields: [userRoleId], references: [id])
+  
   modulePermissions Json?
 
   tenantId String
@@ -2224,13 +2229,16 @@ model PricingRule {
 model Role {
   id          String   @id @default(cuid())
   name        String
-  code        String   @unique
+  code        String
   description String?
   permissions Json
   tenantId    String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  users       User[]
+
+  @@unique([tenantId, code])
   @@index([code])
   @@index([tenantId])
 }

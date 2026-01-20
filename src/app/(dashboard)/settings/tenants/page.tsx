@@ -73,7 +73,7 @@ export default function TenantsPage() {
                     <h1 className="text-3xl font-bold text-gray-900">Tenant Management</h1>
                     <p className="text-gray-600">Manage all organizations and their subscriptions</p>
                 </div>
-                <Link href="/settings/tenants/new">
+                <Link href="/admin/tenants/new">
                     <Button className="gap-2">
                         <Plus className="h-4 w-4" />
                         Create Tenant
@@ -112,7 +112,7 @@ export default function TenantsPage() {
                                     <span className="text-sm font-medium text-gray-500">
                                         Plan: {tenant.plan}
                                     </span>
-                                    <Link href={`/settings/tenants/${tenant.id}`}>
+                                    <Link href={`/admin/tenants/${tenant.id}`}>
                                         <Button variant="outline" size="sm" className="gap-2">
                                             <ExternalLink className="h-4 w-4" />
                                             Manage

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import { hash } from 'bcryptjs';
+import { generateDefaultModulePermissions } from '@/lib/modules';
 
 export async function GET(req: Request) {
     try {
@@ -63,6 +64,32 @@ export async function POST(req: Request) {
 
         const hashedPassword = await hash(adminPassword, 12);
 
+        // Generate permissions based on selected modules (if provided)
+        let modulePermissions = generateDefaultModulePermissions('ADMIN') as Record<string, any>;
+
+        if (body.modules && Array.isArray(body.modules) && body.modules.length > 0) {
+            // Filter permissions to only include selected modules
+            const selectedModules = new Set(body.modules);
+            const filteredPermissions: Record<string, any> = {};
+
+            for (const [moduleId, permission] of Object.entries(modulePermissions)) {
+                if (selectedModules.has(moduleId)) {
+                    filteredPermissions[moduleId] = permission;
+                } else {
+                    // Disable non-selected modules
+                    filteredPermissions[moduleId] = {
+                        ...(permission as any),
+                        enabled: false,
+                        view: false,
+                        create: false,
+                        edit: false,
+                        delete: false,
+                    };
+                }
+            }
+            modulePermissions = filteredPermissions;
+        }
+
         // Create tenant and admin user in a transaction
         const result = await prisma.$transaction(async (tx) => {
             const tenant = await tx.tenant.create({
@@ -84,18 +111,7 @@ export async function POST(req: Request) {
                     isSuperAdmin: false,
                     tenantId: tenant.id,
                     isActive: true,
-                    modulePermissions: {
-                        dashboard: { enabled: true, read: true, write: true },
-                        inventory: { enabled: true, read: true, write: true },
-                        sales: { enabled: true, read: true, write: true },
-                        accounting: { enabled: true, read: true, write: true },
-                        hr: { enabled: true, read: true, write: true },
-                        crm: { enabled: true, read: true, write: true },
-                        manufacturing: { enabled: true, read: true, write: true },
-                        projects: { enabled: true, read: true, write: true },
-                        settings: { enabled: true, read: true, write: true },
-                        hotel: { enabled: true, read: true, write: true },
-                    }
+                    modulePermissions: modulePermissions as any
                 }
             });
 
