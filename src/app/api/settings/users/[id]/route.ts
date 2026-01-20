@@ -104,7 +104,32 @@ export async function PATCH(
       updateData.email = body.email;
     }
 
-    if (body.role !== undefined && user.role === 'ADMIN') {
+    // Handle Role ID updates (DB-based Roles)
+    if (body.roleId !== undefined && user.role === 'ADMIN') {
+      const assignedRoleId = body.roleId;
+
+      if (assignedRoleId) {
+        // Fetch the new role
+        const dbRole = await prisma.role.findFirst({
+          where: { id: assignedRoleId, tenantId: user.tenantId }
+        });
+
+        if (dbRole) {
+          updateData.userRoleId = assignedRoleId;
+          updateData.role = dbRole.code; // Sync legacy code
+          updateData.modulePermissions = dbRole.permissions as any; // Copy permissions
+          console.log(`✅ [PATCH] Updated user role to DB Role: ${dbRole.name}`);
+        } else {
+          console.warn(`⚠️ [PATCH] Role ID ${assignedRoleId} not found`);
+        }
+      } else {
+        // Clearing the role
+        updateData.userRoleId = null;
+      }
+    }
+
+    // Handle Legacy Role updates (fallback)
+    if (body.role !== undefined && user.role === 'ADMIN' && !body.roleId) {
       updateData.role = body.role;
 
       // Type assertion until Prisma client is regenerated

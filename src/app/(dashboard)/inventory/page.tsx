@@ -26,6 +26,7 @@ import {
   ArrowUpDown,
   Barcode,
 } from 'lucide-react';
+import { useModuleAccess } from '@/hooks/useModulePermissions';
 
 interface Product {
   id: string;
@@ -83,6 +84,7 @@ export default function InventoryPage() {
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [activeFilter, setActiveFilter] = useState('ALL');
   const [refreshing, setRefreshing] = useState(false);
+  const { canEdit } = useModuleAccess('inventory');
 
   const fetchData = useCallback(async () => {
     try {
@@ -246,7 +248,7 @@ export default function InventoryPage() {
                         <th className="px-4 py-3 text-left">Type</th>
                         <th className="px-4 py-3 text-right">Available</th>
                         <th className="px-4 py-3 text-right">Reserved</th>
-                        <th className="px-4 py-3 text-right">Cost</th>
+                        {canEdit && <th className="px-4 py-3 text-right">Cost</th>}
                         <th className="px-4 py-3 text-right">Price</th>
                         <th className="px-4 py-3 text-left">Status</th>
                       </tr>
@@ -274,8 +276,8 @@ export default function InventoryPage() {
                           <td className="whitespace-nowrap px-4 py-3 text-right font-medium">
                             <span
                               className={`${product.qtyAvailable < 10 && product.type === 'STORABLE'
-                                  ? 'text-orange-600'
-                                  : 'text-gray-900'
+                                ? 'text-orange-600'
+                                : 'text-gray-900'
                                 }`}
                             >
                               {product.qtyAvailable}
@@ -284,9 +286,11 @@ export default function InventoryPage() {
                           <td className="whitespace-nowrap px-4 py-3 text-right text-gray-500">
                             {product.qtyReserved}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-right text-gray-600">
-                            {formatCurrency(product.costPrice)}
-                          </td>
+                          {canEdit && (
+                            <td className="whitespace-nowrap px-4 py-3 text-right text-gray-600">
+                              {formatCurrency(product.costPrice)}
+                            </td>
+                          )}
                           <td className="whitespace-nowrap px-4 py-3 text-right font-medium text-gray-900">
                             {formatCurrency(product.listPrice)}
                           </td>
@@ -359,18 +363,18 @@ export default function InventoryPage() {
                       <div className="flex items-center gap-3">
                         <div
                           className={`rounded-lg p-2 ${move.type === 'IN'
-                              ? 'bg-green-100'
-                              : move.type === 'OUT'
-                                ? 'bg-red-100'
-                                : 'bg-blue-100'
+                            ? 'bg-green-100'
+                            : move.type === 'OUT'
+                              ? 'bg-red-100'
+                              : 'bg-blue-100'
                             }`}
                         >
                           <ArrowUpDown
                             className={`h-4 w-4 ${move.type === 'IN'
-                                ? 'text-green-600'
-                                : move.type === 'OUT'
-                                  ? 'text-red-600'
-                                  : 'text-blue-600'
+                              ? 'text-green-600'
+                              : move.type === 'OUT'
+                                ? 'text-red-600'
+                                : 'text-blue-600'
                               }`}
                           />
                         </div>

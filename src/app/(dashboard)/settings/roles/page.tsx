@@ -33,10 +33,6 @@ export default function RolesPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
-  const [formData, setFormData] = useState({ name: '', description: '', permissions: [] as string[] });
-
-  // Search and Filter states for Permissions
-  const [permissionSearch, setPermissionSearch] = useState('');
 
   const fetchRoles = useCallback(async () => {
     try {
@@ -44,7 +40,6 @@ export default function RolesPage() {
       const res = await fetch('/api/rbac/roles');
       if (res.ok) {
         const json = await res.json();
-        // API returns { data: [...] }
         setRoles(json.data ?? json ?? []);
       }
     } catch (error) {
@@ -59,32 +54,8 @@ export default function RolesPage() {
     fetchRoles();
   }, [fetchRoles]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const url = editingRole ? `/api/rbac/roles?id=${editingRole.id}` : '/api/rbac/roles';
-      const method = editingRole ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      if (res.ok) {
-        await fetchRoles();
-        setDialogOpen(false);
-        setEditingRole(null);
-        setFormData({ name: '', description: '', permissions: [] });
-      }
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
   const handleDelete = async (roleId: string) => {
     if (!confirm('Delete this role? Users with this role will lose their permissions.')) return;
-
     try {
       const res = await fetch(`/api/rbac/roles?id=${roleId}`, { method: 'DELETE' });
       if (res.ok) {
@@ -97,50 +68,12 @@ export default function RolesPage() {
 
   const handleEdit = (role: Role) => {
     setEditingRole(role);
-    setFormData({ name: role.name, description: role.description || '', permissions: role.permissions });
     setDialogOpen(true);
   };
 
-  const togglePermission = (permission: string) => {
-    setFormData(prev => ({
-      ...prev,
-      permissions: prev.permissions.includes(permission)
-        ? prev.permissions.filter(p => p !== permission)
-        : [...prev.permissions, permission]
-    }));
-  };
-
-  const toggleCategory = (permissions: string[], shouldSelect: boolean) => {
-    setFormData(prev => {
-      const newPermissions = new Set(prev.permissions);
-      permissions.forEach(p => {
-        if (shouldSelect) newPermissions.add(p);
-        else newPermissions.delete(p);
-      });
-      return { ...prev, permissions: Array.from(newPermissions) };
-    });
-  };
-
-  const permissionGroups = useMemo(() => {
-    const groups = groupPermissionsByCategory(Object.values(Permission));
-    // Filter by search
-    if (!permissionSearch) return groups;
-
-    const filteredGroups: Record<string, string[]> = {};
-    Object.entries(groups).forEach(([category, perms]) => {
-      const filteredPerms = perms.filter(p =>
-        p.toLowerCase().includes(permissionSearch.toLowerCase()) ||
-        category.toLowerCase().includes(permissionSearch.toLowerCase())
-      );
-      if (filteredPerms.length > 0) {
-        filteredGroups[category] = filteredPerms;
-      }
-    });
-    return filteredGroups;
-  }, [permissionSearch]);
-
-  const getSelectedCount = (categoryPerms: string[]) => {
-    return categoryPerms.filter(p => formData.permissions.includes(p)).length;
+  const handleSuccess = () => {
+    setDialogOpen(false);
+    fetchRoles();
   };
 
   return (
@@ -154,162 +87,22 @@ export default function RolesPage() {
           <Button variant="outline" onClick={fetchRoles} disabled={refreshing} className="bg-white/10 text-white border-white/20 hover:bg-white/20 hover:text-white backdrop-blur-sm">
             <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
           </Button>
+          <Button onClick={() => {
+            setEditingRole(null);
+            setDialogOpen(true);
+          }}
+            className="bg-blue-600 hover:bg-blue-500 text-white border-none shadow-lg shadow-blue-500/30">
+            <Plus className="mr-2 h-4 w-4" /> Create New Role
+          </Button>
+
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => { setEditingRole(null); setFormData({ name: '', description: '', permissions: [] }); }}
-                className="bg-blue-600 hover:bg-blue-500 text-white border-none shadow-lg shadow-blue-500/30">
-                <Plus className="mr-2 h-4 w-4" /> Create New Role
-              </Button>
-            </DialogTrigger>
             <DialogContent className="max-w-4xl h-[90vh] p-0 overflow-hidden flex flex-col bg-slate-50">
-              <DialogHeader className="p-6 pb-4 bg-white border-b">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Shield className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <DialogTitle className="text-xl">{editingRole ? 'Edit Role Configuration' : 'Create New Role'}</DialogTitle>
-                </div>
-                <DialogDescription className="text-slate-500 ml-11">
-                  Configure role details and granular permissions. Changes affect all assigned users immediately.
-                </DialogDescription>
-              </DialogHeader>
-
-              <ScrollArea className="flex-1">
-                <form id="role-form" onSubmit={handleSubmit} className="p-6 space-y-8">
-                  {/* Basic Info Section */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-white rounded-xl border shadow-sm">
-                    <div className="space-y-3">
-                      <Label htmlFor="roleName" className="text-base font-semibold text-slate-900">Role Name</Label>
-                      <Input
-                        id="roleName"
-                        required
-                        value={formData.name}
-                        onChange={e => setFormData({ ...formData, name: e.target.value })}
-                        placeholder="e.g., Sales Manager"
-                        className="h-11 bg-slate-50 border-slate-200 focus:bg-white transition-colors"
-                      />
-                      <p className="text-xs text-slate-500">A unique name to identify this role in the system.</p>
-                    </div>
-                    <div className="space-y-3">
-                      <Label htmlFor="roleDesc" className="text-base font-semibold text-slate-900">Description</Label>
-                      <Textarea
-                        id="roleDesc"
-                        value={formData.description}
-                        onChange={e => setFormData({ ...formData, description: e.target.value })}
-                        placeholder="Describe the responsibilities and access level..."
-                        className="min-h-[100px] bg-slate-50 border-slate-200 focus:bg-white transition-colors resize-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Permissions Section */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-900">Access Permissions</h3>
-                        <p className="text-sm text-slate-500">Select the modules and actions this role can access.</p>
-                      </div>
-                      <div className="relative w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input
-                          placeholder="Search permissions..."
-                          value={permissionSearch}
-                          onChange={(e) => setPermissionSearch(e.target.value)}
-                          className="pl-9 h-9 bg-white"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-                      <Accordion type="multiple" defaultValue={Object.keys(permissionGroups)} className="w-full">
-                        {Object.entries(permissionGroups).map(([category, permissions]) => {
-                          const selectedCount = getSelectedCount(permissions);
-                          const isAllSelected = selectedCount === permissions.length;
-                          const isIndeterminate = selectedCount > 0 && !isAllSelected;
-
-                          return (
-                            <AccordionItem key={category} value={category} className="border-b last:border-0">
-                              <div className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors">
-                                <AccordionTrigger className="hover:no-underline py-0 flex-1">
-                                  <div className="flex items-center gap-3">
-                                    <span className="capitalize font-semibold text-slate-700 text-lg">{category}</span>
-                                    <Badge variant="secondary" className="bg-slate-100 text-slate-600 border-slate-200">
-                                      {permissions.length} Permissions
-                                    </Badge>
-                                  </div>
-                                </AccordionTrigger>
-                                <div className="flex items-center gap-4 mr-4" onClick={(e) => e.stopPropagation()}>
-                                  <div className="text-sm text-slate-500 mr-2">
-                                    {selectedCount} / {permissions.length} selected
-                                  </div>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className={cn(
-                                      "text-xs font-medium border",
-                                      isAllSelected ? "bg-blue-50 text-blue-600 border-blue-200" : "text-slate-600 border-slate-200 hover:bg-slate-100"
-                                    )}
-                                    onClick={() => toggleCategory(permissions, !isAllSelected)}
-                                  >
-                                    {isAllSelected ? 'Deselect All' : 'Select All'}
-                                  </Button>
-                                </div>
-                              </div>
-                              <AccordionContent className="px-6 pb-6 pt-2 bg-slate-50/50">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                  {permissions.map(permission => {
-                                    const isChecked = formData.permissions.includes(permission);
-                                    return (
-                                      <div
-                                        key={permission}
-                                        className={cn(
-                                          "flex items-center space-x-3 p-3 rounded-lg border transition-all cursor-pointer",
-                                          isChecked ? "bg-blue-50 border-blue-200 shadow-sm" : "bg-white border-slate-200 hover:border-blue-300"
-                                        )}
-                                        onClick={() => togglePermission(permission)}
-                                      >
-                                        <Checkbox
-                                          id={permission}
-                                          checked={isChecked}
-                                          onCheckedChange={() => togglePermission(permission)}
-                                          className={cn("data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600")}
-                                        />
-                                        <label
-                                          htmlFor={permission}
-                                          className={cn(
-                                            "text-sm font-medium leading-none cursor-pointer select-none",
-                                            isChecked ? "text-blue-900" : "text-slate-700"
-                                          )}
-                                          onClick={(e) => e.stopPropagation()} // Prevent double toggle
-                                        >
-                                          {formatPermission(permission as Permission)}
-                                        </label>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </AccordionContent>
-                            </AccordionItem>
-                          );
-                        })}
-                      </Accordion>
-                      {Object.keys(permissionGroups).length === 0 && (
-                        <div className="p-12 text-center text-slate-500">
-                          <Filter className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                          <p>No permissions found matching "{permissionSearch}"</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </form>
-              </ScrollArea>
-
-              <DialogFooter className="p-6 bg-white border-t mt-auto">
-                <Button variant="outline" onClick={() => setDialogOpen(false)} className="h-11 px-6">Cancel</Button>
-                <Button type="submit" form="role-form" className="h-11 px-8 bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-500/20">
-                  {editingRole ? 'Save Changes' : 'Create Role'}
-                </Button>
-              </DialogFooter>
+              <RoleForm
+                key={editingRole?.id ?? 'new'}
+                initialRole={editingRole}
+                onSuccess={handleSuccess}
+                onCancel={() => setDialogOpen(false)}
+              />
             </DialogContent>
           </Dialog>
         </div>
@@ -384,5 +177,227 @@ export default function RolesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function RoleForm({ initialRole, onSuccess, onCancel }: { initialRole: Role | null, onSuccess: () => void, onCancel: () => void }) {
+  const [formData, setFormData] = useState({
+    name: initialRole?.name || '',
+    description: initialRole?.description || '',
+    permissions: Array.isArray(initialRole?.permissions) ? initialRole!.permissions : []
+  });
+  const [permissionSearch, setPermissionSearch] = useState('');
+
+  const togglePermission = (permission: string) => {
+    setFormData(prev => {
+      const currentPermissions = Array.isArray(prev.permissions) ? prev.permissions : [];
+      return {
+        ...prev,
+        permissions: currentPermissions.includes(permission)
+          ? currentPermissions.filter(p => p !== permission)
+          : [...currentPermissions, permission]
+      };
+    });
+  };
+
+  const toggleCategory = (permissions: string[], shouldSelect: boolean) => {
+    setFormData(prev => {
+      const newPermissions = new Set(Array.isArray(prev.permissions) ? prev.permissions : []);
+      permissions.forEach(p => {
+        if (shouldSelect) newPermissions.add(p);
+        else newPermissions.delete(p);
+      });
+      return { ...prev, permissions: Array.from(newPermissions) };
+    });
+  };
+
+  const permissionGroups = useMemo(() => {
+    const groups = groupPermissionsByCategory(Object.values(Permission));
+    if (!permissionSearch) return groups;
+
+    const filteredGroups: Record<string, string[]> = {};
+    Object.entries(groups).forEach(([category, perms]) => {
+      const filteredPerms = perms.filter(p =>
+        p.toLowerCase().includes(permissionSearch.toLowerCase()) ||
+        category.toLowerCase().includes(permissionSearch.toLowerCase())
+      );
+      if (filteredPerms.length > 0) {
+        filteredGroups[category] = filteredPerms;
+      }
+    });
+    return filteredGroups;
+  }, [permissionSearch]);
+
+  const getSelectedCount = (categoryPerms: string[]) => {
+    return categoryPerms.filter(p => Array.isArray(formData.permissions) && formData.permissions.includes(p)).length;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const url = initialRole ? `/api/rbac/roles?id=${initialRole.id}` : '/api/rbac/roles';
+      const method = initialRole ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (res.ok) {
+        onSuccess();
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  return (
+    <>
+      <DialogHeader className="p-6 pb-4 bg-white border-b">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="p-2 bg-blue-100 rounded-lg">
+            <Shield className="h-6 w-6 text-blue-600" />
+          </div>
+          <DialogTitle className="text-xl">{initialRole ? 'Edit Role Configuration' : 'Create New Role'}</DialogTitle>
+        </div>
+        <DialogDescription className="text-slate-500 ml-11">
+          Configure role details and granular permissions. Changes affect all assigned users immediately.
+        </DialogDescription>
+      </DialogHeader>
+
+      <ScrollArea className="flex-1">
+        <form id="role-form" onSubmit={handleSubmit} className="p-6 space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-white rounded-xl border shadow-sm">
+            <div className="space-y-3">
+              <Label htmlFor="roleName" className="text-base font-semibold text-slate-900">Role Name</Label>
+              <Input
+                id="roleName"
+                required
+                value={formData.name}
+                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., Sales Manager"
+                className="h-11 bg-slate-50 border-slate-200 focus:bg-white transition-colors"
+              />
+              <p className="text-xs text-slate-500">A unique name to identify this role in the system.</p>
+            </div>
+            <div className="space-y-3">
+              <Label htmlFor="roleDesc" className="text-base font-semibold text-slate-900">Description</Label>
+              <Textarea
+                id="roleDesc"
+                value={formData.description}
+                onChange={e => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Describe the responsibilities and access level..."
+                className="min-h-[100px] bg-slate-50 border-slate-200 focus:bg-white transition-colors resize-none"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Access Permissions</h3>
+                <p className="text-sm text-slate-500">Select the modules and actions this role can access.</p>
+              </div>
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Search permissions..."
+                  value={permissionSearch}
+                  onChange={(e) => setPermissionSearch(e.target.value)}
+                  className="pl-9 h-9 bg-white"
+                />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+              <Accordion type="multiple" defaultValue={Object.keys(permissionGroups)} className="w-full">
+                {Object.entries(permissionGroups).map(([category, permissions]) => {
+                  const selectedCount = getSelectedCount(permissions);
+                  const isAllSelected = selectedCount === permissions.length;
+
+                  return (
+                    <AccordionItem key={category} value={category} className="border-b last:border-0">
+                      <div className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors">
+                        <AccordionTrigger className="hover:no-underline py-0 flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="capitalize font-semibold text-slate-700 text-lg">{category}</span>
+                            <Badge variant="secondary" className="bg-slate-100 text-slate-600 border-slate-200">
+                              {permissions.length} Permissions
+                            </Badge>
+                          </div>
+                        </AccordionTrigger>
+                        <div className="flex items-center gap-4 mr-4" onClick={(e) => e.stopPropagation()}>
+                          <div className="text-sm text-slate-500 mr-2">
+                            {selectedCount} / {permissions.length} selected
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className={cn(
+                              "text-xs font-medium border",
+                              isAllSelected ? "bg-blue-50 text-blue-600 border-blue-200" : "text-slate-600 border-slate-200 hover:bg-slate-100"
+                            )}
+                            onClick={() => toggleCategory(permissions, !isAllSelected)}
+                          >
+                            {isAllSelected ? 'Deselect All' : 'Select All'}
+                          </Button>
+                        </div>
+                      </div>
+                      <AccordionContent className="px-6 pb-6 pt-2 bg-slate-50/50">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {permissions.map(permission => {
+                            const isChecked = Array.isArray(formData.permissions) && formData.permissions.includes(permission);
+                            return (
+                              <div
+                                key={permission}
+                                className={cn(
+                                  "flex items-center space-x-3 p-3 rounded-lg border transition-all",
+                                  isChecked ? "bg-blue-50 border-blue-200 shadow-sm" : "bg-white border-slate-200 hover:border-blue-300"
+                                )}
+                              >
+                                <Checkbox
+                                  id={permission}
+                                  checked={isChecked}
+                                  onCheckedChange={() => togglePermission(permission)}
+                                  className={cn("data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600")}
+                                />
+                                <label
+                                  htmlFor={permission}
+                                  className={cn(
+                                    "text-sm font-medium leading-none cursor-pointer select-none flex-1",
+                                    isChecked ? "text-blue-900" : "text-slate-700"
+                                  )}
+                                >
+                                  {formatPermission(permission as Permission)}
+                                </label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
+              </Accordion>
+              {Object.keys(permissionGroups).length === 0 && (
+                <div className="p-12 text-center text-slate-500">
+                  <Filter className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                  <p>No permissions found matching "{permissionSearch}"</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </form>
+      </ScrollArea>
+
+      <DialogFooter className="p-6 bg-white border-t mt-auto">
+        <Button variant="outline" onClick={onCancel} className="h-11 px-6">Cancel</Button>
+        <Button type="submit" form="role-form" className="h-11 px-8 bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-500/20">
+          {initialRole ? 'Save Changes' : 'Create Role'}
+        </Button>
+      </DialogFooter>
+    </>
   );
 }

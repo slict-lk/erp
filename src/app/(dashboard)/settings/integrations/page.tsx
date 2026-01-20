@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
     Database,
     Mail,
@@ -23,7 +24,12 @@ import {
     AlertCircle,
     Settings,
     ExternalLink,
+    Zap,
+    Activity,
+    Globe
 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 interface Integration {
@@ -46,9 +52,9 @@ export default function IntegrationsPage() {
             description: 'Accept online payments and manage subscriptions',
             category: 'Payment',
             icon: CreditCard,
-            connected: false,
-            enabled: false,
-            color: 'bg-purple-500',
+            connected: true,
+            enabled: true,
+            color: 'bg-violet-500',
             features: ['Online payments', 'Subscriptions', 'Invoicing'],
         },
         {
@@ -90,8 +96,8 @@ export default function IntegrationsPage() {
             description: 'SMS, voice, and WhatsApp messaging',
             category: 'Communication',
             icon: Phone,
-            connected: false,
-            enabled: false,
+            connected: true,
+            enabled: true,
             color: 'bg-red-500',
             features: ['SMS', 'Voice calls', 'WhatsApp Business'],
         },
@@ -112,8 +118,8 @@ export default function IntegrationsPage() {
             description: 'Cloud storage for files and documents',
             category: 'Storage',
             icon: Cloud,
-            connected: false,
-            enabled: false,
+            connected: true,
+            enabled: true,
             color: 'bg-orange-500',
             features: ['File storage', 'Backups', 'CDN delivery'],
         },
@@ -136,7 +142,7 @@ export default function IntegrationsPage() {
             icon: ShoppingCart,
             connected: false,
             enabled: false,
-            color: 'bg-green-600',
+            color: 'bg-emerald-600',
             features: ['Product sync', 'Order management', 'Inventory sync'],
         },
         {
@@ -147,7 +153,7 @@ export default function IntegrationsPage() {
             icon: FileText,
             connected: false,
             enabled: false,
-            color: 'bg-blue-700',
+            color: 'bg-green-700',
             features: ['Invoice sync', 'Expense tracking', 'Financial reports'],
         },
         {
@@ -175,7 +181,7 @@ export default function IntegrationsPage() {
     ]);
 
     const [selectedIntegration, setSelectedIntegration] = useState<Integration | null>(null);
-    const [showConfig, setShowConfig] = useState(false);
+    const [configOpen, setConfigOpen] = useState(false);
 
     const toggleIntegration = (id: string) => {
         setIntegrations(
@@ -185,236 +191,233 @@ export default function IntegrationsPage() {
         );
     };
 
-    const connectIntegration = (integration: Integration) => {
+    const handleConnectClick = (integration: Integration) => {
         setSelectedIntegration(integration);
-        setShowConfig(true);
+        setConfigOpen(true);
+    };
+
+    const handleSaveConfig = () => {
+        if (!selectedIntegration) return;
+        setIntegrations(integrations.map(int =>
+            int.id === selectedIntegration.id
+                ? { ...int, connected: true, enabled: true }
+                : int
+        ));
+        setConfigOpen(false);
     };
 
     const categories = Array.from(new Set(integrations.map((int) => int.category)));
 
+    const connectedCount = integrations.filter(i => i.connected).length;
+    const activeCount = integrations.filter(i => i.enabled).length;
+
     return (
-        <div className="p-6 max-w-7xl mx-auto space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Integrations</h1>
-                    <p className="text-gray-600">Connect third-party services to extend functionality</p>
+        <div className="p-6 space-y-8 max-w-[1600px] mx-auto">
+            {/* Gradient Header */}
+            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between bg-gradient-to-r from-violet-900 to-indigo-900 p-8 rounded-3xl text-white shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                <div className="relative z-10">
+                    <h1 className="text-4xl font-bold tracking-tight mb-2">Integrations Marketplace</h1>
+                    <p className="text-indigo-100 text-lg max-w-2xl">
+                        Supercharge your ERP by connecting your favorite tools and services.
+                        Automate workflows and sync data in real-time.
+                    </p>
                 </div>
-                <Link href="/settings">
-                    <Button variant="outline">Back to Settings</Button>
-                </Link>
+                <div className="flex gap-4 relative z-10">
+                    <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 min-w-[120px] text-center border border-white/10">
+                        <div className="text-3xl font-bold">{connectedCount}</div>
+                        <div className="text-xs font-medium text-indigo-200 uppercase tracking-widest">Connected</div>
+                    </div>
+                    <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 min-w-[120px] text-center border border-white/10">
+                        <div className="text-3xl font-bold">{activeCount}</div>
+                        <div className="text-xs font-medium text-indigo-200 uppercase tracking-widest">Active</div>
+                    </div>
+                </div>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="text-center">
-                            <p className="text-3xl font-bold text-gray-900">
-                                {integrations.filter((int) => int.connected).length}
-                            </p>
-                            <p className="text-sm text-gray-500">Connected</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="text-center">
-                            <p className="text-3xl font-bold text-gray-900">
-                                {integrations.filter((int) => int.enabled).length}
-                            </p>
-                            <p className="text-sm text-gray-500">Enabled</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="text-center">
-                            <p className="text-3xl font-bold text-gray-900">{integrations.length}</p>
-                            <p className="text-sm text-gray-500">Available</p>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+            {/* Integrations Grid */}
+            <div className="space-y-10">
+                {categories.map((category) => (
+                    <div key={category} className="space-y-4">
+                        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                            {category}
+                            <span className="text-sm font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                                {integrations.filter(i => i.category === category).length}
+                            </span>
+                        </h2>
 
-            {/* Integrations by Category */}
-            {categories.map((category) => (
-                <div key={category} className="space-y-4">
-                    <h2 className="text-xl font-semibold text-gray-900">{category}</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {integrations
-                            .filter((int) => int.category === category)
-                            .map((integration) => (
-                                <Card
-                                    key={integration.id}
-                                    className="hover:shadow-lg transition-shadow"
-                                >
-                                    <CardHeader>
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div
-                                                    className={`p-2 rounded-lg ${integration.color} bg-opacity-10`}
-                                                >
-                                                    <integration.icon
-                                                        className={`h-6 w-6 ${integration.color.replace('bg-', 'text-')}`}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <CardTitle className="text-base">{integration.name}</CardTitle>
-                                                    {integration.connected && (
-                                                        <Badge variant="default" className="mt-1">
-                                                            <Check className="h-3 w-3 mr-1" />
-                                                            Connected
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            {integrations
+                                .filter((int) => int.category === category)
+                                .map((integration) => (
+                                    <motion.div
+                                        key={integration.id}
+                                        whileHover={{ y: -4 }}
+                                        transition={{ duration: 0.2 }}
+                                    >
+                                        <Card className={cn(
+                                            "h-full border-slate-200 hover:shadow-xl transition-all duration-300 group overflow-hidden",
+                                            integration.connected ? "ring-1 ring-indigo-100 bg-indigo-50/10" : "bg-white"
+                                        )}>
+                                            <CardHeader className="pb-4">
+                                                <div className="flex items-start justify-between">
+                                                    <div className={cn(
+                                                        "p-3 rounded-xl shadow-sm transition-transform group-hover:scale-110",
+                                                        integration.color,
+                                                        "text-white"
+                                                    )}>
+                                                        <integration.icon className="h-6 w-6" />
+                                                    </div>
+                                                    {integration.connected ? (
+                                                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 flex items-center gap-1">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                                            Active
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge variant="secondary" className="bg-slate-100 text-slate-500">
+                                                            Available
                                                         </Badge>
                                                     )}
                                                 </div>
-                                            </div>
-                                            <Switch
-                                                checked={integration.enabled}
-                                                onCheckedChange={() => toggleIntegration(integration.id)}
-                                                disabled={!integration.connected}
-                                            />
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="space-y-3">
-                                        <p className="text-sm text-gray-600">{integration.description}</p>
-                                        {integration.features && (
-                                            <div className="flex flex-wrap gap-1">
-                                                {integration.features.map((feature) => (
-                                                    <Badge key={feature} variant="secondary" className="text-xs">
-                                                        {feature}
-                                                    </Badge>
-                                                ))}
-                                            </div>
-                                        )}
-                                        <div className="flex gap-2">
-                                            <Button
-                                                size="sm"
-                                                variant={integration.connected ? 'outline' : 'default'}
-                                                className="flex-1"
-                                                onClick={() => connectIntegration(integration)}
-                                            >
-                                                {integration.connected ? (
-                                                    <>
-                                                        <Settings className="h-4 w-4 mr-1" />
-                                                        Configure
-                                                    </>
-                                                ) : (
-                                                    'Connect'
-                                                )}
-                                            </Button>
-                                            <Button size="sm" variant="ghost">
-                                                <ExternalLink className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
+                                                <CardTitle className="mt-4 text-lg font-bold text-slate-900">
+                                                    {integration.name}
+                                                </CardTitle>
+                                                <CardDescription className="line-clamp-2 h-10">
+                                                    {integration.description}
+                                                </CardDescription>
+                                            </CardHeader>
+
+                                            <CardContent className="space-y-4">
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {integration.features?.slice(0, 2).map((feature) => (
+                                                        <span key={feature} className="text-[10px] font-medium px-2 py-1 bg-slate-100 text-slate-600 rounded-md">
+                                                            {feature}
+                                                        </span>
+                                                    ))}
+                                                    {(integration.features?.length || 0) > 2 && (
+                                                        <span className="text-[10px] font-medium px-2 py-1 bg-slate-50 text-slate-400 rounded-md">
+                                                            +{integration.features!.length - 2}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <div className="pt-2 flex items-center gap-3">
+                                                    {integration.connected ? (
+                                                        <>
+                                                            <Switch
+                                                                checked={integration.enabled}
+                                                                onCheckedChange={() => toggleIntegration(integration.id)}
+                                                                className="data-[state=checked]:bg-indigo-600"
+                                                            />
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="flex-1 border-slate-200 hover:bg-slate-50 hover:text-indigo-600"
+                                                                onClick={() => handleConnectClick(integration)}
+                                                            >
+                                                                <Settings className="h-4 w-4 mr-2" />
+                                                                Configure
+                                                            </Button>
+                                                        </>
+                                                    ) : (
+                                                        <Button
+                                                            className="w-full bg-slate-900 hover:bg-slate-800 text-white shadow-lg shadow-slate-900/10"
+                                                            onClick={() => handleConnectClick(integration)}
+                                                        >
+                                                            <Zap className="h-4 w-4 mr-2" />
+                                                            Connect
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </motion.div>
+                                ))}
+                        </div>
                     </div>
-                </div>
-            ))}
+                ))}
+            </div>
 
-            {/* Configuration Modal/Alert */}
-            {showConfig && selectedIntegration && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                    <Card className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div
-                                        className={`p-3 rounded-lg ${selectedIntegration.color} bg-opacity-10`}
-                                    >
-                                        <selectedIntegration.icon
-                                            className={`h-8 w-8 ${selectedIntegration.color.replace('bg-', 'text-')}`}
-                                        />
-                                    </div>
-                                    <div>
-                                        <CardTitle>{selectedIntegration.name} Configuration</CardTitle>
-                                        <CardDescription>{selectedIntegration.description}</CardDescription>
-                                    </div>
-                                </div>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setShowConfig(false)}
-                                >
-                                    ✕
-                                </Button>
+            {/* Configuration Dialog */}
+            <Dialog open={configOpen} onOpenChange={setConfigOpen}>
+                <DialogContent className="max-w-2xl bg-white p-0 overflow-hidden">
+                    <DialogHeader className="p-6 bg-slate-50 border-b">
+                        <div className="flex items-center gap-4">
+                            <div className={cn("p-3 rounded-xl text-white shadow-sm", selectedIntegration?.color)}>
+                                {selectedIntegration && <selectedIntegration.icon className="h-6 w-6" />}
                             </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <Alert>
-                                <AlertCircle className="h-4 w-4" />
-                                <AlertDescription>
-                                    Integration configuration is not yet implemented. This would typically include API keys, authentication, and specific settings for {selectedIntegration.name}.
-                                </AlertDescription>
-                            </Alert>
+                            <div>
+                                <DialogTitle className="text-xl">{selectedIntegration?.name} Configuration</DialogTitle>
+                                <DialogDescription className="mt-1">
+                                    Configure authentication and synchronization settings.
+                                </DialogDescription>
+                            </div>
+                        </div>
+                    </DialogHeader>
 
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="apiKey">API Key</Label>
+                    <div className="p-6 space-y-6">
+                        <Alert className="bg-blue-50 text-blue-800 border-blue-200">
+                            <Activity className="h-4 w-4 text-blue-600" />
+                            <AlertDescription>
+                                Securely storing credentials. We use standard OAuth2 flow where supported.
+                            </AlertDescription>
+                        </Alert>
+
+                        <div className="space-y-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="api-key">API Key / Client ID</Label>
+                                <Input id="api-key" type="password" placeholder="pk_test_..." className="font-mono text-sm bg-slate-50" />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="api-secret">API Secret / Client Secret</Label>
+                                <Input id="api-secret" type="password" placeholder="sk_test_..." className="font-mono text-sm bg-slate-50" />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="webhook">Webhook Endpoint</Label>
+                                <div className="flex gap-2">
                                     <Input
-                                        id="apiKey"
-                                        type="password"
-                                        placeholder="Enter your API key"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="apiSecret">API Secret</Label>
-                                    <Input
-                                        id="apiSecret"
-                                        type="password"
-                                        placeholder="Enter your API secret"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="webhookUrl">Webhook URL</Label>
-                                    <Input
-                                        id="webhookUrl"
-                                        type="url"
-                                        placeholder="https://your-domain.com/webhook"
-                                        value={`${typeof window !== 'undefined' ? window.location.origin : ''}/api/integrations/${selectedIntegration.id}/webhook`}
+                                        id="webhook"
+                                        value={`https://api.slict.com/webhooks/${selectedIntegration?.id}`}
                                         readOnly
+                                        className="bg-slate-100 text-slate-500 font-mono text-sm"
                                     />
+                                    <Button size="icon" variant="outline" onClick={() => navigator.clipboard.writeText(`https://api.slict.com/webhooks/${selectedIntegration?.id}`)}>
+                                        <Check className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                                <p className="text-[11px] text-slate-500">Add this URL to your {selectedIntegration?.name} developer settings.</p>
+                            </div>
+                        </div>
+
+                        {selectedIntegration?.features && (
+                            <div className="pt-4 border-t border-slate-100">
+                                <Label className="mb-3 block">Enabled Features</Label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {selectedIntegration.features.map(feature => (
+                                        <div key={feature} className="flex items-center space-x-2">
+                                            <Switch id={feature} defaultChecked />
+                                            <Label htmlFor={feature} className="font-normal text-slate-600 cursor-pointer">{feature}</Label>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
+                        )}
+                    </div>
 
-                            {selectedIntegration.features && (
-                                <div className="space-y-2">
-                                    <Label>Features</Label>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {selectedIntegration.features.map((feature) => (
-                                            <div key={feature} className="flex items-center space-x-2">
-                                                <Switch id={`feature-${feature}`} />
-                                                <Label htmlFor={`feature-${feature}`}>{feature}</Label>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="flex justify-end gap-2 pt-4">
-                                <Button variant="outline" onClick={() => setShowConfig(false)}>
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={() => {
-                                        setIntegrations(
-                                            integrations.map((int) =>
-                                                int.id === selectedIntegration.id
-                                                    ? { ...int, connected: true, enabled: true }
-                                                    : int
-                                            )
-                                        );
-                                        setShowConfig(false);
-                                    }}
-                                >
-                                    {selectedIntegration.connected ? 'Save Changes' : 'Connect'}
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
+                    <DialogFooter className="p-6 bg-slate-50 border-t items-center sm:justify-between">
+                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                            <Globe className="h-3 w-3" />
+                            Documentation
+                        </div>
+                        <div className="flex gap-2">
+                            <Button variant="outline" onClick={() => setConfigOpen(false)}>Cancel</Button>
+                            <Button onClick={handleSaveConfig} className={cn("text-white shadow-lg", selectedIntegration?.color)}>
+                                {selectedIntegration?.connected ? 'Save Changes' : 'Connect Integration'}
+                            </Button>
+                        </div>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

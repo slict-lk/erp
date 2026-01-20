@@ -288,36 +288,72 @@ export function UserForm({ initialData, onSubmit, onCancel }: UserFormProps) {
           <CardTitle>Module Permissions</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-6">
-            {role === 'ADMIN' && (
-              <div className="bg-blue-50 text-blue-700 p-4 rounded-lg mb-4">
-                ℹ️ Administrators have full access to all modules by default.
+          {roleId ? (
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg">
+                <p className="font-medium mb-2">✓ Permissions inherited from selected role</p>
+                <p className="text-sm">
+                  The <strong>{roles.find(r => r.id === roleId)?.name}</strong> role comes with pre-configured permissions.
+                  These will be automatically assigned to this user.
+                </p>
               </div>
-            )}
 
-            {modulesByCategory.map(category => (
-              <div key={category.id} className="border-b pb-4 last:border-0">
-                <h3 className="font-medium text-gray-900 mb-3">{category.name}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {category.modules.map(module => (
-                    <div key={module.id} className="flex items-center space-x-2">
-                      <Switch
-                        id={`module-${module.id}`}
-                        checked={currentPermissions?.[module.id] || false}
-                        onCheckedChange={(checked) => {
-                          setValue(`permissions.${module.id}`, checked);
-                        }}
-                        disabled={role === 'ADMIN'}
-                      />
-                      <Label htmlFor={`module-${module.id}`} className="cursor-pointer">
-                        {module.name}
-                      </Label>
-                    </div>
-                  ))}
+              <details className="border rounded-lg">
+                <summary className="px-4 py-3 cursor-pointer hover:bg-gray-50 font-medium text-sm">
+                  👁️ View inherited permissions ({Object.values(currentPermissions).filter(Boolean).length} modules enabled)
+                </summary>
+                <div className="px-4 py-3 border-t bg-gray-50">
+                  <div className="space-y-4">
+                    {modulesByCategory.map(category => {
+                      const enabledInCategory = category.modules.filter(m => currentPermissions?.[m.id]);
+                      if (enabledInCategory.length === 0) return null;
+
+                      return (
+                        <div key={category.id}>
+                          <h4 className="font-medium text-gray-700 mb-2">{category.name}</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {enabledInCategory.map(module => (
+                              <span key={module.id} className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-md">
+                                ✓ {module.name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
+              </details>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="bg-yellow-50 text-yellow-800 p-4 rounded-lg mb-4">
+                ⚠️ Please select a role first to configure permissions.
               </div>
-            ))}
-          </div>
+
+              {modulesByCategory.map(category => (
+                <div key={category.id} className="border-b pb-4 last:border-0">
+                  <h3 className="font-medium text-gray-900 mb-3">{category.name}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {category.modules.map(module => (
+                      <div key={module.id} className="flex items-center space-x-2">
+                        <Switch
+                          id={`module-${module.id}`}
+                          checked={currentPermissions?.[module.id] || false}
+                          onCheckedChange={(checked) => {
+                            setValue(`permissions.${module.id}`, checked);
+                          }}
+                        />
+                        <Label htmlFor={`module-${module.id}`} className="cursor-pointer">
+                          {module.name}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

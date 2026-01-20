@@ -8,11 +8,22 @@ export const dynamic = 'force-dynamic';
 // GET /api/rbac/roles - Get all roles
 export async function GET() {
   try {
-    const tenant = await getOrCreateDefaultTenant();
+    const { getCurrentUser } = await import('@/lib/auth');
+    const user = await getCurrentUser();
+
+    // If no user (e.g. dev mode or public), fallback to default tenant, 
+    // but ideally we should require auth. For now, matching existing pattern but prioritizing user.
+    let tenantId;
+    if (user?.tenantId) {
+      tenantId = user.tenantId;
+    } else {
+      const tenant = await getOrCreateDefaultTenant();
+      tenantId = tenant.id;
+    }
 
     const roles = await prisma.role.findMany({
       where: {
-        tenantId: tenant.id,
+        tenantId: tenantId,
       },
       include: {
         _count: {
