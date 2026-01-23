@@ -12,6 +12,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { AlertTriangle } from 'lucide-react';
+import {
     ArrowLeft,
     Save,
     Loader2,
@@ -70,6 +79,9 @@ export default function TenantEditPage() {
     const [tenant, setTenant] = useState<Tenant | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [showForceDeleteModal, setShowForceDeleteModal] = useState(false);
+    const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         name: '',
         companyName: '',
@@ -123,19 +135,49 @@ export default function TenantEditPage() {
         }
     };
 
-    const handleDelete = async () => {
-        if (!confirm('Are you sure you want to delete this tenant? This action cannot be undone.')) return;
+    const handleDelete = async (force: boolean = false) => {
+        if (!force && tenant && tenant._count.users > 0) {
+            setShowForceDeleteModal(true);
+            return;
+        }
 
+        if (!force && !confirm('Are you sure you want to delete this tenant? This action cannot be undone.')) return;
+
+        setIsDeleting(true);
         try {
-            const res = await fetch(`/api/tenants/${tenantId}`, { method: 'DELETE' });
+            const url = force ? `/api/tenants/${tenantId}?force=true` : `/api/tenants/${tenantId}`;
+            const res = await fetch(url, { method: 'DELETE' });
             if (res.ok) {
                 router.push('/admin/tenants');
             } else {
-                const error = await res.text();
-                alert(error);
+                const errorData = await res.json().catch(() => ({ error: 'Failed to delete tenant' }));
+                alert(errorData.error || 'Failed to delete tenant');
             }
         } catch (error) {
             console.error('Error deleting tenant:', error);
+        } finally {
+            setIsDeleting(false);
+            setShowForceDeleteModal(false);
+        }
+    };
+
+    const handleDeleteUser = async (userId: string) => {
+        if (!confirm('Are you sure you want to delete this user?')) return;
+
+        setDeletingUserId(userId);
+        try {
+            const res = await fetch(`/api/tenants/${tenantId}/users/${userId}`, { method: 'DELETE' });
+            if (res.ok) {
+                // Refresh tenant data
+                fetchTenant();
+            } else {
+                const error = await res.text();
+                alert(error || 'Failed to delete user');
+            }
+        } catch (error) {
+            console.error('Error deleting user:', error);
+        } finally {
+            setDeletingUserId(null);
         }
     };
 
@@ -402,6 +444,19 @@ export default function TenantEditPage() {
                                                         <Badge variant={user.isActive ? 'default' : 'secondary'}>
                                                             {user.isActive ? 'Active' : 'Inactive'}
                                                         </Badge>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                            onClick={() => handleDeleteUser(user.id)}
+                                                            disabled={deletingUserId === user.id}
+                                                        >
+                                                            {deletingUserId === user.id ? (
+                                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                            ) : (
+                                                                <Trash2 className="h-4 w-4" />
+                                                            )}
+                                                        </Button>
                                                     </div>
                                                 </motion.div>
                                             ))
@@ -433,20 +488,68 @@ export default function TenantEditPage() {
                                             </div>
                                             <Button
                                                 variant="destructive"
-                                                onClick={handleDelete}
-                                                disabled={tenant._count.users > 0}
+                                                onClick={() => handleDelete(false)}
+                                                disabled={isDeleting}
                                             >
-                                                <Trash2 className="h-4 w-4 mr-2" />
+                                                {isDeleting ? (
+                                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                ) : (
+                                                    <Trash2 className="h-4 w-4 mr-2" />
+                                                )}
                                                 Delete Tenant
                                             </Button>
                                         </div>
                                         {tenant._count.users > 0 && (
                                             <p className="text-sm text-amber-600 mt-3 flex items-center gap-2">
-                                                <Activity className="h-4 w-4" />
-                                                Cannot delete tenant with active users. Remove all users first.
+                                                <AlertTriangle className="h-4 w-4" />
+                                                This tenant has {tenant._count.users} active user(s). You will be asked to confirm deletion.
                                             </p>
                                         )}
                                     </div>
+
+                                    {/* Force Delete Confirmation Dialog */}
+                                    <Dialog open={showForceDeleteModal} onOpenChange={setShowForceDeleteModal}>
+                                        <DialogContent className="sm:max-w-md">
+                                            <DialogHeader>
+                                                <DialogTitle className="flex items-center gap-2 text-red-600">
+                                                    <AlertTriangle className="h-5 w-5" />
+                                                    Confirm Tenant Deletion
+                                                </DialogTitle>
+                                                <DialogDescription className="pt-4">
+                                                    This will permanently delete:
+                                                </DialogDescription>
+                                                <ul className="list-disc list-inside space-y-1 text-gray-600 text-sm mt-2">
+                                                    <li>The tenant &quot;{tenant.companyName || tenant.name}&quot;</li>
+                                                    <li><strong>{tenant._count.users} user(s)</strong> and their data</li>
+                                                    <li>All associated settings and configurations</li>
+                                                </ul>
+                                                <p className="block mt-4 text-red-600 font-medium text-sm">
+                                                    This action cannot be undone.
+                                                </p>
+                                            </DialogHeader>
+                                            <DialogFooter className="gap-2 sm:gap-0">
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={() => setShowForceDeleteModal(false)}
+                                                    disabled={isDeleting}
+                                                >
+                                                    Cancel
+                                                </Button>
+                                                <Button
+                                                    variant="destructive"
+                                                    onClick={() => handleDelete(true)}
+                                                    disabled={isDeleting}
+                                                >
+                                                    {isDeleting ? (
+                                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="h-4 w-4 mr-2" />
+                                                    )}
+                                                    Delete Tenant and {tenant._count.users} User(s)
+                                                </Button>
+                                            </DialogFooter>
+                                        </DialogContent>
+                                    </Dialog>
                                 </CardContent>
                             </Card>
                         </motion.div>

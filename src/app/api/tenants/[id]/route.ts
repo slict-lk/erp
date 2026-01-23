@@ -94,6 +94,8 @@ export async function DELETE(
         }
 
         const { id } = await params;
+        const url = new URL(req.url);
+        const forceDelete = url.searchParams.get('force') === 'true';
 
         // Check if tenant has users
         const tenant = await prisma.tenant.findUnique({
@@ -105,11 +107,26 @@ export async function DELETE(
             return new NextResponse('Tenant not found', { status: 404 });
         }
 
-        if (tenant._count.users > 0) {
-            return new NextResponse('Cannot delete tenant with active users', { status: 400 });
+        if (tenant._count.users > 0 && !forceDelete) {
+            return NextResponse.json(
+                {
+                    error: 'Cannot delete tenant with active users',
+                    userCount: tenant._count.users,
+                    requiresForce: true
+                },
+                { status: 400 }
+            );
         }
 
-        await prisma.tenant.delete({ where: { id } });
+        // If force delete, remove all users first in a transaction
+        if (forceDelete && tenant._count.users > 0) {
+            await prisma.$transaction([
+                prisma.user.deleteMany({ where: { tenantId: id } }),
+                prisma.tenant.delete({ where: { id } }),
+            ]);
+        } else {
+            await prisma.tenant.delete({ where: { id } });
+        }
 
         return new NextResponse(null, { status: 204 });
     } catch (error) {
@@ -117,3 +134,4 @@ export async function DELETE(
         return new NextResponse('Internal Server Error', { status: 500 });
     }
 }
+
