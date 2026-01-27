@@ -3668,3 +3668,239 @@ model ShopTaxCategory {
 
   @@index([tenantId])
 }
+
+// ============================================================================
+// EXPORT MODULE: Vehicle Trading & Logistics
+// ============================================================================
+
+enum ExportStatus {
+  DRAFT
+  BID_PENDING
+  BID_ACCEPTED
+  WON_AT_AUCTION
+  IN_YARD
+  PREP_IN_PROGRESS
+  INSPECTION_BOOKED
+  INSPECTION_PASSED
+  INSPECTION_FAILED
+  READY_TO_SHIP
+  SHIPPED
+  DELIVERED
+}
+
+enum DocStatus {
+  PENDING
+  APPLIED
+  RECEIVED
+  TRANSLATED
+}
+
+enum ExportBidStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WON
+  LOST
+}
+
+enum ExportShipmentStatus {
+  BOOKED
+  SAILED
+  ARRIVED
+}
+
+enum YardJobType {
+  REPAIR
+  CLEANING
+  INSPECTION_PREP
+  VANNING
+}
+
+enum YardJobStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+model ExportCustomer {
+  id              String        @id @default(cuid())
+  tenantId        String
+  
+  name            String
+  email           String
+  phone           String?
+  company         String?
+  country         String?
+  address         String?
+  
+  vehicles        ExportVehicle[]
+  bids            ExportBid[]
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([tenantId])
+  @@index([email])
+}
+
+model ExportVehicle {
+  id              String       @id @default(cuid())
+  tenantId        String
+  
+  // -- Identity --
+  stockNumber     String       @unique
+  chassisNumber   String       @unique
+  make            String
+  model           String
+  year            Int
+  month           Int?
+  engineCode      String?
+  fuelType        String?
+  color           String?
+  steering        String       @default("RHD")
+  transmission    String?
+  mileage         Int?
+  engineCc        Int?
+  
+  // -- Auction Data --
+  auctionHouse    String?
+  auctionDate     DateTime?
+  lotNumber       String?
+  auctionGrade    String?
+  auctionSheetUrl String?
+  
+  // -- Financials --
+  purchasePrice   Decimal      @default(0)
+  auctionFee      Decimal      @default(0)
+  transportCost   Decimal      @default(0)
+  repairCost      Decimal      @default(0)
+  inspectionCost  Decimal      @default(0)
+  shippingCost    Decimal      @default(0)
+  
+  fobPrice        Decimal      @default(0)
+  cifPrice        Decimal      @default(0)
+  currency        String       @default("JPY")
+  
+  // -- Status & Location --
+  status          ExportStatus @default(DRAFT)
+  location        String?
+  isPublished     Boolean      @default(false)
+  
+  // -- Compliance --
+  shakenStatus    DocStatus    @default(PENDING)
+  mashoStatus     DocStatus    @default(PENDING)
+  exportCertUrl   String?
+  jaaiStatus      DocStatus    @default(PENDING)
+  jaaiCertUrl     String?
+
+  // -- Relations --
+  customerId      String?
+  customer        ExportCustomer? @relation(fields: [customerId], references: [id])
+  
+  shipmentId      String?
+  shipment        ExportShipment? @relation(fields: [shipmentId], references: [id])
+  
+  bids            ExportBid[]
+  yardJobs        YardJob[]
+  photos          ExportVehiclePhoto[]
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([make, model])
+  @@index([isPublished])
+}
+
+model ExportVehiclePhoto {
+  id              String        @id @default(cuid())
+  vehicleId       String
+  vehicle         ExportVehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  url             String
+  tag             String?
+  isPublic        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  
+  @@index([vehicleId])
+}
+
+model ExportBid {
+  id              String          @id @default(cuid())
+  tenantId        String
+  
+  vehicleId       String?
+  vehicle         ExportVehicle?  @relation(fields: [vehicleId], references: [id])
+  
+  customerId      String
+  customer        ExportCustomer  @relation(fields: [customerId], references: [id])
+  
+  requestedMake   String
+  requestedModel  String
+  maxBudget       Decimal
+  currency        String          @default("JPY")
+  notes           String?
+  
+  status          ExportBidStatus @default(PENDING)
+  adminNotes      String?
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model ExportShipment {
+  id              String                @id @default(cuid())
+  tenantId        String
+  shipmentNumber  String                @unique
+  
+  vesselName      String
+  voyageNumber    String
+  shippingLine    String
+  
+  departurePort   String
+  destinationPort String
+  
+  etd             DateTime
+  eta             DateTime
+  
+  billOfLading    String?
+  blUrl           String?
+  consignee       String?
+  
+  status          ExportShipmentStatus  @default(BOOKED)
+  
+  vehicles        ExportVehicle[]
+  
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([tenantId])
+  @@index([destinationPort])
+}
+
+model YardJob {
+  id              String        @id @default(cuid())
+  vehicleId       String
+  vehicle         ExportVehicle @relation(fields: [vehicleId], references: [id])
+  
+  title           String
+  type            YardJobType
+  status          YardJobStatus @default(TODO)
+  
+  assignedTo      String?
+  completedAt     DateTime?
+  
+  notes           String?
+  proofPhotos     String[]
+  
+  tenantId        String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([tenantId])
+  @@index([vehicleId])
+}

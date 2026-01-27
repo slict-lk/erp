@@ -197,6 +197,15 @@ export const AVAILABLE_MODULES: Module[] = [
     route: '/spareparts',
     permissions: { view: true, create: true, edit: true, delete: true, export: true, import: true },
   },
+  {
+    id: 'vehicle-export',
+    name: 'Vehicle Export',
+    description: 'Japan vehicle export trading, compliance, and logistics management',
+    category: 'operations',
+    icon: 'Ship',
+    route: '/vehicle-export',
+    permissions: { view: true, create: true, edit: true, delete: true, export: true, approve: true },
+  },
 
   // Human Resources
   {

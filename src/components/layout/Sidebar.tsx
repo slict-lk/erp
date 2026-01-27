@@ -20,6 +20,7 @@ import {
   Heart,
   Smartphone,
   Truck,
+  Ship,
   MessageCircle,
   Link as LinkIcon,
   Headphones,
@@ -129,6 +130,20 @@ const navigation: NavigationItem[] = [
       { name: 'Vehicle Database', href: '/automotive/vehicles', moduleId: 'automotive' },
       { name: 'Stock Adjustments', href: '/automotive/adjustments', moduleId: 'automotive' },
       { name: 'Shop Mode (Tablet)', href: '/automotive/shop', icon: Smartphone, moduleId: 'automotive' },
+    ],
+  },
+  {
+    name: 'Vehicle Export',
+    href: '/vehicle-export',
+    icon: Ship,
+    children: [
+      { name: 'Dashboard', href: '/vehicle-export', moduleId: 'automotive' },
+      { name: 'Bids', href: '/vehicle-export/bids', moduleId: 'automotive' },
+      { name: 'Auction Entry', href: '/vehicle-export/auction/new', moduleId: 'automotive' },
+      { name: 'Inventory', href: '/vehicle-export/inventory', moduleId: 'automotive' },
+      { name: 'Yard Jobs', href: '/vehicle-export/yard', moduleId: 'automotive' },
+      { name: 'Shipments', href: '/vehicle-export/shipments', moduleId: 'automotive' },
+      { name: 'Customers', href: '/vehicle-export/customers', moduleId: 'automotive' },
     ],
   },
   {

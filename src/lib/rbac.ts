@@ -9,47 +9,58 @@ export enum Permission {
   SALES_CREATE = 'sales:create',
   SALES_EDIT = 'sales:edit',
   SALES_DELETE = 'sales:delete',
-  
+
   // Accounting
   ACCOUNTING_VIEW = 'accounting:view',
   ACCOUNTING_CREATE = 'accounting:create',
   ACCOUNTING_EDIT = 'accounting:edit',
   ACCOUNTING_DELETE = 'accounting:delete',
-  
+
   // Inventory
   INVENTORY_VIEW = 'inventory:view',
   INVENTORY_CREATE = 'inventory:create',
   INVENTORY_EDIT = 'inventory:edit',
   INVENTORY_DELETE = 'inventory:delete',
-  
+
   // Manufacturing
   MANUFACTURING_VIEW = 'manufacturing:view',
   MANUFACTURING_CREATE = 'manufacturing:create',
   MANUFACTURING_EDIT = 'manufacturing:edit',
   MANUFACTURING_DELETE = 'manufacturing:delete',
-  
+
   // HR
   HR_VIEW = 'hr:view',
   HR_CREATE = 'hr:create',
   HR_EDIT = 'hr:edit',
   HR_DELETE = 'hr:delete',
-  
+
   // Projects
   PROJECTS_VIEW = 'projects:view',
   PROJECTS_CREATE = 'projects:create',
   PROJECTS_EDIT = 'projects:edit',
   PROJECTS_DELETE = 'projects:delete',
-  
+
   // Admin
   USERS_MANAGE = 'users:manage',
   ROLES_MANAGE = 'roles:manage',
   SETTINGS_MANAGE = 'settings:manage',
   AUDIT_VIEW = 'audit:view',
-  
+
   // Reports
   REPORTS_VIEW = 'reports:view',
   REPORTS_CREATE = 'reports:create',
   REPORTS_EXPORT = 'reports:export',
+
+  // Vehicle Export Module
+  EXPORT_VIEW = 'export:view',
+  EXPORT_CREATE = 'export:create',
+  EXPORT_EDIT = 'export:edit',
+  EXPORT_DELETE = 'export:delete',
+  EXPORT_FINANCIALS = 'export:financials',      // View purchase prices, costs
+  EXPORT_COMPLIANCE = 'export:compliance',       // Update JAAI/Masho status
+  EXPORT_YARD = 'export:yard',                   // Manage yard jobs
+  EXPORT_SHIPMENT = 'export:shipment',           // Create/manage shipments
+  EXPORT_BIDS = 'export:bids',                   // Approve/reject customer bids
 }
 
 export interface Role {
@@ -128,6 +139,51 @@ export const SystemRoles = {
       Permission.SALES_VIEW, Permission.SALES_CREATE, Permission.SALES_EDIT,
       Permission.INVENTORY_VIEW,
       Permission.REPORTS_VIEW,
+    ],
+    isSystem: true,
+  },
+
+  // Vehicle Export Module Roles
+  EXPORT_SALES: {
+    name: 'Export Sales',
+    description: 'Vehicle export sales and customer bid management',
+    permissions: [
+      Permission.EXPORT_VIEW,
+      Permission.EXPORT_CREATE,
+      Permission.EXPORT_EDIT,
+      Permission.EXPORT_BIDS,
+      Permission.REPORTS_VIEW,
+    ],
+    isSystem: true,
+  },
+  EXPORT_AUCTION: {
+    name: 'Export Auction',
+    description: 'Auction team - creates vehicles from auction wins',
+    permissions: [
+      Permission.EXPORT_VIEW,
+      Permission.EXPORT_CREATE,
+      Permission.EXPORT_EDIT,
+      Permission.EXPORT_FINANCIALS, // Can see purchase prices
+    ],
+    isSystem: true,
+  },
+  EXPORT_YARD: {
+    name: 'Export Yard Staff',
+    description: 'Yard operations - repairs, photos, inspections',
+    permissions: [
+      Permission.EXPORT_VIEW,
+      Permission.EXPORT_YARD,
+      // Note: No EXPORT_FINANCIALS - yard staff cannot see costs
+    ],
+    isSystem: true,
+  },
+  EXPORT_DOCS: {
+    name: 'Export Docs Admin',
+    description: 'Document compliance - JAAI, Masho, certificates',
+    permissions: [
+      Permission.EXPORT_VIEW,
+      Permission.EXPORT_COMPLIANCE,
+      Permission.EXPORT_SHIPMENT,
     ],
     isSystem: true,
   },
