@@ -19,7 +19,8 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { AlertTriangle } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { AlertTriangle, Package, Ship, Store, Heart, Factory, Truck, Utensils, Hotel as HotelIcon, BarChart3 } from 'lucide-react';
 import {
     ArrowLeft,
     Save,
@@ -71,6 +72,21 @@ const statusConfig: Record<string, { color: string; bg: string; icon: any }> = {
     CANCELLED: { color: 'text-gray-700', bg: 'bg-gray-100', icon: XCircle },
 };
 
+// Available modules configuration
+const AVAILABLE_MODULES = [
+    { id: 'vehicle-export', name: 'Vehicle Export', icon: Ship, description: 'Japanese car export business' },
+    { id: 'spareparts', name: 'Spare Parts Shop', icon: Store, description: 'Auto parts retail & POS' },
+    { id: 'real-estate', name: 'Real Estate', icon: Building2, description: 'Property management' },
+    { id: 'healthcare', name: 'Healthcare', icon: Heart, description: 'Hospital & clinic management' },
+    { id: 'manufacturing', name: 'Manufacturing', icon: Factory, description: 'Production & BOM' },
+    { id: 'purchasing', name: 'Purchasing', icon: Truck, description: 'Vendor & purchase orders' },
+    { id: 'restaurant', name: 'Restaurant', icon: Utensils, description: 'POS & kitchen display' },
+    { id: 'hotel', name: 'Hotel', icon: HotelIcon, description: 'Room booking & front desk' },
+    { id: 'crm', name: 'CRM', icon: Users, description: 'Customer relationship' },
+    { id: 'hr', name: 'HR', icon: Users, description: 'Human resources' },
+    { id: 'reports', name: 'Reports', icon: BarChart3, description: 'Advanced analytics' },
+];
+
 export default function TenantEditPage() {
     const router = useRouter();
     const params = useParams();
@@ -82,6 +98,8 @@ export default function TenantEditPage() {
     const [isDeleting, setIsDeleting] = useState(false);
     const [showForceDeleteModal, setShowForceDeleteModal] = useState(false);
     const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+    const [enabledModules, setEnabledModules] = useState<string[]>([]);
+    const [togglingModule, setTogglingModule] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         name: '',
         companyName: '',
@@ -91,7 +109,20 @@ export default function TenantEditPage() {
 
     useEffect(() => {
         fetchTenant();
+        fetchModules();
     }, [tenantId]);
+
+    const fetchModules = async () => {
+        try {
+            const res = await fetch(`/api/admin/tenants/${tenantId}/modules`);
+            if (res.ok) {
+                const data = await res.json();
+                setEnabledModules(data.enabledModules || []);
+            }
+        } catch (error) {
+            console.error('Error fetching modules:', error);
+        }
+    };
 
     const fetchTenant = async () => {
         try {
@@ -316,6 +347,10 @@ export default function TenantEditPage() {
                             <Building2 className="h-4 w-4 mr-2" />
                             Settings
                         </TabsTrigger>
+                        <TabsTrigger value="modules" className="rounded-lg">
+                            <Package className="h-4 w-4 mr-2" />
+                            Modules
+                        </TabsTrigger>
                         <TabsTrigger value="users" className="rounded-lg">
                             <Users className="h-4 w-4 mr-2" />
                             Users ({tenant.users.length})
@@ -390,6 +425,80 @@ export default function TenantEditPage() {
                                             {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                                             Save Changes
                                         </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </motion.div>
+                    </TabsContent>
+
+                    <TabsContent value="modules">
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                        >
+                            <Card className="border-0 shadow-lg">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Package className="h-5 w-5" />
+                                        Module Access
+                                    </CardTitle>
+                                    <CardDescription>Enable or disable modules for this tenant. Changes apply to all users immediately.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        {AVAILABLE_MODULES.map((module) => {
+                                            const Icon = module.icon;
+                                            const isEnabled = enabledModules.includes(module.id);
+                                            const isToggling = togglingModule === module.id;
+                                            return (
+                                                <div
+                                                    key={module.id}
+                                                    className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-200 ${isEnabled
+                                                            ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800'
+                                                            : 'bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                                                        }`}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`p-2.5 rounded-xl ${isEnabled
+                                                                ? 'bg-emerald-100 dark:bg-emerald-900'
+                                                                : 'bg-gray-200 dark:bg-gray-700'
+                                                            }`}>
+                                                            <Icon className={`h-5 w-5 ${isEnabled ? 'text-emerald-600' : 'text-gray-500'
+                                                                }`} />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium">{module.name}</p>
+                                                            <p className="text-xs text-muted-foreground">{module.description}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        {isToggling && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                                                        <Switch
+                                                            checked={isEnabled}
+                                                            disabled={isToggling}
+                                                            onCheckedChange={async (checked) => {
+                                                                setTogglingModule(module.id);
+                                                                try {
+                                                                    const res = await fetch(`/api/admin/tenants/${tenantId}/modules`, {
+                                                                        method: 'PUT',
+                                                                        headers: { 'Content-Type': 'application/json' },
+                                                                        body: JSON.stringify({ moduleId: module.id, enabled: checked }),
+                                                                    });
+                                                                    if (res.ok) {
+                                                                        const data = await res.json();
+                                                                        setEnabledModules(data.enabledModules);
+                                                                    }
+                                                                } catch (err) {
+                                                                    console.error('Failed to toggle module:', err);
+                                                                } finally {
+                                                                    setTogglingModule(null);
+                                                                }
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </CardContent>
                             </Card>

@@ -11,8 +11,24 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Loader2, Save, Trash2, User, Building, Globe } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { ArrowLeft, Loader2, Save, Trash2, User, Building, Globe, Ship, Store, Users, Building2, Heart, Factory, Truck, Utensils, Hotel, BarChart3, Package } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+
+// Available modules configuration
+const AVAILABLE_MODULES = [
+    { id: 'vehicle-export', name: 'Vehicle Export', icon: Ship, description: 'Japanese car export business' },
+    { id: 'spareparts', name: 'Spare Parts Shop', icon: Store, description: 'Auto parts retail & POS' },
+    { id: 'real-estate', name: 'Real Estate', icon: Building2, description: 'Property management' },
+    { id: 'healthcare', name: 'Healthcare', icon: Heart, description: 'Hospital & clinic management' },
+    { id: 'manufacturing', name: 'Manufacturing', icon: Factory, description: 'Production & BOM' },
+    { id: 'purchasing', name: 'Purchasing', icon: Truck, description: 'Vendor & purchase orders' },
+    { id: 'restaurant', name: 'Restaurant', icon: Utensils, description: 'POS & kitchen display' },
+    { id: 'hotel', name: 'Hotel', icon: Hotel, description: 'Room booking & front desk' },
+    { id: 'crm', name: 'CRM', icon: Users, description: 'Customer relationship' },
+    { id: 'hr', name: 'HR', icon: Users, description: 'Human resources' },
+    { id: 'reports', name: 'Reports', icon: BarChart3, description: 'Advanced analytics' },
+];
 
 interface TenantUser {
     id: string;
@@ -49,6 +65,8 @@ export default function TenantDetailsPage({ params }: { params: Promise<{ id: st
     const [deleting, setDeleting] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [enabledModules, setEnabledModules] = useState<string[]>([]);
+    const [togglingModule, setTogglingModule] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -80,6 +98,20 @@ export default function TenantDetailsPage({ params }: { params: Promise<{ id: st
         };
 
         fetchTenant();
+
+        // Fetch enabled modules for this tenant
+        const fetchModules = async () => {
+            try {
+                const res = await fetch(`/api/admin/tenants/${id}/modules`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setEnabledModules(data.enabledModules || []);
+                }
+            } catch (err) {
+                console.error('Failed to fetch modules:', err);
+            }
+        };
+        fetchModules();
     }, [id]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -199,6 +231,7 @@ export default function TenantDetailsPage({ params }: { params: Promise<{ id: st
             <Tabs defaultValue="details" className="w-full">
                 <TabsList>
                     <TabsTrigger value="details">Details</TabsTrigger>
+                    <TabsTrigger value="modules">Modules</TabsTrigger>
                     <TabsTrigger value="users">Users ({tenant.users.length})</TabsTrigger>
                 </TabsList>
 
@@ -263,6 +296,73 @@ export default function TenantDetailsPage({ params }: { params: Promise<{ id: st
                                         <SelectItem value="CANCELLED">Cancelled</SelectItem>
                                     </SelectContent>
                                 </Select>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="modules" className="space-y-6 mt-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Package className="h-5 w-5" />
+                                Module Access
+                            </CardTitle>
+                            <CardDescription>Enable or disable modules for this tenant. Changes apply to all users immediately.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid gap-4 md:grid-cols-2">
+                                {AVAILABLE_MODULES.map((module) => {
+                                    const Icon = module.icon;
+                                    const isEnabled = enabledModules.includes(module.id);
+                                    const isToggling = togglingModule === module.id;
+                                    return (
+                                        <div
+                                            key={module.id}
+                                            className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${isEnabled ? 'bg-green-50 border-green-200 dark:bg-green-950/20' : 'bg-gray-50 dark:bg-gray-900'
+                                                }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`p-2 rounded-full ${isEnabled ? 'bg-green-100 dark:bg-green-900' : 'bg-gray-200 dark:bg-gray-800'
+                                                    }`}>
+                                                    <Icon className={`h-5 w-5 ${isEnabled ? 'text-green-600' : 'text-gray-500'
+                                                        }`} />
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium">{module.name}</p>
+                                                    <p className="text-xs text-muted-foreground">{module.description}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                {isToggling && <Loader2 className="h-4 w-4 animate-spin" />}
+                                                <Switch
+                                                    checked={isEnabled}
+                                                    disabled={isToggling}
+                                                    onCheckedChange={async (checked) => {
+                                                        setTogglingModule(module.id);
+                                                        try {
+                                                            const res = await fetch(`/api/admin/tenants/${id}/modules`, {
+                                                                method: 'PUT',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ moduleId: module.id, enabled: checked }),
+                                                            });
+                                                            if (!res.ok) throw new Error('Failed to update');
+                                                            const data = await res.json();
+                                                            setEnabledModules(data.enabledModules);
+                                                            setSuccess(`Module ${checked ? 'enabled' : 'disabled'} successfully`);
+                                                            setTimeout(() => setSuccess(''), 3000);
+                                                        } catch (err) {
+                                                            setError('Failed to update module');
+                                                            setTimeout(() => setError(''), 3000);
+                                                        } finally {
+                                                            setTogglingModule(null);
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </CardContent>
                     </Card>

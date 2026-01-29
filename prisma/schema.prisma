@@ -22,6 +22,18 @@ enum TenantStatus {
   CANCELLED
 }
 
+enum ModuleRequestAction {
+  ADD
+  REMOVE
+}
+
+enum ModuleRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 enum Priority {
   LOW
   MEDIUM
@@ -467,6 +479,7 @@ model Tenant {
   logo         String?
   primaryColor String       @default("#3b82f6")
   companyName  String
+  enabledModules String[]   @default([])
 
   subscriptionEnd DateTime?
   trialEnd        DateTime?
@@ -478,6 +491,7 @@ model Tenant {
   propertyAgents PropertyAgent[]
   sparePartsConfig SparePartsConfig[]
   shopTaxCategories ShopTaxCategory[]
+  moduleAccessRequests ModuleAccessRequest[]
 
   @@index([subdomain])
   @@index([domain])
@@ -522,9 +536,40 @@ model User {
   employeeId        String?            @unique
   employee          Employee?          @relation(fields: [employeeId], references: [id])
 
+  // Module Access Request relations
+  moduleRequestsCreated   ModuleAccessRequest[] @relation("RequestedBy")
+  moduleRequestsProcessed ModuleAccessRequest[] @relation("ProcessedBy")
+
   @@index([tenantId])
   @@index([email])
   @@index([role])
+}
+
+// ============================================================================
+// MODULE ACCESS REQUESTS
+// ============================================================================
+
+model ModuleAccessRequest {
+  id            String              @id @default(cuid())
+  tenantId      String
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  requestedById String
+  requestedBy   User                @relation("RequestedBy", fields: [requestedById], references: [id])
+  moduleId      String
+  action        ModuleRequestAction
+  status        ModuleRequestStatus @default(PENDING)
+  reason        String?
+  adminNotes    String?
+  processedById String?
+  processedBy   User?               @relation("ProcessedBy", fields: [processedById], references: [id])
+  processedAt   DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@unique([tenantId, moduleId, status])
+  @@index([tenantId])
+  @@index([status])
+  @@index([requestedById])
 }
 
 // ============================================================================
