@@ -39,7 +39,9 @@ export async function GET(request: NextRequest) {
                         location: true,
                     },
                 },
+                materials: true,
             },
+
             orderBy: [
                 { status: 'asc' }, // TODO first, then IN_PROGRESS, then DONE
                 { createdAt: 'desc' },

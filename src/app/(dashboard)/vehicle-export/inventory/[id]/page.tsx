@@ -65,7 +65,10 @@ interface Vehicle {
     photos: { id: string; url: string; tag: string | null }[];
     yardJobs: YardJob[];
     bids: { id: string; status: string; maxBudget: number | null; customer: { name: string } }[];
+    documentDispatch: { id: string; status: string; courierName: string | null; trackingNumber: string | null; dispatchedAt: string | null } | null;
+    exportInvoice: { id: string; invoiceNumber: string; totalAmount: number; status: string } | null;
 }
+
 
 interface YardJob {
     id: string;
@@ -326,6 +329,49 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                                 ) : (
                                     <p className="text-gray-400 text-sm">Not assigned to shipment</p>
                                 )}
+
+                                {/* Document Dispatch Section (Phase 5) */}
+                                <div className="p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <Package className="h-4 w-4 text-purple-500" />
+                                            <span className="font-medium">Documents</span>
+                                        </div>
+                                        {vehicle.documentDispatch && (
+                                            <Badge variant="outline">{vehicle.documentDispatch.status}</Badge>
+                                        )}
+                                    </div>
+
+                                    {vehicle.documentDispatch ? (
+                                        <div className="text-sm space-y-1">
+                                            <p className="text-gray-600 dark:text-gray-400">
+                                                {vehicle.documentDispatch.courierName || 'Unknown Courier'}
+                                            </p>
+                                            <p className="font-mono text-gray-900 dark:text-gray-100">
+                                                {vehicle.documentDispatch.trackingNumber || 'No Tracking #'}
+                                            </p>
+                                            {vehicle.documentDispatch.dispatchedAt && (
+                                                <p className="text-xs text-gray-500">
+                                                    Sent: {new Date(vehicle.documentDispatch.dispatchedAt).toLocaleDateString()}
+                                                </p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-gray-500 mb-2">No dispatch details</p>
+                                    )}
+
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        className="w-full mt-2"
+                                        onClick={() => {
+                                            // TODO: Open Dialog to Edit Dispatch
+                                            toast({ title: "Coming Soon", description: "Dispatch editing dialog to be implemented" });
+                                        }}
+                                    >
+                                        {vehicle.documentDispatch ? 'Update Tracking' : 'Dispatch Documents'}
+                                    </Button>
+                                </div>
                             </CardContent>
                         </Card>
                     </div>
@@ -442,11 +488,48 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                                         <p className="text-sm text-gray-500">CIF Price</p>
                                         <p className="text-2xl font-bold">{formatCurrency(vehicle.cifPrice)}</p>
                                     </div>
-                                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                        <p className="text-sm text-gray-500">Shipping Cost</p>
-                                        <p className="text-2xl font-bold">{formatCurrency(vehicle.shippingCost)}</p>
-                                    </div>
                                 </div>
+                                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <p className="text-sm text-gray-500">Export Invoice</p>
+                                        {vehicle.exportInvoice && (
+                                            <Badge variant={vehicle.exportInvoice.status === 'PAID' ? 'default' : 'secondary'}>
+                                                {vehicle.exportInvoice.status}
+                                            </Badge>
+                                        )}
+                                    </div>
+                                    {vehicle.exportInvoice ? (
+                                        <div>
+                                            <p className="text-2xl font-bold">{formatCurrency(vehicle.exportInvoice.totalAmount)}</p>
+                                            <p className="text-sm text-gray-500 font-mono mb-2">{vehicle.exportInvoice.invoiceNumber}</p>
+                                            <Button size="sm" variant="outline" className="w-full">
+                                                View Invoice
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <p className="text-2xl font-bold text-gray-300">—</p>
+                                            <Button
+                                                size="sm"
+                                                className="w-full mt-2"
+                                                onClick={async () => {
+                                                    try {
+                                                        const res = await fetch(`/api/vehicle-export/vehicles/${vehicle.id}/invoice`);
+                                                        if (res.ok) {
+                                                            toast({ title: 'Invoice Generated', description: 'Draft invoice created successfully.' });
+                                                            fetchVehicle();
+                                                        }
+                                                    } catch (e) {
+                                                        toast({ title: 'Error', description: 'Failed to generate invoice', variant: 'destructive' });
+                                                    }
+                                                }}
+                                            >
+                                                Generate Invoice
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div className="border-t pt-4 mt-4">
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
@@ -464,6 +547,6 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                     </Card>
                 </TabsContent>
             </Tabs>
-        </div>
+        </div >
     );
 }

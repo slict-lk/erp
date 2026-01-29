@@ -20,6 +20,12 @@ export async function GET(request: NextRequest) {
             where.status = status;
         }
 
+        // Support filtering by proxyBidStatus for auctioneer view
+        const proxyBidStatus = searchParams.get('proxyBidStatus');
+        if (proxyBidStatus) {
+            where.proxyBidStatus = proxyBidStatus;
+        }
+
         const bids = await prisma.exportBid.findMany({
             where,
             include: {
@@ -30,9 +36,11 @@ export async function GET(request: NextRequest) {
                         stockNumber: true,
                         make: true,
                         model: true,
+                        year: true,
                     },
                 },
             },
+
             orderBy: { createdAt: 'desc' },
         });
 

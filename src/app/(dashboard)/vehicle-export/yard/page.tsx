@@ -9,10 +9,11 @@ import {
     Select,
     SelectContent,
     SelectItem,
-    SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+
 import {
     Dialog,
     DialogContent,
@@ -43,8 +44,11 @@ interface YardJob {
     completedAt: string | null;
     proofPhotos: string[];
     createdAt: string;
+
     vehicle: Vehicle;
+    materials?: { id: string; partName: string; quantity: number; unitCost: number; totalCost: number }[];
 }
+
 
 const STATUS_COLORS: Record<string, string> = {
     TODO: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
@@ -282,10 +286,102 @@ export default function YardJobsPage() {
                                     />
                                 </div>
                             )}
+
+
+
+
+                            {/* Materials Section (Phase 5) */}
+                            <div className="border-t pt-4 mt-4">
+                                <h4 className="font-semibold mb-2">Materials & Parts</h4>
+                                {selectedJob.materials && selectedJob.materials.length > 0 ? (
+                                    <div className="space-y-2 mb-4">
+                                        {selectedJob.materials.map((m: any) => (
+                                            <div key={m.id} className="flex justify-between text-sm bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                                                <span>{m.partName} (x{m.quantity})</span>
+                                                <span>${Number(m.totalCost).toFixed(2)}</span>
+                                            </div>
+                                        ))}
+                                        <div className="flex justify-between font-bold text-sm pt-2 border-t">
+                                            <span>Total Material Cost</span>
+                                            <span>${selectedJob.materials.reduce((acc: number, m: any) => acc + Number(m.totalCost), 0).toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-500 mb-4">No materials recorded</p>
+                                )}
+
+                                {selectedJob.status !== 'DONE' && (
+                                    <div className="space-y-2">
+                                        <Input
+                                            placeholder="Part Name (e.g. Battery)"
+                                            id="new-material-name"
+                                        />
+                                        <div className="flex gap-2">
+                                            <Input
+                                                type="number"
+                                                placeholder="Qty"
+                                                className="w-20"
+                                                id="new-material-qty"
+                                                defaultValue="1"
+                                            />
+                                            <Input
+                                                type="number"
+                                                placeholder="Unit Cost ($)"
+                                                className="w-32"
+                                                id="new-material-cost"
+                                            />
+                                            <Button
+                                                size="sm"
+                                                variant="secondary"
+                                                onClick={async () => {
+                                                    const nameEl = document.getElementById('new-material-name') as HTMLInputElement;
+                                                    const qtyEl = document.getElementById('new-material-qty') as HTMLInputElement;
+                                                    const costEl = document.getElementById('new-material-cost') as HTMLInputElement;
+
+                                                    if (!nameEl.value || !costEl.value) return;
+
+                                                    try {
+                                                        const res = await fetch(`/api/vehicle-export/yard-jobs/${selectedJob.id}/materials`, {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({
+                                                                partName: nameEl.value,
+                                                                quantity: qtyEl.value,
+                                                                unitCost: costEl.value
+                                                            })
+                                                        });
+                                                        if (res.ok) {
+                                                            // Refresh jobs to show new material
+                                                            fetchJobs();
+                                                            // Ideally update local state to avoid full refresh or close dialog
+                                                            // For now, close dialog to refresh is easiest or re-fetch jobs and find this job
+                                                            toast({ title: 'Material Added' });
+                                                            nameEl.value = '';
+                                                            costEl.value = '';
+                                                            // Hacky update: close/reopen or trust fetchJobs updates the list behind modal? 
+                                                            // The modal uses `selectedJob` state object. We need to update IT.
+                                                            const newMaterial = await res.json();
+                                                            setSelectedJob(prev => prev ? ({
+                                                                ...prev,
+                                                                materials: [...(prev.materials || []), newMaterial]
+                                                            }) : null);
+                                                        }
+                                                    } catch (e) {
+                                                        toast({ title: 'Error adding material', variant: 'destructive' });
+                                                    }
+                                                }}
+                                            >
+                                                Add
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 
-                    <DialogFooter className="gap-2 sm:gap-0">
+                    <DialogFooter className="gap-2 sm:gap-0 mt-4">
+
                         {selectedJob?.status === 'TODO' && (
                             <Button
                                 onClick={() => updateJobStatus(selectedJob.id, 'IN_PROGRESS')}
@@ -316,6 +412,6 @@ export default function YardJobsPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     );
 }

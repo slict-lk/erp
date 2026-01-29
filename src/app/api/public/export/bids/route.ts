@@ -38,9 +38,32 @@ export async function POST(request: NextRequest) {
                     country: customerCountry,
                 },
             });
+
+            // Create default wallet if not exists (for new customers)
+            await prisma.exportWallet.create({
+                data: {
+                    customerId: customer.id,
+                    tenantId,
+                    balance: 0,
+                }
+            });
         }
 
-        // 3. Create Bid
+        // 3. Wallet Validation (Phase 5 Logic)
+        const wallet = await prisma.exportWallet.findUnique({
+            where: { customerId: customer.id }
+        });
+
+        // "A minimum deposit of USD 1000 is required to activate the bidding account."
+        if (!wallet || wallet.balance.lessThan(1000)) {
+            return NextResponse.json({
+                error: 'Insufficient Security Deposit. Minimum $1000 required.',
+                code: 'INSUFFICIENT_FUNDS',
+                currentBalance: wallet?.balance || 0
+            }, { status: 402 }); // Payment Required
+        }
+
+        // 4. Create Bid
         const bid = await prisma.exportBid.create({
             data: {
                 tenantId,

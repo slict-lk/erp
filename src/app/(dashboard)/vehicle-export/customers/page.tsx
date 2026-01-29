@@ -41,8 +41,10 @@ interface Customer {
     country: string | null;
     address: string | null;
     createdAt: string;
+    wallet?: { balance: number; currency: string };
     _count: { vehicles: number; bids: number };
 }
+
 
 const COUNTRIES = [
     'Sri Lanka', 'Botswana', 'South Africa', 'Kenya', 'Tanzania',
@@ -205,7 +207,9 @@ export default function CustomersPage() {
                                             <TableHead>Contact</TableHead>
                                             <TableHead>Location</TableHead>
                                             <TableHead>Vehicles</TableHead>
+                                            <TableHead className="text-right">Wallet Balance</TableHead>
                                             <TableHead>Bids</TableHead>
+
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -246,8 +250,20 @@ export default function CustomersPage() {
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell>
+                                                    <div className="font-medium text-right">
+                                                        {customer.wallet ? (
+                                                            <span className={Number(customer.wallet.balance) < 1000 ? "text-yellow-600" : "text-green-600"}>
+                                                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: customer.wallet.currency || 'USD' }).format(Number(customer.wallet.balance))}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-gray-400">N/A</span>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
                                                     <Badge variant="outline">{customer._count.bids}</Badge>
                                                 </TableCell>
+
                                             </TableRow>
                                         ))}
                                     </TableBody>

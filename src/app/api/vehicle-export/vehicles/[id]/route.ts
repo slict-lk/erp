@@ -28,8 +28,13 @@ export async function GET(
                 yardJobs: {
                     orderBy: { createdAt: 'desc' },
                 },
+                documents: true,
+                invoice: true,
             },
         });
+
+
+
 
         if (!vehicle) {
             return NextResponse.json({ error: 'Vehicle not found' }, { status: 404 });

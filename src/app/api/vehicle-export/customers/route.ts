@@ -23,6 +23,8 @@ export async function GET(request: NextRequest) {
                         bids: true,
                     },
                 },
+                wallet: true,
+
             },
         });
 
@@ -67,7 +69,14 @@ export async function POST(request: NextRequest) {
                 company: company || null,
                 country: country || null,
                 address: address || null,
+                wallet: {
+                    create: {
+                        tenantId,
+                        balance: 0,
+                    }
+                }
             },
+            include: { wallet: true }
         });
 
         return NextResponse.json({ customer }, { status: 201 });

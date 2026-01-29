@@ -48,6 +48,9 @@ import {
   Wrench,
   Store,
   Shield,
+  Wallet,
+  Gavel,
+
   Building2
 } from 'lucide-react';
 import { useModulePermissions } from '@/hooks/useModulePermissions';
@@ -144,9 +147,12 @@ const navigation: NavigationItem[] = [
       { name: 'Yard Jobs', href: '/vehicle-export/yard', moduleId: 'automotive' },
       { name: 'Shipments', href: '/vehicle-export/shipments', moduleId: 'automotive' },
       { name: 'Customers', href: '/vehicle-export/customers', icon: Users, moduleId: 'vehicle-export' },
+      { name: 'Finance', href: '/vehicle-export/finance', icon: Wallet, moduleId: 'vehicle-export' },
+      { name: 'Auctioneer', href: '/vehicle-export/auction', icon: Gavel, moduleId: 'vehicle-export' },
       { name: 'Storefront', href: '/vehicle-export/storefront', icon: Palette, moduleId: 'vehicle-export' },
     ],
   },
+
   {
     name: 'Spare Parts Shop',
     href: '/spareparts',

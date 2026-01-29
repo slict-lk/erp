@@ -3735,6 +3735,8 @@ model ExportCustomer {
   
   vehicles        ExportVehicle[]
   bids            ExportBid[]
+  wallet          ExportWallet?
+
   
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -3803,6 +3805,10 @@ model ExportVehicle {
   bids            ExportBid[]
   yardJobs        YardJob[]
   photos          ExportVehiclePhoto[]
+  
+  // -- Phase 5: Docs & Invoice --
+  documents       DocumentDispatch?
+  invoice         ExportInvoice?
 
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -3842,7 +3848,9 @@ model ExportBid {
   notes           String?
   
   status          ExportBidStatus @default(PENDING)
+  proxyBidStatus  String?       // PENDING, ACTIVE, OUTBID, WON, LOST
   adminNotes      String?
+
   
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
@@ -3940,10 +3948,135 @@ model YardJob {
   notes           String?
   proofPhotos     String[]
   
+  // Costs
+  cost            Decimal       @default(0) // Labor cost
+  materials       YardMaterial[]
+
+  
   tenantId        String
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
   @@index([tenantId])
   @@index([vehicleId])
+}
+
+// -----------------------------------------------------------------------------
+// Phase 5: New Models (Wallet, Invoice, Docs, Materials)
+// -----------------------------------------------------------------------------
+
+model ExportWallet {
+  id            String   @id @default(cuid())
+  customerId    String   @unique
+  customer      ExportCustomer @relation(fields: [customerId], references: [id])
+  tenantId      String
+  
+  balance       Decimal  @default(0)
+  currency      String   @default("USD")
+  
+  transactions  ExportWalletTransaction[]
+  
+  updatedAt     DateTime @updatedAt
+  
+  @@index([tenantId])
+}
+
+model ExportWalletTransaction {
+  id            String   @id @default(cuid())
+  walletId      String
+  wallet        ExportWallet @relation(fields: [walletId], references: [id])
+  tenantId      String
+  
+  amount        Decimal
+  type          String   // DEPOSIT, REFUND, BID_LOCK, INVOICE_PAYMENT
+  reference     String?  // Bank Slip ID or Bid ID
+  status        String   // PENDING, CLEARED, REJECTED
+  description   String?
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([walletId])
+  @@index([tenantId])
+}
+
+model DocumentDispatch {
+  id            String   @id @default(cuid())
+  vehicleId     String   @unique
+  vehicle       ExportVehicle @relation(fields: [vehicleId], references: [id])
+  tenantId      String
+  
+  courierName   String   // DHL, FedEx
+  trackingNumber String
+  recipientName String
+  recipientAddress String
+  sentDate      DateTime @default(now())
+  status        String   // IN_TRANSIT, DELIVERED
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([vehicleId])
+}
+
+model YardMaterial {
+  id            String   @id @default(cuid())
+  yardJobId     String
+  yardJob       YardJob  @relation(fields: [yardJobId], references: [id])
+  tenantId      String
+  
+  partName      String   // Or link to SparePart if needed later
+  quantity      Int
+  unitCost      Decimal
+  totalCost     Decimal
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([yardJobId])
+}
+
+model ExportInvoice {
+  id            String   @id @default(cuid())
+  vehicleId     String   @unique
+  vehicle       ExportVehicle @relation(fields: [vehicleId], references: [id])
+  tenantId      String
+  
+  invoiceNumber String   // VE-INV-YYYY-NNN
+  
+  // CIF Breakdown snapshot
+  purchasePrice Decimal
+  auctionFee    Decimal
+  transportCost Decimal
+  shippingCost  Decimal
+  inspectionCost Decimal
+  yardCost      Decimal
+  commission    Decimal
+  otherCost     Decimal
+  
+  totalAmount   Decimal
+  currency      String
+  
+  status        String   // DRAFT, SENT, PAID
+  dueDate       DateTime?
+  paidAt        DateTime?
+  
+  items         ExportInvoiceItem[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([vehicleId])
+  @@index([tenantId])
+}
+
+model ExportInvoiceItem {
+  id            String   @id @default(cuid())
+  invoiceId     String
+  invoice       ExportInvoice @relation(fields: [invoiceId], references: [id])
+  
+  description   String
+  amount        Decimal
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([invoiceId])
 }
