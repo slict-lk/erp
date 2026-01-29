@@ -3882,6 +3882,49 @@ model ExportShipment {
   @@index([destinationPort])
 }
 
+model ExportStoreConfig {
+  id              String   @id @default(cuid())
+  tenantId        String   @unique
+  
+  // Branding
+  storeName       String   @default("My Auto Exporter")
+  tagline         String?
+  logoUrl         String?
+  faviconUrl      String?
+  primaryColor    String   @default("#2563eb") // Blue-600
+  secondaryColor  String?
+  
+  // Hero Section
+  heroImageUrl    String?
+  heroTitle       String?
+  heroSubtitle    String?
+  // Store JSON of slider items: { id, imageUrl, title, subtitle, buttonText, buttonLink }[]
+  heroSlides      Json?
+  
+  // Contact
+  contactEmail    String?
+  contactPhone    String?
+  whatsappNumber  String?
+  address         String?
+  
+  // Social
+  facebookUrl     String?
+  instagramUrl    String?
+  
+  // Promo Banners (JSON: { id, imageUrl, title, link, bgColor }[])
+  promoBanners    Json?
+  
+  // Featured Categories (JSON: { name, slug, imageUrl }[])
+  featuredCategories Json?
+  
+  // Custom Pages Content
+  aboutUs         Json?   // { story, mission, stats: [], values: [] }
+  services        Json?   // { items: [{ title, description, icon, link }] }
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
 model YardJob {
   id              String        @id @default(cuid())
   vehicleId       String

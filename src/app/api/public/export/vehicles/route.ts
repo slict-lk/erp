@@ -1,75 +1,81 @@
-// Public API: GET /api/public/export/vehicles
-// Returns published vehicles for the external "Kobemotor" website
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getPublicVehicles } from '@/apps/vehicle-export/api';
+import { prisma } from '@/lib/prisma';
 
-// Simple API key validation (can be enhanced with proper auth)
-function validateApiKey(request: NextRequest): boolean {
-    const apiKey = request.headers.get('x-api-key');
-    const expectedKey = process.env.EXPORT_PUBLIC_API_KEY;
+export const dynamic = 'force-dynamic';
 
-    // If no key is configured, allow access (dev mode)
-    if (!expectedKey) return true;
-
-    return apiKey === expectedKey;
-}
-
+// GET /api/public/export/vehicles
 export async function GET(request: NextRequest) {
+    // 1. Auth Check
+    const authHeader = request.headers.get('authorization');
+    if (authHeader !== `Bearer ${process.env.PUBLIC_API_KEY}` && process.env.PUBLIC_API_KEY) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const tenantId = searchParams.get('tenantId');
+    const make = searchParams.get('make');
+    const model = searchParams.get('model');
+    const minYear = searchParams.get('minYear');
+    const maxYear = searchParams.get('maxYear');
+    const limit = searchParams.get('limit') || '20';
+    const offset = searchParams.get('offset') || '0';
+
+    if (!tenantId) {
+        return NextResponse.json({ error: 'Tenant ID required' }, { status: 400 });
+    }
+
     try {
-        // Validate API key
-        if (!validateApiKey(request)) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
-        }
+        const where: any = {
+            tenantId,
+            isPublished: true, // IMPORTANT: Only published vehicles
+            // Filter by status if needed? Usually we show all published ones (IN_YARD, etc.)
+            // But maybe not SOLD/DELIVERED?
+            // Let's assume isPublished handles the "Visible" logic. 
+        };
 
-        // Get tenant ID from query params or header
-        const { searchParams } = new URL(request.url);
-        const tenantId = searchParams.get('tenantId') || request.headers.get('x-tenant-id');
+        if (make) where.make = { contains: make, mode: 'insensitive' };
+        if (model) where.model = { contains: model, mode: 'insensitive' };
+        if (minYear) where.year = { gte: parseInt(minYear) };
+        if (maxYear) where.year = { lte: parseInt(maxYear) };
 
-        if (!tenantId) {
-            return NextResponse.json(
-                { error: 'Tenant ID is required' },
-                { status: 400 }
-            );
-        }
-
-        // Optional filters
-        const make = searchParams.get('make') || undefined;
-        const model = searchParams.get('model') || undefined;
-        const minPrice = searchParams.get('minPrice') ? Number(searchParams.get('minPrice')) : undefined;
-        const maxPrice = searchParams.get('maxPrice') ? Number(searchParams.get('maxPrice')) : undefined;
-
-        // Get public vehicles
-        const vehicles = await getPublicVehicles(tenantId);
-
-        // Apply filters if provided
-        let filtered = vehicles;
-        if (make) {
-            filtered = filtered.filter(v => v.make.toLowerCase().includes(make.toLowerCase()));
-        }
-        if (model) {
-            filtered = filtered.filter(v => v.model.toLowerCase().includes(model.toLowerCase()));
-        }
-        if (minPrice !== undefined) {
-            filtered = filtered.filter(v => v.fobPrice >= minPrice);
-        }
-        if (maxPrice !== undefined) {
-            filtered = filtered.filter(v => v.fobPrice <= maxPrice);
-        }
+        const [vehicles, total] = await Promise.all([
+            prisma.exportVehicle.findMany({
+                where,
+                take: parseInt(limit),
+                skip: parseInt(offset),
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    photos: {
+                        where: { isPublic: true },
+                        take: 1, // Main photo
+                    },
+                },
+            }),
+            prisma.exportVehicle.count({ where }),
+        ]);
 
         return NextResponse.json({
-            success: true,
-            count: filtered.length,
-            vehicles: filtered,
+            data: vehicles.map(v => ({
+                id: v.id,
+                title: `${v.year} ${v.make} ${v.model}`,
+                stockNumber: v.stockNumber,
+                price: v.fobPrice, // Show FOB price
+                currency: v.currency,
+                mileage: v.mileage,
+                fuel: v.fuelType,
+                transmission: v.transmission,
+                mainPhoto: v.photos[0]?.url || null,
+                status: v.status,
+            })),
+            meta: {
+                total,
+                limit: parseInt(limit),
+                offset: parseInt(offset),
+            }
         });
     } catch (error) {
         console.error('Error fetching public vehicles:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

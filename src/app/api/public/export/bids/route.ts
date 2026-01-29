@@ -1,92 +1,63 @@
-// Public API: POST /api/public/export/bids
-// Allows customers to place bids from the external "Kobemotor" website
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createBid } from '@/apps/vehicle-export/api';
-import { z } from 'zod';
+import { prisma } from '@/lib/prisma';
 
-// Simple API key validation
-function validateApiKey(request: NextRequest): boolean {
-    const apiKey = request.headers.get('x-api-key');
-    const expectedKey = process.env.EXPORT_PUBLIC_API_KEY;
+export const dynamic = 'force-dynamic';
 
-    if (!expectedKey) return true;
-    return apiKey === expectedKey;
-}
-
-// Request validation schema
-const bidSchema = z.object({
-    tenantId: z.string().min(1, 'Tenant ID is required'),
-    customerEmail: z.string().email('Valid email is required'),
-    customerName: z.string().min(1, 'Customer name is required'),
-    vehicleId: z.string().optional(),
-    requestedMake: z.string().min(1, 'Make is required'),
-    requestedModel: z.string().min(1, 'Model is required'),
-    maxBudget: z.number().positive('Budget must be positive'),
-    currency: z.string().optional().default('JPY'),
-    notes: z.string().optional(),
-});
-
+// POST /api/public/export/bids
 export async function POST(request: NextRequest) {
+    // 1. Auth Check
+    const authHeader = request.headers.get('authorization');
+    if (authHeader !== `Bearer ${process.env.PUBLIC_API_KEY}` && process.env.PUBLIC_API_KEY) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     try {
-        // Validate API key
-        if (!validateApiKey(request)) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            );
-        }
-
-        // Parse and validate body
         const body = await request.json();
-        const validationResult = bidSchema.safeParse(body);
+        const { tenantId, vehicleId, customerEmail, customerName, customerPhone, customerCountry, amount, message } = body;
 
-        if (!validationResult.success) {
-            return NextResponse.json(
-                {
-                    error: 'Validation failed',
-                    details: validationResult.error.flatten().fieldErrors
-                },
-                { status: 400 }
-            );
+        if (!tenantId || !customerEmail || !amount) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        const data = validationResult.data;
-
-        // Create the bid
-        const bid = await createBid({
-            tenantId: data.tenantId,
-            customerEmail: data.customerEmail,
-            customerName: data.customerName,
-            vehicleId: data.vehicleId,
-            requestedMake: data.requestedMake,
-            requestedModel: data.requestedModel,
-            maxBudget: data.maxBudget,
-            currency: data.currency,
-            notes: data.notes,
+        // 2. Find or Create Customer
+        // Using findFirst because email might not be unique across tenants in schema?
+        // Actually, schema says @@index([tenantId]), @@index([email]) but schema update for ExportCustomer didn't enforce unique email globally. 
+        // We'll trust the logic: find in this tenant.
+        let customer = await prisma.exportCustomer.findFirst({
+            where: { tenantId, email: customerEmail },
         });
 
-        // TODO: Send notification to Sales Team dashboard
-        // This could be implemented via Pusher, SSE, or polling
+        if (!customer) {
+            customer = await prisma.exportCustomer.create({
+                data: {
+                    tenantId,
+                    email: customerEmail,
+                    name: customerName || customerEmail.split('@')[0],
+                    phone: customerPhone,
+                    country: customerCountry,
+                },
+            });
+        }
 
-        return NextResponse.json({
-            success: true,
-            message: 'Bid submitted successfully',
-            bid: {
-                id: bid.id,
-                status: bid.status,
-                requestedMake: bid.requestedMake,
-                requestedModel: bid.requestedModel,
-                maxBudget: Number(bid.maxBudget),
-                currency: bid.currency,
-                createdAt: bid.createdAt,
+        // 3. Create Bid
+        const bid = await prisma.exportBid.create({
+            data: {
+                tenantId,
+                customerId: customer.id,
+                vehicleId: vehicleId || null, // Can be general inquiry if null
+                requestedMake: body.make || 'Any',
+                requestedModel: body.model || 'Any',
+                maxBudget: parseFloat(amount),
+                notes: message,
+                status: 'PENDING',
             },
-        }, { status: 201 });
+        });
+
+        return NextResponse.json({ success: true, bidId: bid.id });
+
     } catch (error) {
-        console.error('Error creating bid:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+        console.error('Error creating public bid:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

@@ -143,7 +143,8 @@ const navigation: NavigationItem[] = [
       { name: 'Inventory', href: '/vehicle-export/inventory', moduleId: 'automotive' },
       { name: 'Yard Jobs', href: '/vehicle-export/yard', moduleId: 'automotive' },
       { name: 'Shipments', href: '/vehicle-export/shipments', moduleId: 'automotive' },
-      { name: 'Customers', href: '/vehicle-export/customers', moduleId: 'automotive' },
+      { name: 'Customers', href: '/vehicle-export/customers', icon: Users, moduleId: 'vehicle-export' },
+      { name: 'Storefront', href: '/vehicle-export/storefront', icon: Palette, moduleId: 'vehicle-export' },
     ],
   },
   {
