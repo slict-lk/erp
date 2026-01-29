@@ -133,7 +133,7 @@ dependencies:
     specifier: ^3.6.0
     version: 3.6.0
   framer-motion:
-    specifier: ^11.2.0
+    specifier: ^11.18.2
     version: 11.18.2(react-dom@19.2.1)(react@19.2.1)
   html5-qrcode:
     specifier: ^2.3.8
@@ -214,7 +214,7 @@ dependencies:
     specifier: ^19.1.0
     version: 19.3.1(@types/node@20.19.25)
   tailwind-merge:
-    specifier: ^2.3.0
+    specifier: ^2.6.0
     version: 2.6.0
   tailwindcss:
     specifier: ^3.4.0

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,9 +14,12 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Gavel, ArrowLeft, Loader2 } from 'lucide-react';
+import { Gavel, ArrowLeft, Loader2, CheckCircle, Car, Settings, Calendar, ChevronRight, ChevronLeft } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/lib/utils';
+import { FadeIn, SlideUp } from '@/components/ui/motion/primitives';
 
 const AUCTION_HOUSES = [
     'USS Tokyo', 'USS Nagoya', 'USS Kobe', 'USS Osaka', 'USS Fukuoka',
@@ -24,11 +27,8 @@ const AUCTION_HOUSES = [
 ];
 
 const AUCTION_GRADES = ['S', '6', '5', '4.5', '4', '3.5', '3', '2', '1', 'R', 'RA', 'RB', '***'];
-
 const TRANSMISSIONS = ['Automatic', 'Manual', 'CVT', 'DCT'];
-
 const FUEL_TYPES = ['Petrol', 'Diesel', 'Hybrid', 'Electric', 'Plug-in Hybrid'];
-
 const MAKES = [
     'Toyota', 'Honda', 'Nissan', 'Mazda', 'Suzuki', 'Mitsubishi', 'Subaru',
     'Daihatsu', 'Isuzu', 'Lexus', 'Infiniti', 'Acura', 'Other'
@@ -41,6 +41,7 @@ export default function AuctionEntryPage() {
     const { toast } = useToast();
 
     const [loading, setLoading] = useState(false);
+    const [step, setStep] = useState(1);
     const [bid, setBid] = useState<any>(null);
 
     const [form, setForm] = useState({
@@ -64,7 +65,6 @@ export default function AuctionEntryPage() {
         inspectionNotes: '',
     });
 
-    // Load bid if provided
     useEffect(() => {
         if (bidId) {
             fetch(`/api/vehicle-export/bids/${bidId}`)
@@ -86,11 +86,12 @@ export default function AuctionEntryPage() {
         setForm(prev => ({ ...prev, [field]: value }));
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const nextStep = () => setStep(s => Math.min(s + 1, 3));
+    const prevStep = () => setStep(s => Math.max(s - 1, 1));
 
+    const handleSubmit = async () => {
         if (!form.chassisNumber || !form.make || !form.model || !form.purchasePrice) {
-            toast({ title: 'Missing Fields', description: 'Please fill in required fields', variant: 'destructive' });
+            toast({ title: 'Missing Fields', description: 'Please fill in all required fields.', variant: 'destructive' });
             return;
         }
 
@@ -113,9 +114,11 @@ export default function AuctionEntryPage() {
 
             if (res.ok) {
                 const data = await res.json();
-                toast({ title: 'Vehicle Created', description: `Stock #${data.vehicle.stockNumber} created successfully` });
+                toast({
+                    title: 'Vehicle Acquired',
+                    description: `Stock #${data.vehicle.stockNumber} added to inventory.`,
+                });
 
-                // If linked to bid, update bid status to WON
                 if (bidId) {
                     await fetch(`/api/vehicle-export/bids/${bidId}`, {
                         method: 'PUT',
@@ -140,265 +143,275 @@ export default function AuctionEntryPage() {
     const years = Array.from({ length: 30 }, (_, i) => currentYear - i);
     const months = Array.from({ length: 12 }, (_, i) => i + 1);
 
+    const steps = [
+        { id: 1, title: 'Identity', icon: Car },
+        { id: 2, title: 'Specs', icon: Settings },
+        { id: 3, title: 'Auction Data', icon: Gavel },
+    ];
+
     return (
-        <div className="p-4 sm:p-6 max-w-4xl mx-auto">
-            {/* Header */}
-            <div className="flex items-center gap-4 mb-6">
-                <Link href="/vehicle-export">
-                    <Button variant="ghost" size="icon">
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                </Link>
-                <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                        <Gavel className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
-                        Auction Entry
-                    </h1>
-                    <p className="text-gray-600 dark:text-gray-400">
-                        Enter vehicle details from auction win
-                    </p>
+        <div className="min-h-screen bg-gray-50/50 dark:bg-black p-4 sm:p-8 flex items-center justify-center">
+            <div className="max-w-3xl w-full space-y-8">
+
+                {/* Header */}
+                <FadeIn className="flex items-center justify-between">
+                    <div>
+                        <Link href="/vehicle-export" className="text-sm text-gray-500 hover:text-gray-900 flex items-center gap-1 mb-2">
+                            <ArrowLeft className="h-4 w-4" /> Back to Dashboard
+                        </Link>
+                        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">New Vehicle Entry</h1>
+                    </div>
+                    {bid && (
+                        <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-full text-sm font-medium border border-blue-100 dark:border-blue-800">
+                            Fulfilling Bid for {bid.customer?.name}
+                        </div>
+                    )}
+                </FadeIn>
+
+                {/* Stepper */}
+                <nav aria-label="Progress">
+                    <ol role="list" className="flex items-center">
+                        {steps.map((s, stepIdx) => (
+                            <li key={s.id} className={cn(stepIdx !== steps.length - 1 ? 'pr-8 sm:pr-20' : '', 'relative mb-6')}>
+                                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                                    <div className={cn("h-0.5 w-full", step > s.id ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-800')} />
+                                </div>
+                                <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white dark:bg-gray-900 hover:bg-gray-50">
+                                    <s.icon className={cn("h-5 w-5", step >= s.id ? 'text-indigo-600' : 'text-gray-400')} aria-hidden="true" />
+                                    {step > s.id && (
+                                        <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500 border-2 border-white" />
+                                    )}
+                                </div>
+                            </li>
+                        ))}
+                    </ol>
+                </nav>
+
+                <div className="relative">
+                    <AnimatePresence mode="wait">
+                        {step === 1 && (
+                            <motion.div
+                                key="step1"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.3 }}
+                            >
+                                <Card className="border-0 shadow-xl shadow-indigo-500/5 dark:shadow-none bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl">
+                                    <CardContent className="p-8 space-y-6">
+                                        <div className="space-y-2">
+                                            <h2 className="text-xl font-semibold">Vehicle Identity</h2>
+                                            <p className="text-gray-500 text-sm">Basic identification details found on the chassis plate.</p>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="md:col-span-2">
+                                                <Label>Chassis Number</Label>
+                                                <Input
+                                                    value={form.chassisNumber}
+                                                    onChange={(e) => handleChange('chassisNumber', e.target.value.toUpperCase())}
+                                                    placeholder="e.g. NHP10-1234567"
+                                                    className="uppercase font-mono text-lg tracking-wider bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 focus:ring-indigo-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label>Make</Label>
+                                                <Select value={form.make} onValueChange={(v) => handleChange('make', v)}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select Make" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {MAKES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div>
+                                                <Label>Model</Label>
+                                                <Input
+                                                    value={form.model}
+                                                    onChange={(e) => handleChange('model', e.target.value)}
+                                                    placeholder="e.g. Aqua"
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label>Year</Label>
+                                                <Select value={form.year.toString()} onValueChange={(v) => handleChange('year', v)}>
+                                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                                    <SelectContent>
+                                                        {years.map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div>
+                                                <Label>Month</Label>
+                                                <Select value={form.month.toString()} onValueChange={(v) => handleChange('month', v)}>
+                                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                                    <SelectContent>
+                                                        {months.map(m => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                        )}
+
+                        {step === 2 && (
+                            <motion.div
+                                key="step2"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.3 }}
+                            >
+                                <Card className="border-0 shadow-xl shadow-indigo-500/5 dark:shadow-none bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl">
+                                    <CardContent className="p-8 space-y-6">
+                                        <div className="space-y-2">
+                                            <h2 className="text-xl font-semibold">Technical Specifications</h2>
+                                            <p className="text-gray-500 text-sm">Engine, transmission, and condition details.</p>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <Label>Engine Code</Label>
+                                                <Input value={form.engineCode} onChange={(e) => handleChange('engineCode', e.target.value.toUpperCase())} className="uppercase" placeholder="1NZ-FE" />
+                                            </div>
+                                            <div>
+                                                <Label>Engine CC</Label>
+                                                <div className="relative">
+                                                    <Input type="number" value={form.engineCc} onChange={(e) => handleChange('engineCc', e.target.value)} placeholder="1500" />
+                                                    <span className="absolute right-3 top-2.5 text-gray-400 text-sm">cc</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <Label>Fuel</Label>
+                                                <Select value={form.fuelType} onValueChange={(v) => handleChange('fuelType', v)}>
+                                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                                    <SelectContent>{FUEL_TYPES.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div>
+                                                <Label>Transmission</Label>
+                                                <Select value={form.transmission} onValueChange={(v) => handleChange('transmission', v)}>
+                                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                                    <SelectContent>{TRANSMISSIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div>
+                                                <Label>Color</Label>
+                                                <Input value={form.color} onChange={(e) => handleChange('color', e.target.value)} placeholder="Pearl White" />
+                                            </div>
+                                            <div>
+                                                <Label>Mileage</Label>
+                                                <div className="relative">
+                                                    <Input type="number" value={form.mileage} onChange={(e) => handleChange('mileage', e.target.value)} placeholder="50000" />
+                                                    <span className="absolute right-3 top-2.5 text-gray-400 text-sm">km</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                        )}
+
+                        {step === 3 && (
+                            <motion.div
+                                key="step3"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.3 }}
+                            >
+                                <Card className="border-0 shadow-xl shadow-indigo-500/5 dark:shadow-none bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl">
+                                    <CardContent className="p-8 space-y-6">
+                                        <div className="space-y-2">
+                                            <h2 className="text-xl font-semibold">Auction & Costs</h2>
+                                            <p className="text-gray-500 text-sm">Purchase details and initial inspection notes.</p>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <Label>Auction House</Label>
+                                                <Select value={form.auctionHouse} onValueChange={(v) => handleChange('auctionHouse', v)}>
+                                                    <SelectTrigger><SelectValue placeholder="Select House" /></SelectTrigger>
+                                                    <SelectContent>{AUCTION_HOUSES.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div>
+                                                <Label>Auction Date</Label>
+                                                <Input type="date" value={form.auctionDate} onChange={(e) => handleChange('auctionDate', e.target.value)} />
+                                            </div>
+                                            <div>
+                                                <Label>Lot Number</Label>
+                                                <Input value={form.lotNumber} onChange={(e) => handleChange('lotNumber', e.target.value)} placeholder="10203" />
+                                            </div>
+                                            <div>
+                                                <Label>Grade</Label>
+                                                <Select value={form.auctionGrade} onValueChange={(v) => handleChange('auctionGrade', v)}>
+                                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                                    <SelectContent>{AUCTION_GRADES.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="md:col-span-2 grid grid-cols-2 gap-6 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl">
+                                                <div>
+                                                    <Label className="text-indigo-600 dark:text-indigo-400">Purchase Price (¥)</Label>
+                                                    <Input type="number" value={form.purchasePrice} onChange={(e) => handleChange('purchasePrice', e.target.value)} className="font-bold text-lg" placeholder="0" />
+                                                </div>
+                                                <div>
+                                                    <Label>Auction Fee (¥)</Label>
+                                                    <Input type="number" value={form.auctionFee} onChange={(e) => handleChange('auctionFee', e.target.value)} placeholder="0" />
+                                                </div>
+                                            </div>
+
+                                            <div className="md:col-span-2">
+                                                <Label>Inspection Notes</Label>
+                                                <Textarea
+                                                    value={form.inspectionNotes}
+                                                    onChange={(e) => handleChange('inspectionNotes', e.target.value)}
+                                                    rows={3}
+                                                    placeholder="Initial observations..."
+                                                    className="resize-none"
+                                                />
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
+
+                <div className="flex justify-between pt-4">
+                    <Button
+                        variant="ghost"
+                        onClick={prevStep}
+                        disabled={step === 1}
+                        className={cn("transition-opacity", step === 1 ? "opacity-0" : "opacity-100")}
+                    >
+                        <ChevronLeft className="h-4 w-4 mr-2" /> Back
+                    </Button>
+
+                    {step < 3 ? (
+                        <Button
+                            onClick={nextStep}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full px-8"
+                        >
+                            Next Step <ChevronRight className="h-4 w-4 ml-2" />
+                        </Button>
+                    ) : (
+                        <Button
+                            onClick={handleSubmit}
+                            disabled={loading}
+                            className="bg-green-600 hover:bg-green-700 text-white rounded-full px-8 shadow-lg shadow-green-500/30"
+                        >
+                            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <div className='flex items-center'>Confirm Purchase <CheckCircle className="h-4 w-4 ml-2" /></div>}
+                        </Button>
+                    )}
+                </div>
+
             </div>
-
-            {/* Bid Info */}
-            {bid && (
-                <Card className="mb-6 border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
-                    <CardContent className="p-4">
-                        <p className="text-sm text-blue-700 dark:text-blue-300">
-                            <strong>Creating for Bid:</strong> {bid.customer?.name} requested {bid.requestedMake} {bid.requestedModel}
-                        </p>
-                    </CardContent>
-                </Card>
-            )}
-
-            <form onSubmit={handleSubmit}>
-                {/* Vehicle Info */}
-                <Card className="mb-6">
-                    <CardHeader>
-                        <CardTitle>Vehicle Information</CardTitle>
-                        <CardDescription>Basic vehicle details</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="sm:col-span-2">
-                                <Label>Chassis Number *</Label>
-                                <Input
-                                    value={form.chassisNumber}
-                                    onChange={(e) => handleChange('chassisNumber', e.target.value.toUpperCase())}
-                                    placeholder="e.g., NCP131-1234567"
-                                    className="uppercase"
-                                />
-                            </div>
-                            <div>
-                                <Label>Make *</Label>
-                                <Select value={form.make} onValueChange={(v) => handleChange('make', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select make" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {MAKES.map(make => (
-                                            <SelectItem key={make} value={make}>{make}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <Label>Model *</Label>
-                                <Input
-                                    value={form.model}
-                                    onChange={(e) => handleChange('model', e.target.value)}
-                                    placeholder="e.g., Vitz, Aqua, Prius"
-                                />
-                            </div>
-                            <div>
-                                <Label>Year</Label>
-                                <Select value={form.year.toString()} onValueChange={(v) => handleChange('year', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {years.map(year => (
-                                            <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <Label>Month</Label>
-                                <Select value={form.month.toString()} onValueChange={(v) => handleChange('month', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {months.map(month => (
-                                            <SelectItem key={month} value={month.toString()}>{month}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <Label>Transmission</Label>
-                                <Select value={form.transmission} onValueChange={(v) => handleChange('transmission', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {TRANSMISSIONS.map(t => (
-                                            <SelectItem key={t} value={t}>{t}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <Label>Fuel Type</Label>
-                                <Select value={form.fuelType} onValueChange={(v) => handleChange('fuelType', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {FUEL_TYPES.map(f => (
-                                            <SelectItem key={f} value={f}>{f}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <Label>Color</Label>
-                                <Input
-                                    value={form.color}
-                                    onChange={(e) => handleChange('color', e.target.value)}
-                                    placeholder="e.g., Pearl White"
-                                />
-                            </div>
-                            <div>
-                                <Label>Mileage (km)</Label>
-                                <Input
-                                    type="number"
-                                    value={form.mileage}
-                                    onChange={(e) => handleChange('mileage', e.target.value)}
-                                    placeholder="e.g., 45000"
-                                />
-                            </div>
-                            <div>
-                                <Label>Engine Code</Label>
-                                <Input
-                                    value={form.engineCode}
-                                    onChange={(e) => handleChange('engineCode', e.target.value.toUpperCase())}
-                                    placeholder="e.g., 1NZ-FE"
-                                />
-                            </div>
-                            <div>
-                                <Label>Engine CC</Label>
-                                <Input
-                                    type="number"
-                                    value={form.engineCc}
-                                    onChange={(e) => handleChange('engineCc', e.target.value)}
-                                    placeholder="e.g., 1500"
-                                />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Auction Info */}
-                <Card className="mb-6">
-                    <CardHeader>
-                        <CardTitle>Auction Details</CardTitle>
-                        <CardDescription>Where and how the vehicle was purchased</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <Label>Auction House</Label>
-                                <Select value={form.auctionHouse} onValueChange={(v) => handleChange('auctionHouse', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select auction" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {AUCTION_HOUSES.map(house => (
-                                            <SelectItem key={house} value={house}>{house}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <Label>Auction Date</Label>
-                                <Input
-                                    type="date"
-                                    value={form.auctionDate}
-                                    onChange={(e) => handleChange('auctionDate', e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <Label>Lot Number</Label>
-                                <Input
-                                    value={form.lotNumber}
-                                    onChange={(e) => handleChange('lotNumber', e.target.value)}
-                                    placeholder="e.g., 30512"
-                                />
-                            </div>
-                            <div>
-                                <Label>Auction Grade</Label>
-                                <Select value={form.auctionGrade} onValueChange={(v) => handleChange('auctionGrade', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select grade" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {AUCTION_GRADES.map(grade => (
-                                            <SelectItem key={grade} value={grade}>{grade}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <Label>Purchase Price (¥) *</Label>
-                                <Input
-                                    type="number"
-                                    value={form.purchasePrice}
-                                    onChange={(e) => handleChange('purchasePrice', e.target.value)}
-                                    placeholder="e.g., 350000"
-                                />
-                            </div>
-                            <div>
-                                <Label>Auction Fee (¥)</Label>
-                                <Input
-                                    type="number"
-                                    value={form.auctionFee}
-                                    onChange={(e) => handleChange('auctionFee', e.target.value)}
-                                    placeholder="e.g., 15000"
-                                />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Initial Inspection */}
-                <Card className="mb-6">
-                    <CardHeader>
-                        <CardTitle>Initial Inspection Notes</CardTitle>
-                        <CardDescription>Notes for yard team inspection</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Textarea
-                            value={form.inspectionNotes}
-                            onChange={(e) => handleChange('inspectionNotes', e.target.value)}
-                            placeholder="e.g., Check front bumper, minor scratch on left door..."
-                            rows={4}
-                        />
-                    </CardContent>
-                </Card>
-
-                {/* Submit */}
-                <div className="flex justify-end gap-3">
-                    <Link href="/vehicle-export">
-                        <Button type="button" variant="outline">Cancel</Button>
-                    </Link>
-                    <Button type="submit" disabled={loading}>
-                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Create Vehicle
-                    </Button>
-                </div>
-            </form>
         </div>
     );
 }

@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Vehicle ID required' }, { status: 400 });
         }
 
-        const doc = await prisma.documentDispatch.findUnique({
+        const doc = await (prisma as any).documentDispatch.findUnique({
             where: { vehicleId },
         });
 
@@ -38,7 +38,20 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { vehicleId, courierName, trackingNumber, recipientName, recipientAddress, status } = body;
 
-        const doc = await prisma.documentDispatch.upsert({
+        // BL Surrender Check: Verify Invoice is PAID
+        // Must cast to any because ExportInvoice is a new model
+        const invoice = await (prisma as any).exportInvoice.findUnique({
+            where: { vehicleId }
+        });
+
+        if (!invoice || invoice.status !== 'PAID') {
+            return NextResponse.json({
+                error: 'Cannot dispatch documents. Invoice must be fully PAID before BL surrender.',
+                detail: invoice ? `Current status: ${invoice.status}` : 'No invoice generated'
+            }, { status: 403 }); // Forbidden
+        }
+
+        const doc = await (prisma as any).documentDispatch.upsert({
             where: { vehicleId },
             create: {
                 tenantId: user.tenantId,

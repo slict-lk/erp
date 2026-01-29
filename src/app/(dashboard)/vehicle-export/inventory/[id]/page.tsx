@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useState, use } from 'react';
 import Link from 'next/link';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FadeIn, SlideUp, StaggerContainer, StaggerItem, HoverCard as MotionCard } from '@/components/ui/motion/primitives';
 import {
     Select,
     SelectContent,
@@ -25,11 +25,17 @@ import {
     CheckCircle,
     XCircle,
     Clock,
-    AlertTriangle,
-    RefreshCw,
-    Plus,
+    Info,
+    DollarSign,
+    Fuel,
+    Gauge,
+    Anchor
 } from 'lucide-react';
+
+import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
+
+// --- Types ---
 
 interface Vehicle {
     id: string;
@@ -65,10 +71,9 @@ interface Vehicle {
     photos: { id: string; url: string; tag: string | null }[];
     yardJobs: YardJob[];
     bids: { id: string; status: string; maxBudget: number | null; customer: { name: string } }[];
-    documentDispatch: { id: string; status: string; courierName: string | null; trackingNumber: string | null; dispatchedAt: string | null } | null;
-    exportInvoice: { id: string; invoiceNumber: string; totalAmount: number; status: string } | null;
+    documents: { id: string; status: string; courierName: string | null; trackingNumber: string | null; dispatchedAt: string | null } | null;
+    invoice: { id: string; invoiceNumber: string; totalAmount: number; status: string } | null;
 }
-
 
 interface YardJob {
     id: string;
@@ -82,29 +87,14 @@ interface YardJob {
     createdAt: string;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-    WON_AT_AUCTION: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
-    IN_YARD: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-    READY_TO_SHIP: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-    SHIPPED: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
-    DELIVERED: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-};
+// --- Constants ---
 
-const STATUS_LABELS: Record<string, string> = {
-    WON_AT_AUCTION: 'Won at Auction',
-    IN_YARD: 'In Yard',
-    READY_TO_SHIP: 'Ready to Ship',
-    SHIPPED: 'Shipped',
-    DELIVERED: 'Delivered',
-};
-
-const COMPLIANCE_COLORS: Record<string, string> = {
-    NOT_STARTED: 'text-gray-400',
-    IN_PROGRESS: 'text-yellow-500',
-    PASSED: 'text-green-500',
-    FAILED: 'text-red-500',
-    RECEIVED: 'text-green-500',
-    NOT_APPLICABLE: 'text-gray-400',
+const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
+    WON_AT_AUCTION: { color: 'bg-yellow-500/10 text-yellow-600 border-yellow-200 dark:border-yellow-800', label: 'Won at Auction' },
+    IN_YARD: { color: 'bg-blue-500/10 text-blue-600 border-blue-200 dark:border-blue-800', label: 'In Yard' },
+    READY_TO_SHIP: { color: 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800', label: 'Ready to Ship' },
+    SHIPPED: { color: 'bg-purple-500/10 text-purple-600 border-purple-200 dark:border-purple-800', label: 'Shipped' },
+    DELIVERED: { color: 'bg-slate-500/10 text-slate-600 border-slate-200 dark:border-slate-800', label: 'Delivered' },
 };
 
 function formatCurrency(amount: number | null, currency: string = 'JPY'): string {
@@ -115,6 +105,8 @@ function formatCurrency(amount: number | null, currency: string = 'JPY'): string
         minimumFractionDigits: 0,
     }).format(amount);
 }
+
+// --- Main Page ---
 
 export default function VehicleDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -150,7 +142,7 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                 body: JSON.stringify({ status: newStatus }),
             });
             if (res.ok) {
-                toast({ title: 'Status Updated', description: `Vehicle status changed to ${STATUS_LABELS[newStatus]}` });
+                toast({ title: 'Status Updated', description: `Vehicle status changed to ${STATUS_CONFIG[newStatus]?.label || newStatus}` });
                 fetchVehicle();
             }
         } catch (error) {
@@ -160,393 +152,381 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
         }
     };
 
-    if (loading) {
-        return (
-            <div className="p-6 flex items-center justify-center min-h-[400px]">
-                <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
-            </div>
-        );
-    }
+    if (loading) return <DetailSkeleton />;
+    if (!vehicle) return <NotFoundState />;
 
-    if (!vehicle) {
-        return (
-            <div className="p-6 text-center">
-                <Package className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-500">Vehicle not found</p>
-                <Link href="/vehicle-export/inventory">
-                    <Button className="mt-4">Back to Inventory</Button>
-                </Link>
-            </div>
-        );
-    }
-
-    // Count completed jobs
-    const completedJobs = vehicle.yardJobs.filter(j => j.status === 'DONE').length;
-    const totalJobs = vehicle.yardJobs.length;
+    const primaryPhoto = vehicle.photos?.[0]?.url;
 
     return (
-        <div className="p-4 sm:p-6 space-y-6">
-            {/* Header */}
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="flex items-start gap-4">
-                    <Link href="/vehicle-export/inventory">
-                        <Button variant="ghost" size="icon">
-                            <ArrowLeft className="h-5 w-5" />
-                        </Button>
-                    </Link>
-                    <div>
-                        <p className="text-sm text-gray-500 font-mono">{vehicle.stockNumber}</p>
-                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-                            {vehicle.year} {vehicle.make} {vehicle.model}
-                        </h1>
-                        <p className="text-gray-500">{vehicle.chassisNumber}</p>
-                    </div>
+        <div className="min-h-screen bg-transparent pb-12">
+            {/* Hero Header */}
+            <div className="relative h-[300px] sm:h-[400px] w-full overflow-hidden">
+                {/* Background Image with Blur */}
+                <div className="absolute inset-0 z-0">
+                    {primaryPhoto ? (
+                        <div className="relative w-full h-full">
+                            <img src={primaryPhoto} alt="Hero" className="w-full h-full object-cover blur-xl opacity-50 scale-110" />
+                            <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-white/40 to-white dark:from-black/10 dark:via-gray-950/40 dark:to-slate-950/50" />
+                        </div>
+                    ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-blue-100 to-slate-200 dark:from-blue-900/40 dark:to-slate-900" />
+                    )}
                 </div>
-                <div className="flex items-center gap-3">
-                    <Badge className={`${STATUS_COLORS[vehicle.status]} text-sm px-3 py-1`}>
-                        {STATUS_LABELS[vehicle.status] || vehicle.status}
-                    </Badge>
-                    <Select value={vehicle.status} onValueChange={updateStatus} disabled={updating}>
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Change Status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="WON_AT_AUCTION">Won at Auction</SelectItem>
-                            <SelectItem value="IN_YARD">In Yard</SelectItem>
-                            <SelectItem value="READY_TO_SHIP">Ready to Ship</SelectItem>
-                            <SelectItem value="SHIPPED">Shipped</SelectItem>
-                            <SelectItem value="DELIVERED">Delivered</SelectItem>
-                        </SelectContent>
-                    </Select>
+
+                {/* Hero Content */}
+                <div className="relative z-10 container mx-auto px-4 sm:px-8 h-full flex flex-col justify-end pb-8">
+                    <FadeIn delay={0.1}>
+                        <div className="flex items-center gap-4 mb-4">
+                            <Link href="/vehicle-export/inventory">
+                                <Button size="icon" variant="secondary" className="rounded-full bg-white/80 dark:bg-black/50 backdrop-blur-md shadow-sm hover:bg-white dark:hover:bg-black/70">
+                                    <ArrowLeft className="h-5 w-5" />
+                                </Button>
+                            </Link>
+                            <Badge variant="outline" className={cn("px-3 py-1 font-mono bg-white/50 dark:bg-black/50 backdrop-blur-md", STATUS_CONFIG[vehicle.status]?.color)}>
+                                {STATUS_CONFIG[vehicle.status]?.label || vehicle.status}
+                            </Badge>
+                        </div>
+
+                        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                            <div>
+                                <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-white tracking-tight drop-shadow-sm">
+                                    {vehicle.year} {vehicle.make} {vehicle.model}
+                                </h1>
+                                <div className="flex flex-wrap items-center gap-4 mt-3 text-lg font-medium text-gray-700 dark:text-gray-200">
+                                    <span className="flex items-center gap-1.5 bg-white/30 dark:bg-black/30 px-3 py-1 rounded-lg backdrop-blur-sm">
+                                        <Package className="h-5 w-5 text-blue-600" />
+                                        {vehicle.stockNumber}
+                                    </span>
+                                    <span className="flex items-center gap-1.5 bg-white/30 dark:bg-black/30 px-3 py-1 rounded-lg backdrop-blur-sm">
+                                        <Gavel className="h-5 w-5 text-orange-600" />
+                                        Lot: {vehicle.lotNumber || 'N/A'}
+                                    </span>
+                                    <span className="flex items-center gap-1.5 bg-white/30 dark:bg-black/30 px-3 py-1 rounded-lg backdrop-blur-sm">
+                                        <MapPin className="h-5 w-5 text-red-600" />
+                                        {vehicle.location || 'Unknown'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <Select value={vehicle.status} onValueChange={updateStatus} disabled={updating}>
+                                    <SelectTrigger className="w-[180px] h-12 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-white/20 shadow-lg">
+                                        <SelectValue placeholder="Update Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="WON_AT_AUCTION">Won at Auction</SelectItem>
+                                        <SelectItem value="IN_YARD">In Yard</SelectItem>
+                                        <SelectItem value="READY_TO_SHIP">Ready to Ship</SelectItem>
+                                        <SelectItem value="SHIPPED">Shipped</SelectItem>
+                                        <SelectItem value="DELIVERED">Delivered</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </FadeIn>
                 </div>
             </div>
 
-            {/* Quick Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <Card>
-                    <CardContent className="p-4 text-center">
-                        <Gavel className="h-6 w-6 mx-auto mb-2 text-orange-500" />
-                        <p className="text-sm text-gray-500">Purchase</p>
-                        <p className="font-bold">{formatCurrency(vehicle.purchasePrice)}</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="p-4 text-center">
-                        <Ship className="h-6 w-6 mx-auto mb-2 text-blue-500" />
-                        <p className="text-sm text-gray-500">FOB Price</p>
-                        <p className="font-bold">{formatCurrency(vehicle.fobPrice)}</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="p-4 text-center">
-                        <ClipboardCheck className="h-6 w-6 mx-auto mb-2 text-green-500" />
-                        <p className="text-sm text-gray-500">Yard Jobs</p>
-                        <p className="font-bold">{completedJobs}/{totalJobs}</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="p-4 text-center">
-                        <Camera className="h-6 w-6 mx-auto mb-2 text-purple-500" />
-                        <p className="text-sm text-gray-500">Photos</p>
-                        <p className="font-bold">{vehicle.photos.length}</p>
-                    </CardContent>
-                </Card>
-            </div>
+            {/* Main Content */}
+            <div className="container mx-auto px-4 sm:px-8 mt-8">
+                <Tabs defaultValue="overview" className="space-y-8">
+                    <TabsList className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl p-1 rounded-xl border border-white/20 shadow-sm flex w-full md:w-auto overflow-x-auto no-scrollbar">
+                        {['Overview', 'Compliance', 'Financials', 'Logistics', 'Documents'].map(tab => (
+                            <TabsTrigger
+                                key={tab}
+                                value={tab.toLowerCase()}
+                                className="px-6 py-2.5 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:shadow-md transition-all whitespace-nowrap flex-shrink-0"
+                            >
+                                {tab}
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
 
-            {/* Tabs */}
-            <Tabs defaultValue="details" className="w-full">
-                <TabsList className="w-full justify-start overflow-x-auto">
-                    <TabsTrigger value="details">Details</TabsTrigger>
-                    <TabsTrigger value="compliance">Compliance</TabsTrigger>
-                    <TabsTrigger value="yard">Yard Jobs</TabsTrigger>
-                    <TabsTrigger value="financials">Financials</TabsTrigger>
-                </TabsList>
-
-                {/* Details Tab */}
-                <TabsContent value="details" className="space-y-4">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Vehicle Specifications</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <dl className="space-y-3">
-                                    {[
-                                        ['Make', vehicle.make],
-                                        ['Model', vehicle.model],
-                                        ['Year/Month', `${vehicle.year}/${vehicle.month || '—'}`],
-                                        ['Color', vehicle.color],
-                                        ['Transmission', vehicle.transmission],
-                                        ['Fuel Type', vehicle.fuelType],
-                                        ['Engine', `${vehicle.engineCode || '—'} (${vehicle.engineCc || '—'} cc)`],
-                                        ['Mileage', vehicle.mileage ? `${vehicle.mileage.toLocaleString()} km` : '—'],
-                                        ['Auction Grade', vehicle.auctionGrade],
-                                        ['Location', vehicle.location],
-                                    ].map(([label, value]) => (
-                                        <div key={label as string} className="flex justify-between">
-                                            <dt className="text-gray-500">{label}</dt>
-                                            <dd className="font-medium">{value || '—'}</dd>
-                                        </div>
-                                    ))}
-                                </dl>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Customer & Shipment</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {vehicle.customer ? (
-                                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <User className="h-4 w-4 text-gray-400" />
-                                            <span className="font-medium">{vehicle.customer.name}</span>
-                                        </div>
-                                        <p className="text-sm text-gray-500">{vehicle.customer.email}</p>
-                                        <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
-                                            <MapPin className="h-3 w-3" />
-                                            {vehicle.customer.country || 'Unknown'}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <p className="text-gray-400 text-sm">No customer assigned</p>
-                                )}
-
-                                {vehicle.shipment ? (
-                                    <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Ship className="h-4 w-4 text-blue-500" />
-                                            <span className="font-medium">{vehicle.shipment.shipmentNumber}</span>
-                                        </div>
-                                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                                            {vehicle.shipment.vesselName || 'Vessel TBD'}
-                                        </p>
-                                        <Badge className="mt-2" variant="secondary">
-                                            {vehicle.shipment.status}
-                                        </Badge>
-                                    </div>
-                                ) : (
-                                    <p className="text-gray-400 text-sm">Not assigned to shipment</p>
-                                )}
-
-                                {/* Document Dispatch Section (Phase 5) */}
-                                <div className="p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                            <Package className="h-4 w-4 text-purple-500" />
-                                            <span className="font-medium">Documents</span>
-                                        </div>
-                                        {vehicle.documentDispatch && (
-                                            <Badge variant="outline">{vehicle.documentDispatch.status}</Badge>
+                    {/* Overview Tab */}
+                    <TabsContent value="overview">
+                        <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Photo Gallery (Main) */}
+                            <StaggerItem className="md:col-span-2">
+                                <MotionCard className="bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800 h-full overflow-hidden group">
+                                    <div className="aspect-video bg-gray-100 dark:bg-gray-800 relative">
+                                        {primaryPhoto ? (
+                                            <img src={primaryPhoto} alt="Main" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                                                <Camera className="h-12 w-12 mb-2 opacity-50" />
+                                                Photos Pending
+                                            </div>
                                         )}
+                                        <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md text-white px-3 py-1 rounded-full text-sm font-medium">
+                                            {vehicle.photos.length} Photos
+                                        </div>
                                     </div>
+                                    <div className="p-4 grid grid-cols-4 gap-2">
+                                        {vehicle.photos.slice(1, 5).map((photo, i) => (
+                                            <div key={photo.id} className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden cursor-pointer">
+                                                <img src={photo.url} alt={`Thumb ${i}`} className="w-full h-full object-cover hover:opacity-80 transition-opacity" />
+                                            </div>
+                                        ))}
+                                        {vehicle.photos.length < 5 && Array.from({ length: 4 - (Math.max(0, vehicle.photos.length - 1)) }).map((_, i) => (
+                                            <div key={i} className="aspect-square bg-gray-50 dark:bg-gray-800/50 rounded-lg" />
+                                        ))}
+                                    </div>
+                                </MotionCard>
+                            </StaggerItem>
 
-                                    {vehicle.documentDispatch ? (
-                                        <div className="text-sm space-y-1">
-                                            <p className="text-gray-600 dark:text-gray-400">
-                                                {vehicle.documentDispatch.courierName || 'Unknown Courier'}
-                                            </p>
-                                            <p className="font-mono text-gray-900 dark:text-gray-100">
-                                                {vehicle.documentDispatch.trackingNumber || 'No Tracking #'}
-                                            </p>
-                                            {vehicle.documentDispatch.dispatchedAt && (
-                                                <p className="text-xs text-gray-500">
-                                                    Sent: {new Date(vehicle.documentDispatch.dispatchedAt).toLocaleDateString()}
-                                                </p>
+                            {/* Specs Widget */}
+                            <StaggerItem className="space-y-6">
+                                <MotionCard className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl p-6 border-white/20">
+                                    <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                        <Info className="h-5 w-5 text-blue-500" />
+                                        Vehicle Specs
+                                    </h3>
+                                    <div className="space-y-4">
+                                        <SpecRow label="Chassis" value={vehicle.chassisNumber} icon={Package} />
+                                        <SpecRow label="Engine" value={`${vehicle.engineCode || '?'} (${vehicle.engineCc || '-'}cc)`} icon={Gauge} />
+                                        <SpecRow label="Fuel" value={vehicle.fuelType} icon={Fuel} />
+                                        <SpecRow label="Mileage" value={vehicle.mileage ? `${vehicle.mileage.toLocaleString()} km` : '-'} icon={Clock} />
+                                        <SpecRow label="Color" value={vehicle.color} icon={User} />
+                                        <SpecRow label="Transmission" value={vehicle.transmission} icon={Gauge} />
+                                    </div>
+                                </MotionCard>
+
+                                <MotionCard className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl p-6 border-white/20">
+                                    <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                        <User className="h-5 w-5 text-indigo-500" />
+                                        Customer
+                                    </h3>
+                                    {vehicle.customer ? (
+                                        <div>
+                                            <p className="font-medium text-lg">{vehicle.customer.name}</p>
+                                            <p className="text-sm text-gray-500">{vehicle.customer.email}</p>
+                                            <div className="mt-3 flex items-center gap-2 text-sm text-gray-500 bg-gray-100/50 dark:bg-gray-800/50 p-2 rounded-lg">
+                                                <MapPin className="h-4 w-4" />
+                                                {vehicle.customer.country || 'Unknown Country'}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-4 bg-gray-50 dark:bg-gray-800/30 rounded-lg border border-dashed border-gray-200 dark:border-gray-700">
+                                            <p className="text-gray-400 text-sm">No customer assigned</p>
+                                            <Button variant="link" size="sm" className="text-blue-500">Assign Customer</Button>
+                                        </div>
+                                    )}
+                                </MotionCard>
+                            </StaggerItem>
+                        </StaggerContainer>
+                    </TabsContent>
+
+                    {/* Financials Tab */}
+                    <TabsContent value="financials">
+                        <SlideUp>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <MotionCard className="md:col-span-2 bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl p-6">
+                                    <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+                                        <DollarSign className="h-5 w-5 text-emerald-500" />
+                                        Cost Breakdown
+                                    </h3>
+                                    <div className="space-y-6">
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                            <CostCard label="Purchase Price" amount={vehicle.purchasePrice} />
+                                            <CostCard label="FOB Price" amount={vehicle.fobPrice} color="text-blue-600" />
+                                            <CostCard label="CIF Price" amount={vehicle.cifPrice} color="text-purple-600" />
+                                        </div>
+                                        <div className="pt-6 border-t border-gray-100 dark:border-gray-800 grid grid-cols-2 gap-8">
+                                            <div className="space-y-3">
+                                                <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Additional Costs</p>
+                                                <div className="flex justify-between text-sm"><span className="text-gray-600">Tax</span> <span>{formatCurrency(vehicle.taxAmount)}</span></div>
+                                                <div className="flex justify-between text-sm"><span className="text-gray-600">Duty</span> <span>{formatCurrency(vehicle.dutyAmount)}</span></div>
+                                                <div className="flex justify-between text-sm"><span className="text-gray-600">Shipping</span> <span>{formatCurrency(vehicle.shippingCost)}</span></div>
+                                            </div>
+                                            <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-xl p-4">
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <span className="font-medium text-emerald-900 dark:text-emerald-100">Invoice Status</span>
+                                                    <Badge variant={vehicle.invoice?.status === 'PAID' ? 'default' : 'outline'}>
+                                                        {vehicle.invoice?.status || 'NOT GENERATED'}
+                                                    </Badge>
+                                                </div>
+                                                {vehicle.invoice ? (
+                                                    <div>
+                                                        <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{formatCurrency(vehicle.invoice.totalAmount)}</p>
+                                                        <p className="text-xs text-emerald-600/70 font-mono mt-1">#{vehicle.invoice.invoiceNumber}</p>
+                                                    </div>
+                                                ) : (
+                                                    <Button size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">Generate Invoice</Button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </MotionCard>
+                            </div>
+                        </SlideUp>
+                    </TabsContent>
+
+                    {/* Logistics Tab */}
+                    <TabsContent value="logistics">
+                        <SlideUp>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <MotionCard className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl p-6">
+                                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                        <Ship className="h-5 w-5 text-blue-500" />
+                                        Shipment Details
+                                    </h3>
+                                    {vehicle.shipment ? (
+                                        <div className="space-y-6">
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
+                                                    <Anchor className="h-6 w-6" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm text-gray-500">Vessel Name</p>
+                                                    <p className="text-lg font-bold">{vehicle.shipment.vesselName || 'TBD'}</p>
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4 bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
+                                                <div>
+                                                    <p className="text-xs text-blue-600/70 uppercase font-bold">Shipment #</p>
+                                                    <p className="font-mono">{vehicle.shipment.shipmentNumber}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs text-blue-600/70 uppercase font-bold">Status</p>
+                                                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">{vehicle.shipment.status}</Badge>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-10">
+                                            <Ship className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                                            <p className="text-gray-500 mb-4">No shipment assigned</p>
+                                            <Button>Assign to Shipment</Button>
+                                        </div>
+                                    )}
+                                </MotionCard>
+                            </div>
+                        </SlideUp>
+                    </TabsContent>
+
+                    {/* Compliance Tab */}
+                    <TabsContent value="compliance">
+                        <SlideUp>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <MotionCard className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl p-6">
+                                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                        <ClipboardCheck className="h-5 w-5 text-green-500" />
+                                        Inspection Status
+                                    </h3>
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-800">
+                                            <span className="text-gray-600 dark:text-gray-400">Shaken</span>
+                                            <Badge variant={vehicle.shakenStatus === 'PASSED' ? 'default' : 'secondary'}>
+                                                {vehicle.shakenStatus || 'Pending'}
+                                            </Badge>
+                                        </div>
+                                        <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-800">
+                                            <span className="text-gray-600 dark:text-gray-400">Masho</span>
+                                            <Badge variant={vehicle.mashoStatus === 'PASSED' ? 'default' : 'secondary'}>
+                                                {vehicle.mashoStatus || 'Pending'}
+                                            </Badge>
+                                        </div>
+                                        <div className="flex justify-between items-center py-2">
+                                            <span className="text-gray-600 dark:text-gray-400">JAAI</span>
+                                            <Badge variant={vehicle.jaaiStatus === 'PASSED' ? 'default' : 'secondary'}>
+                                                {vehicle.jaaiStatus || 'Pending'}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                </MotionCard>
+                            </div>
+                        </SlideUp>
+                    </TabsContent>
+
+                    {/* Documents Tab */}
+                    <TabsContent value="documents">
+                        <SlideUp>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <MotionCard className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl p-6">
+                                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                        <ClipboardCheck className="h-5 w-5 text-amber-500" />
+                                        Document Status
+                                    </h3>
+                                    {vehicle.documents ? (
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-gray-600 dark:text-gray-400">Status</span>
+                                                <Badge>{vehicle.documents.status}</Badge>
+                                            </div>
+                                            {vehicle.documents.courierName && (
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-gray-600 dark:text-gray-400">Courier</span>
+                                                    <span className="font-medium">{vehicle.documents.courierName}</span>
+                                                </div>
+                                            )}
+                                            {vehicle.documents.trackingNumber && (
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-gray-600 dark:text-gray-400">Tracking #</span>
+                                                    <span className="font-mono text-sm">{vehicle.documents.trackingNumber}</span>
+                                                </div>
                                             )}
                                         </div>
                                     ) : (
-                                        <p className="text-sm text-gray-500 mb-2">No dispatch details</p>
-                                    )}
-
-                                    <Button
-                                        size="sm"
-                                        variant="secondary"
-                                        className="w-full mt-2"
-                                        onClick={() => {
-                                            // TODO: Open Dialog to Edit Dispatch
-                                            toast({ title: "Coming Soon", description: "Dispatch editing dialog to be implemented" });
-                                        }}
-                                    >
-                                        {vehicle.documentDispatch ? 'Update Tracking' : 'Dispatch Documents'}
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                </TabsContent>
-
-                {/* Compliance Tab */}
-                <TabsContent value="compliance">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Compliance Checklist</CardTitle>
-                            <CardDescription>Required certifications for export</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-4">
-                                {[
-                                    { key: 'shakenStatus', label: 'Shaken (Vehicle Inspection)', icon: CheckCircle },
-                                    { key: 'mashoStatus', label: 'Masho (Export Certificate)', icon: Ship },
-                                    { key: 'jaaiStatus', label: 'JAAI (Pre-shipment Inspection)', icon: ClipboardCheck },
-                                ].map(({ key, label, icon: Icon }) => {
-                                    const status = vehicle[key as keyof Vehicle] as string;
-                                    return (
-                                        <div key={key} className="flex items-center justify-between p-4 border rounded-lg">
-                                            <div className="flex items-center gap-3">
-                                                <Icon className={`h-5 w-5 ${COMPLIANCE_COLORS[status]}`} />
-                                                <span className="font-medium">{label}</span>
-                                            </div>
-                                            <Badge variant={status === 'PASSED' || status === 'RECEIVED' ? 'default' : 'secondary'}>
-                                                {status.replace('_', ' ')}
-                                            </Badge>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Compliance Warning */}
-                            {vehicle.customer?.country === 'Sri Lanka' && vehicle.jaaiStatus !== 'PASSED' && (
-                                <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                                    <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-300">
-                                        <AlertTriangle className="h-5 w-5" />
-                                        <span className="font-medium">JAAI Required for Sri Lanka</span>
-                                    </div>
-                                    <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-1">
-                                        This vehicle cannot be shipped to Sri Lanka until JAAI inspection is passed.
-                                    </p>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                {/* Yard Jobs Tab */}
-                <TabsContent value="yard">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <div>
-                                <CardTitle>Yard Jobs</CardTitle>
-                                <CardDescription>Repairs and inspections</CardDescription>
-                            </div>
-                            <Button size="sm">
-                                <Plus className="h-4 w-4 mr-1" />
-                                Add Job
-                            </Button>
-                        </CardHeader>
-                        <CardContent>
-                            {vehicle.yardJobs.length === 0 ? (
-                                <p className="text-center py-8 text-gray-400">No yard jobs</p>
-                            ) : (
-                                <div className="space-y-3">
-                                    {vehicle.yardJobs.map((job) => (
-                                        <div key={job.id} className="flex items-center justify-between p-4 border rounded-lg">
-                                            <div className="flex items-center gap-3">
-                                                {job.status === 'DONE' ? (
-                                                    <CheckCircle className="h-5 w-5 text-green-500" />
-                                                ) : job.status === 'IN_PROGRESS' ? (
-                                                    <Clock className="h-5 w-5 text-yellow-500" />
-                                                ) : (
-                                                    <Clock className="h-5 w-5 text-gray-400" />
-                                                )}
-                                                <div>
-                                                    <p className="font-medium">{job.title}</p>
-                                                    <p className="text-sm text-gray-500">{job.type} • {job.assignedTo || 'Unassigned'}</p>
-                                                </div>
-                                            </div>
-                                            <Badge variant={job.status === 'DONE' ? 'default' : 'secondary'}>
-                                                {job.status}
-                                            </Badge>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                {/* Financials Tab */}
-                <TabsContent value="financials">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Financial Summary</CardTitle>
-                            <CardDescription>Costs and pricing</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                        <p className="text-sm text-gray-500">Purchase Price</p>
-                                        <p className="text-2xl font-bold">{formatCurrency(vehicle.purchasePrice)}</p>
-                                    </div>
-                                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                        <p className="text-sm text-gray-500">FOB Price</p>
-                                        <p className="text-2xl font-bold">{formatCurrency(vehicle.fobPrice)}</p>
-                                    </div>
-                                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                        <p className="text-sm text-gray-500">CIF Price</p>
-                                        <p className="text-2xl font-bold">{formatCurrency(vehicle.cifPrice)}</p>
-                                    </div>
-                                </div>
-                                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <p className="text-sm text-gray-500">Export Invoice</p>
-                                        {vehicle.exportInvoice && (
-                                            <Badge variant={vehicle.exportInvoice.status === 'PAID' ? 'default' : 'secondary'}>
-                                                {vehicle.exportInvoice.status}
-                                            </Badge>
-                                        )}
-                                    </div>
-                                    {vehicle.exportInvoice ? (
-                                        <div>
-                                            <p className="text-2xl font-bold">{formatCurrency(vehicle.exportInvoice.totalAmount)}</p>
-                                            <p className="text-sm text-gray-500 font-mono mb-2">{vehicle.exportInvoice.invoiceNumber}</p>
-                                            <Button size="sm" variant="outline" className="w-full">
-                                                View Invoice
-                                            </Button>
-                                        </div>
-                                    ) : (
-                                        <div>
-                                            <p className="text-2xl font-bold text-gray-300">—</p>
-                                            <Button
-                                                size="sm"
-                                                className="w-full mt-2"
-                                                onClick={async () => {
-                                                    try {
-                                                        const res = await fetch(`/api/vehicle-export/vehicles/${vehicle.id}/invoice`);
-                                                        if (res.ok) {
-                                                            toast({ title: 'Invoice Generated', description: 'Draft invoice created successfully.' });
-                                                            fetchVehicle();
-                                                        }
-                                                    } catch (e) {
-                                                        toast({ title: 'Error', description: 'Failed to generate invoice', variant: 'destructive' });
-                                                    }
-                                                }}
-                                            >
-                                                Generate Invoice
-                                            </Button>
+                                        <div className="text-center py-10">
+                                            <ClipboardCheck className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                                            <p className="text-gray-500 mb-4">No documents uploaded</p>
+                                            <Button>Upload Documents</Button>
                                         </div>
                                     )}
-                                </div>
-
-                                <div className="border-t pt-4 mt-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <p className="text-sm text-gray-500">Tax Amount</p>
-                                            <p className="font-medium">{formatCurrency(vehicle.taxAmount)}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm text-gray-500">Duty Amount</p>
-                                            <p className="font-medium">{formatCurrency(vehicle.dutyAmount)}</p>
-                                        </div>
-                                    </div>
-                                </div>
+                                </MotionCard>
                             </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-            </Tabs>
-        </div >
+                        </SlideUp>
+                    </TabsContent>
+                </Tabs>
+            </div>
+        </div>
+    );
+}
+
+// --- Subcomponents ---
+
+function DetailSkeleton() {
+    return (
+        <div className="min-h-screen p-8 space-y-8 animate-pulse">
+            <div className="h-64 bg-gray-200 dark:bg-gray-800 rounded-2xl" />
+            <div className="grid grid-cols-3 gap-6">
+                <div className="col-span-2 h-96 bg-gray-200 dark:bg-gray-800 rounded-2xl" />
+                <div className="h-96 bg-gray-200 dark:bg-gray-800 rounded-2xl" />
+            </div>
+        </div>
+    );
+}
+
+function NotFoundState() {
+    return (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6">
+            <Package className="h-20 w-20 text-gray-200 dark:text-gray-800 mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Vehicle Not Found</h2>
+            <p className="text-gray-500 mt-2 mb-6">The vehicle you are looking for does not exist or has been removed.</p>
+            <Link href="/vehicle-export/inventory">
+                <Button>Return to Inventory</Button>
+            </Link>
+        </div>
+    );
+}
+
+function SpecRow({ label, value, icon: Icon }: any) {
+    return (
+        <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
+            <div className="flex items-center gap-2 text-gray-500">
+                <Icon className="h-4 w-4 opacity-50" />
+                <span className="text-sm">{label}</span>
+            </div>
+            <span className="font-medium text-gray-900 dark:text-gray-100 text-sm">{value || '—'}</span>
+        </div>
+    );
+}
+
+function CostCard({ label, amount, color = "text-gray-900 dark:text-white" }: any) {
+    return (
+        <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{label}</p>
+            <p className={cn("text-xl font-bold", color)}>{formatCurrency(amount)}</p>
+        </div>
     );
 }

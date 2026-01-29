@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
             });
 
             // Create default wallet if not exists (for new customers)
-            await prisma.exportWallet.create({
+            await (prisma as any).exportWallet.create({
                 data: {
                     customerId: customer.id,
                     tenantId,
@@ -49,19 +49,30 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // 3. Wallet Validation (Phase 5 Logic)
-        const wallet = await prisma.exportWallet.findUnique({
-            where: { customerId: customer.id }
+        // 3. Check Store Config for Deposit Requirement
+        const storeConfig = await (prisma as any).exportStoreConfig.findUnique({
+            where: { tenantId }
         });
 
-        // "A minimum deposit of USD 1000 is required to activate the bidding account."
-        if (!wallet || wallet.balance.lessThan(1000)) {
-            return NextResponse.json({
-                error: 'Insufficient Security Deposit. Minimum $1000 required.',
-                code: 'INSUFFICIENT_FUNDS',
-                currentBalance: wallet?.balance || 0
-            }, { status: 402 }); // Payment Required
+        const requireDeposit = storeConfig?.requireDeposit ?? true;
+        const minimumDeposit = storeConfig?.minimumDeposit ?? 1000;
+
+        // 4. Wallet Validation (Only if deposit is required)
+        if (requireDeposit) {
+            const wallet = await (prisma as any).exportWallet.findUnique({
+                where: { customerId: customer.id }
+            });
+
+            if (!wallet || Number(wallet.balance) < Number(minimumDeposit)) {
+                return NextResponse.json({
+                    error: `Insufficient Security Deposit. Minimum $${minimumDeposit} required.`,
+                    code: 'INSUFFICIENT_FUNDS',
+                    currentBalance: wallet?.balance || 0,
+                    required: minimumDeposit
+                }, { status: 402 }); // Payment Required
+            }
         }
+
 
         // 4. Create Bid
         const bid = await prisma.exportBid.create({

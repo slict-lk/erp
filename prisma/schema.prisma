@@ -3929,9 +3929,14 @@ model ExportStoreConfig {
   aboutUs         Json?   // { story, mission, stats: [], values: [] }
   services        Json?   // { items: [{ title, description, icon, link }] }
   
+  // Bidding Settings
+  requireDeposit  Boolean @default(true)   // Require deposit before bidding
+  minimumDeposit  Decimal @default(1000)   // Minimum deposit amount (USD)
+  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
+
 
 model YardJob {
   id              String        @id @default(cuid())

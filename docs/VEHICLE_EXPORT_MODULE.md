@@ -349,6 +349,8 @@ const totalAmount = purchasePrice + auctionFee + transportCost +
 
 | Date | Phase | Changes |
 |------|-------|---------|
+| 2026-01-29 | 5C | Configurable deposit requirement (toggle in storefront settings) |
+| 2026-01-29 | 5C | Added BL Surrender Check (Invoice must be PAID) |
 | 2026-01-29 | 5D | Added Finance Dashboard, Auctioneer View |
 | 2026-01-29 | 5B | Created Wallet, Invoice, Document APIs |
 | 2026-01-29 | 5A | Added new Prisma models for Phase 5 |
