@@ -3974,6 +3974,13 @@ model ExportStoreConfig {
   aboutUs         Json?   // { story, mission, stats: [], values: [] }
   services        Json?   // { items: [{ title, description, icon, link }] }
   
+  // New Config Fields
+  companyProfile      Json? // { title, content, foundedYear, employees }
+  bankDetails         Json? // { bankName, accountName, accountNumber, swiftCode, branch }
+  faqItems            Json? // [{ category, question, answer }]
+  howToBuyStockSteps  Json? // [{ step, title, description, icon }]
+  howToBidSteps       Json? // [{ step, title, description, icon }]
+  
   // Bidding Settings
   requireDeposit  Boolean @default(true)   // Require deposit before bidding
   minimumDeposit  Decimal @default(1000)   // Minimum deposit amount (USD)
