@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get('tenantId');
+    let tenantId = searchParams.get('tenantId');
+    const subdomain = searchParams.get('subdomain');
     const make = searchParams.get('make');
     const model = searchParams.get('model');
     const minYear = searchParams.get('minYear');
@@ -21,11 +22,24 @@ export async function GET(request: NextRequest) {
     const limit = searchParams.get('limit') || '20';
     const offset = searchParams.get('offset') || '0';
 
-    if (!tenantId) {
-        return NextResponse.json({ error: 'Tenant ID required' }, { status: 400 });
+    if (!tenantId && !subdomain) {
+        return NextResponse.json({ error: 'Tenant ID or Subdomain required' }, { status: 400 });
     }
 
     try {
+        // If subdomain is provided, resolve it to tenantId
+        if (!tenantId && subdomain) {
+            const tenant = await prisma.tenant.findUnique({
+                where: { subdomain },
+                select: { id: true }
+            });
+
+            if (!tenant) {
+                return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
+            }
+            tenantId = tenant.id;
+        }
+
         const where: any = {
             tenantId,
             isPublished: true, // IMPORTANT: Only published vehicles

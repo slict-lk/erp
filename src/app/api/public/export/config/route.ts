@@ -25,23 +25,45 @@ export async function GET(request: NextRequest) {
     // OR, if this ERP is single-tenant for the public site, we just fetch the first/only config?
     // Let's check query param `tenantId`.
     const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get('tenantId');
+    let tenantId = searchParams.get('tenantId');
+    const subdomain = searchParams.get('subdomain');
 
-    if (!tenantId) {
-        return NextResponse.json({ error: 'Tenant ID required' }, { status: 400 });
+    if (!tenantId && !subdomain) {
+        return NextResponse.json({ error: 'Tenant ID or Subdomain required' }, { status: 400 });
+    }
+
+    // Resolve subdomain to tenantId if needed
+    if (!tenantId && subdomain) {
+        const tenant = await prisma.tenant.findUnique({
+            where: { subdomain },
+            select: { id: true }
+        });
+
+        if (!tenant) {
+            return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
+        }
+        tenantId = tenant.id;
     }
 
     try {
-        const config = await prisma.exportStoreConfig.findUnique({
-            where: { tenantId },
+        let config = await prisma.exportStoreConfig.findUnique({
+            where: { tenantId: tenantId! },
         });
 
         if (!config) {
-            return NextResponse.json({ error: 'Config not found' }, { status: 404 });
+            // Auto-create default config for this tenant
+            config = await prisma.exportStoreConfig.create({
+                data: {
+                    tenantId: tenantId!,
+                    storeName: 'Vehicle Export',
+                    primaryColor: '#c62828',
+                },
+            });
         }
 
         return NextResponse.json(config);
     } catch (error) {
+        console.error('Config fetch error:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
