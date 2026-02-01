@@ -30,11 +30,14 @@ export async function GET(request: NextRequest) {
         // If subdomain is provided, resolve it to tenantId
         // If subdomain is provided, resolve it to tenantId
         if (!tenantId && subdomain) {
+            const normalizedDomain = subdomain.replace(/^www\./, '');
+
             const tenant = await prisma.tenant.findFirst({
                 where: {
                     OR: [
                         { subdomain: subdomain },
-                        { domain: subdomain }
+                        { domain: subdomain },
+                        { domain: normalizedDomain } // Check normalized domain
                     ]
                 },
                 select: { id: true }
