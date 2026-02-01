@@ -29,7 +29,8 @@ import {
     DollarSign,
     Fuel,
     Gauge,
-    Anchor
+    Anchor,
+    Upload
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -152,6 +153,42 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
         }
     };
 
+    const handleDetailPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files?.length) return;
+        const file = e.target.files[0];
+        setUpdating(true);
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('field', 'vehicle-photo');
+
+        try {
+            const upRes = await fetch('/api/upload', { method: 'POST', body: formData });
+            const upData = await upRes.json();
+
+            if (upData.success) {
+                const attachRes = await fetch(`/api/vehicle-export/vehicles/${id}/photos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: upData.url })
+                });
+
+                if (attachRes.ok) {
+                    await fetchVehicle();
+                    toast({ title: 'Photo Added' });
+                } else {
+                    toast({ title: 'Attach Failed', variant: 'destructive' });
+                }
+            } else {
+                toast({ title: 'Upload Failed', description: upData.error, variant: 'destructive' });
+            }
+        } catch (error) {
+            toast({ title: 'Error', description: 'Photo upload failed', variant: 'destructive' });
+        } finally {
+            setUpdating(false);
+        }
+    };
+
     if (loading) return <DetailSkeleton />;
     if (!vehicle) return <NotFoundState />;
 
@@ -261,15 +298,16 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                                             {vehicle.photos.length} Photos
                                         </div>
                                     </div>
-                                    <div className="p-4 grid grid-cols-4 gap-2">
-                                        {vehicle.photos.slice(1, 5).map((photo, i) => (
-                                            <div key={photo.id} className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden cursor-pointer">
+                                    <div className="p-4 grid grid-cols-4 sm:grid-cols-5 gap-2">
+                                        {vehicle.photos.map((photo, i) => (
+                                            <div key={photo.id} className={cn("aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden cursor-pointer relative group", i === 0 ? "ring-2 ring-indigo-500" : "")}>
                                                 <img src={photo.url} alt={`Thumb ${i}`} className="w-full h-full object-cover hover:opacity-80 transition-opacity" />
                                             </div>
                                         ))}
-                                        {vehicle.photos.length < 5 && Array.from({ length: 4 - (Math.max(0, vehicle.photos.length - 1)) }).map((_, i) => (
-                                            <div key={i} className="aspect-square bg-gray-50 dark:bg-gray-800/50 rounded-lg" />
-                                        ))}
+                                        <label className="aspect-square bg-gray-50 dark:bg-gray-800/50 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 transition-colors">
+                                            <Upload className="h-5 w-5 text-indigo-600" />
+                                            <input type="file" className="hidden" accept="image/*" onChange={handleDetailPhotoUpload} />
+                                        </label>
                                     </div>
                                 </MotionCard>
                             </StaggerItem>

@@ -14,7 +14,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Gavel, ArrowLeft, Loader2, CheckCircle, Car, Settings, Calendar, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Gavel, ArrowLeft, Loader2, CheckCircle, Car, Settings, Calendar, ChevronRight, ChevronLeft, Camera, Upload, X } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -63,7 +63,34 @@ export default function AuctionEntryPage() {
         auctionGrade: '',
         auctionFee: '',
         inspectionNotes: '',
+        photos: [] as string[],
     });
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files?.length) return;
+        const file = e.target.files[0];
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('field', 'vehicle-photo');
+
+        try {
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await res.json();
+            if (data.success) {
+                setForm(prev => ({
+                    ...prev,
+                    photos: [...prev.photos, data.url]
+                }));
+            } else {
+                toast({ title: 'Upload Failed', description: data.error, variant: 'destructive' });
+            }
+        } catch (error) {
+            toast({ title: 'Error', description: 'Upload failed', variant: 'destructive' });
+        }
+    };
 
     useEffect(() => {
         if (bidId) {
@@ -86,7 +113,15 @@ export default function AuctionEntryPage() {
         setForm(prev => ({ ...prev, [field]: value }));
     };
 
-    const nextStep = () => setStep(s => Math.min(s + 1, 3));
+    const nextStep = () => {
+        if (step === 1) {
+            if (!form.chassisNumber || !form.make || !form.model || !form.year) {
+                toast({ title: 'Missing Identity Info', description: 'Please fill in Chassis Number, Make, Model, and Year.', variant: 'destructive' });
+                return;
+            }
+        }
+        setStep(s => Math.min(s + 1, 4));
+    };
     const prevStep = () => setStep(s => Math.max(s - 1, 1));
 
     const handleSubmit = async () => {
@@ -147,6 +182,7 @@ export default function AuctionEntryPage() {
         { id: 1, title: 'Identity', icon: Car },
         { id: 2, title: 'Specs', icon: Settings },
         { id: 3, title: 'Auction Data', icon: Gavel },
+        { id: 4, title: 'Photos', icon: Camera },
     ];
 
     return (
@@ -380,6 +416,69 @@ export default function AuctionEntryPage() {
                                 </Card>
                             </motion.div>
                         )}
+                        {step === 4 && (
+                            <motion.div
+                                key="step4"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.3 }}
+                            >
+                                <Card className="border-0 shadow-xl shadow-indigo-500/5 dark:shadow-none bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl">
+                                    <CardContent className="p-8 space-y-6">
+                                        <div className="space-y-2">
+                                            <h2 className="text-xl font-semibold">Photos</h2>
+                                            <p className="text-gray-500 text-sm">Upload photos of the vehicle.</p>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            {form.photos.map((url, i) => (
+                                                <div key={i} className="relative aspect-video rounded-lg overflow-hidden border border-gray-200">
+                                                    <img src={url} alt={`Photo ${i}`} className="w-full h-full object-cover" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setForm(prev => ({ ...prev, photos: prev.photos.filter((_, idx) => idx !== i) }))}
+                                                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
+                                                    >
+                                                        <X className="h-3 w-3" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            <label className="flex flex-col items-center justify-center aspect-video border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                                <Upload className="h-6 w-6 text-gray-400" />
+                                                <span className="text-xs text-gray-500 mt-2">Upload Photo</span>
+                                                <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+                                            </label>
+                                        </div>
+
+                                        <div className="pt-4">
+                                            <Label>Add by URL</Label>
+                                            <div className="flex gap-2">
+                                                <Input id="photoData" placeholder="https://example.com/photo.jpg"
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            const val = e.currentTarget.value;
+                                                            if (val) {
+                                                                setForm(prev => ({ ...prev, photos: [...prev.photos, val] }));
+                                                                e.currentTarget.value = '';
+                                                            }
+                                                        }
+                                                    }}
+                                                />
+                                                <Button type="button" variant="secondary" onClick={() => {
+                                                    const input = document.getElementById('photoData') as HTMLInputElement;
+                                                    if (input && input.value) {
+                                                        setForm(prev => ({ ...prev, photos: [...prev.photos, input.value] }));
+                                                        input.value = '';
+                                                    }
+                                                }}>Add</Button>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                        )}
                     </AnimatePresence>
                 </div>
 
@@ -393,7 +492,7 @@ export default function AuctionEntryPage() {
                         <ChevronLeft className="h-4 w-4 mr-2" /> Back
                     </Button>
 
-                    {step < 3 ? (
+                    {step < 4 ? (
                         <Button
                             onClick={nextStep}
                             className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full px-8"

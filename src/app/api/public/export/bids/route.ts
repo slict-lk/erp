@@ -24,6 +24,11 @@ export async function POST(request: NextRequest) {
 
         let tenantId = providedTenantId;
 
+        // If providedTenantId looks like a domain or matches subdomain, force lookup
+        if (tenantId && (tenantId === subdomain || tenantId.includes('.'))) {
+            tenantId = undefined;
+        }
+
         // Resolve subdomain to tenantId if needed
         // Resolve subdomain to tenantId if needed
         if (!tenantId && subdomain) {

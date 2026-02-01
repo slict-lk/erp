@@ -69,8 +69,9 @@ export async function POST(request: NextRequest) {
         // Generate stock number
         const year = new Date().getFullYear();
         const prefix = `SL-${year}-`;
+        // Use global sequence (remove tenantId filter) to avoid unique constraint violations
         const lastVehicle = await prisma.exportVehicle.findFirst({
-            where: { tenantId, stockNumber: { startsWith: prefix } },
+            where: { stockNumber: { startsWith: prefix } },
             orderBy: { stockNumber: 'desc' },
         });
 
@@ -92,6 +93,7 @@ export async function POST(request: NextRequest) {
                 year: body.year,
                 month: body.month,
                 engineCode: body.engineCode,
+                engineCc: body.engineCc, // Added
                 fuelType: body.fuelType,
                 color: body.color,
                 transmission: body.transmission,
@@ -104,6 +106,13 @@ export async function POST(request: NextRequest) {
                 auctionFee: body.auctionFee || 0,
                 customerId: body.customerId,
                 status: 'WON_AT_AUCTION',
+                photos: body.photos && body.photos.length > 0 ? {
+                    create: body.photos.map((url: string) => ({
+                        url,
+                        tag: 'Auction',
+                        isPublic: true,
+                    }))
+                } : undefined,
             },
         });
 
