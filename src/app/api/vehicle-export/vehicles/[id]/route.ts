@@ -87,6 +87,7 @@ export async function PUT(
             include: {
                 customer: true,
                 shipment: true,
+                photos: true,
             },
         });
 

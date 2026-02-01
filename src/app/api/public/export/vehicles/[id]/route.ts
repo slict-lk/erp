@@ -80,10 +80,16 @@ export async function GET(
             location: vehicle.location,
             auctionGrade: vehicle.auctionGrade,
             photos: vehicle.photos.map(p => ({
-                url: p.url,
+                url: p.url.startsWith('http')
+                    ? p.url
+                    : `${process.env.NEXTAUTH_URL || 'https://erp.slict.lk'}${p.url}`,
                 tag: p.tag,
             })),
-            mainPhoto: vehicle.photos[0]?.url || null,
+            mainPhoto: vehicle.photos[0]?.url
+                ? (vehicle.photos[0].url.startsWith('http')
+                    ? vehicle.photos[0].url
+                    : `${process.env.NEXTAUTH_URL || 'https://erp.slict.lk'}${vehicle.photos[0].url}`)
+                : null,
             // Features could come from a JSON field or be computed
             features: [],
             description: '',

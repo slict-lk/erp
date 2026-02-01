@@ -85,7 +85,11 @@ export async function GET(request: NextRequest) {
                 mileage: v.mileage,
                 fuel: v.fuelType,
                 transmission: v.transmission,
-                mainPhoto: v.photos[0]?.url || null,
+                mainPhoto: v.photos[0]?.url
+                    ? (v.photos[0].url.startsWith('http')
+                        ? v.photos[0].url
+                        : `${process.env.NEXTAUTH_URL || 'https://erp.slict.lk'}${v.photos[0].url}`)
+                    : null,
                 status: v.status,
             })),
             meta: {

@@ -13,6 +13,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
     ArrowLeft,
     Package,
@@ -134,24 +136,29 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
         fetchVehicle();
     }, [fetchVehicle]);
 
-    const updateStatus = async (newStatus: string) => {
+    const updateVehicle = async (data: any) => {
         setUpdating(true);
         try {
             const res = await fetch(`/api/vehicle-export/vehicles/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus }),
+                body: JSON.stringify(data),
             });
             if (res.ok) {
-                toast({ title: 'Status Updated', description: `Vehicle status changed to ${STATUS_CONFIG[newStatus]?.label || newStatus}` });
-                fetchVehicle();
+                const updated = await res.json();
+                setVehicle(updated.vehicle);
+                toast({ title: 'Updated Successfully', description: 'Vehicle details saved.' });
+            } else {
+                toast({ title: 'Update Failed', variant: 'destructive' });
             }
         } catch (error) {
-            toast({ title: 'Error', description: 'Failed to update status', variant: 'destructive' });
+            toast({ title: 'Error', variant: 'destructive' });
         } finally {
             setUpdating(false);
         }
     };
+
+    const updateStatus = (status: string) => updateVehicle({ status });
 
     const handleDetailPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files?.length) return;
@@ -234,18 +241,22 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                                         <Package className="h-5 w-5 text-blue-600" />
                                         {vehicle.stockNumber}
                                     </span>
-                                    <span className="flex items-center gap-1.5 bg-white/30 dark:bg-black/30 px-3 py-1 rounded-lg backdrop-blur-sm">
-                                        <Gavel className="h-5 w-5 text-orange-600" />
-                                        Lot: {vehicle.lotNumber || 'N/A'}
-                                    </span>
-                                    <span className="flex items-center gap-1.5 bg-white/30 dark:bg-black/30 px-3 py-1 rounded-lg backdrop-blur-sm">
-                                        <MapPin className="h-5 w-5 text-red-600" />
-                                        {vehicle.location || 'Unknown'}
-                                    </span>
+                                    {/* ... existing badges ... */}
                                 </div>
                             </div>
 
-                            <div className="flex gap-3">
+                            <div className="flex gap-3 items-center">
+                                <div className="flex items-center gap-2 bg-white/50 dark:bg-black/50 backdrop-blur-md px-4 py-2 rounded-lg border border-white/20 h-12">
+                                    <Switch
+                                        id="publish-mode"
+                                        checked={vehicle.isPublished}
+                                        onCheckedChange={(checked) => updateVehicle({ isPublished: checked })}
+                                    />
+                                    <Label htmlFor="publish-mode" className="cursor-pointer font-medium">
+                                        {vehicle.isPublished ? 'Published' : 'Draft'}
+                                    </Label>
+                                </div>
+
                                 <Select value={vehicle.status} onValueChange={updateStatus} disabled={updating}>
                                     <SelectTrigger className="w-[180px] h-12 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-white/20 shadow-lg">
                                         <SelectValue placeholder="Update Status" />
@@ -262,10 +273,10 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                         </div>
                     </FadeIn>
                 </div>
-            </div>
+            </div >
 
             {/* Main Content */}
-            <div className="container mx-auto px-4 sm:px-8 mt-8">
+            < div className="container mx-auto px-4 sm:px-8 mt-8" >
                 <Tabs defaultValue="overview" className="space-y-8">
                     <TabsList className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-xl p-1 rounded-xl border border-white/20 shadow-sm flex w-full md:w-auto overflow-x-auto no-scrollbar">
                         {['Overview', 'Compliance', 'Financials', 'Logistics', 'Documents'].map(tab => (
@@ -295,11 +306,11 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                                             </div>
                                         )}
                                         <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md text-white px-3 py-1 rounded-full text-sm font-medium">
-                                            {vehicle.photos.length} Photos
+                                            {vehicle.photos?.length || 0} Photos
                                         </div>
                                     </div>
                                     <div className="p-4 grid grid-cols-4 sm:grid-cols-5 gap-2">
-                                        {vehicle.photos.map((photo, i) => (
+                                        {(vehicle.photos || []).map((photo, i) => (
                                             <div key={photo.id} className={cn("aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden cursor-pointer relative group", i === 0 ? "ring-2 ring-indigo-500" : "")}>
                                                 <img src={photo.url} alt={`Thumb ${i}`} className="w-full h-full object-cover hover:opacity-80 transition-opacity" />
                                             </div>
@@ -516,8 +527,8 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                         </SlideUp>
                     </TabsContent>
                 </Tabs>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }
 
