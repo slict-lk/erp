@@ -37,7 +37,7 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { name, companyName, email, subdomain, plan, adminName, adminEmail, adminPassword } = body;
+        const { name, companyName, email, subdomain, plan, adminName, adminEmail, adminPassword, domain } = body;
 
         // Validate required fields
         if (!name || !companyName || !subdomain || !adminEmail || !adminPassword) {
@@ -51,6 +51,16 @@ export async function POST(req: Request) {
 
         if (existingTenant) {
             return new NextResponse('Subdomain already taken', { status: 400 });
+        }
+
+        // Check if custom domain exists
+        if (domain) {
+            const existingDomain = await prisma.tenant.findUnique({
+                where: { domain }
+            });
+            if (existingDomain) {
+                return new NextResponse('Custom domain already taken', { status: 400 });
+            }
         }
 
         // Check if admin email exists
@@ -97,6 +107,7 @@ export async function POST(req: Request) {
                     name,
                     companyName,
                     subdomain,
+                    domain: domain || null,
                     plan: plan || 'STARTER',
                     status: 'ACTIVE',
                 }

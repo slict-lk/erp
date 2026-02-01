@@ -28,9 +28,15 @@ export async function GET(request: NextRequest) {
 
     try {
         // If subdomain is provided, resolve it to tenantId
+        // If subdomain is provided, resolve it to tenantId
         if (!tenantId && subdomain) {
-            const tenant = await prisma.tenant.findUnique({
-                where: { subdomain },
+            const tenant = await prisma.tenant.findFirst({
+                where: {
+                    OR: [
+                        { subdomain: subdomain },
+                        { domain: subdomain }
+                    ]
+                },
                 select: { id: true }
             });
 

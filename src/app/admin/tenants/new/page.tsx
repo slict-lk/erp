@@ -22,6 +22,7 @@ export default function NewTenantPage() {
         adminName: '',
         adminEmail: '',
         adminPassword: '',
+        domain: '',
         modules: [] as string[],
     });
 
@@ -140,6 +141,16 @@ export default function NewTenantPage() {
                                     <SelectItem value="ENTERPRISE">Enterprise</SelectItem>
                                 </SelectContent>
                             </Select>
+                        </div>
+                        <div className="md:col-span-2">
+                            <Label htmlFor="domain">Custom Domain (Optional)</Label>
+                            <Input
+                                id="domain"
+                                value={formData.domain}
+                                onChange={e => setFormData({ ...formData, domain: e.target.value })}
+                                placeholder="alphamc.pro"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">If set, the tenant will be accessible directly via this domain (e.g. https://alphamc.pro).</p>
                         </div>
                     </CardContent>
                 </Card>
