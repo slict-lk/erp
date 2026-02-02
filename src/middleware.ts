@@ -134,7 +134,7 @@ export default withAuth(
     callbacks: {
       authorized: ({ token, req }) => {
         // Allow public API routes without token
-        if (req.nextUrl.pathname.startsWith('/api/public')) return true;
+        if (req.nextUrl.pathname.startsWith('/api/public') || req.nextUrl.pathname.startsWith('/api/vehicle-export/requests')) return true;
         // Require token for everything else
         return !!token;
       },

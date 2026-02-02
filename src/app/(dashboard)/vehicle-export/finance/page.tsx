@@ -34,6 +34,7 @@ interface Transaction {
     status: string;
     reference: string | null;
     notes: string | null;
+    proofUrl?: string;
     createdAt: string;
     wallet: {
         customer: { id: string; name: string; email: string };
@@ -320,6 +321,28 @@ export default function FinanceDashboardPage() {
                                 <p className="text-sm text-gray-500 mb-1">Deposit Amount</p>
                                 <p className="text-4xl font-bold text-gray-900 dark:text-white">${Number(selectedTx.amount).toFixed(2)}</p>
                             </div>
+
+                            {selectedTx.proofUrl && (
+                                <div className="space-y-2">
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Payment Proof</span>
+                                    <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-800">
+                                        {/* Using img tag for simplicity with external URLs, or Image if domain is whitelisted */}
+                                        <img
+                                            src={selectedTx.proofUrl}
+                                            alt="Payment Proof"
+                                            className="object-contain w-full h-full"
+                                        />
+                                        <a
+                                            href={selectedTx.proofUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-md hover:bg-black transition-colors"
+                                        >
+                                            View Full
+                                        </a>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="space-y-3">
                                 <div className="flex justify-between p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-100 dark:border-gray-800">

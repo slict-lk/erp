@@ -19,8 +19,20 @@ export async function GET(request: NextRequest) {
     const model = searchParams.get('model');
     const minYear = searchParams.get('minYear');
     const maxYear = searchParams.get('maxYear');
+    const minPrice = searchParams.get('minPrice');
+    const maxPrice = searchParams.get('maxPrice');
+    const bodyType = searchParams.get('bodyType');
+    const transmission = searchParams.get('transmission');
+    const fuelType = searchParams.get('fuelType');
+    const steering = searchParams.get('steering');
+    const color = searchParams.get('color');
+    const minEngineCc = searchParams.get('minEngineCc');
+    const maxEngineCc = searchParams.get('maxEngineCc');
+    const sort = searchParams.get('sort');
+
     const limit = searchParams.get('limit') || '20';
     const offset = searchParams.get('offset') || '0';
+    const ids = searchParams.get('ids')?.split(',');
 
     if (!tenantId && !subdomain) {
         return NextResponse.json({ error: 'Tenant ID or Subdomain required' }, { status: 400 });
@@ -61,13 +73,30 @@ export async function GET(request: NextRequest) {
         if (model) where.model = { contains: model, mode: 'insensitive' };
         if (minYear) where.year = { gte: parseInt(minYear) };
         if (maxYear) where.year = { lte: parseInt(maxYear) };
+        if (minPrice) where.fobPrice = { ...where.fobPrice, gte: parseFloat(minPrice) };
+        if (maxPrice) where.fobPrice = { ...where.fobPrice, lte: parseFloat(maxPrice) };
+        if (bodyType) where.bodyType = bodyType;
+        if (transmission) where.transmission = transmission;
+        if (fuelType) where.fuelType = fuelType;
+        if (steering) where.steering = steering;
+        if (color) where.color = { contains: color, mode: 'insensitive' };
+        if (minEngineCc) where.engineCc = { ...where.engineCc, gte: parseInt(minEngineCc) };
+        if (maxEngineCc) where.engineCc = { ...where.engineCc, lte: parseInt(maxEngineCc) };
+        if (ids && ids.length > 0) where.id = { in: ids };
+
+        // Sorting
+        let orderBy: any = { createdAt: 'desc' };
+        if (sort === 'price_asc') orderBy = { fobPrice: 'asc' };
+        else if (sort === 'price_desc') orderBy = { fobPrice: 'desc' };
+        else if (sort === 'year_desc') orderBy = { year: 'desc' };
+        else if (sort === 'mileage_asc') orderBy = { mileage: 'asc' };
 
         const [vehicles, total] = await Promise.all([
             prisma.exportVehicle.findMany({
                 where,
                 take: parseInt(limit),
                 skip: parseInt(offset),
-                orderBy: { createdAt: 'desc' },
+                orderBy,
                 include: {
                     photos: {
                         where: { isPublic: true },
@@ -83,7 +112,7 @@ export async function GET(request: NextRequest) {
                 id: v.id,
                 title: `${v.year} ${v.make} ${v.model}`,
                 stockNumber: v.stockNumber,
-                price: v.fobPrice, // Show FOB price
+                price: Number(v.fobPrice) > 0 ? v.fobPrice : v.purchasePrice, // Fallback to purchasePrice if FOB is 0 (seed data)
                 currency: v.currency,
                 mileage: v.mileage,
                 fuel: v.fuelType,

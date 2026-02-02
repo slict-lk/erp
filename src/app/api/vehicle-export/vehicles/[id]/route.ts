@@ -67,8 +67,8 @@ export async function PUT(
         // Vehicle details
         const allowedFields = [
             'make', 'model', 'year', 'month', 'engineCode', 'fuelType',
-            'color', 'transmission', 'mileage', 'engineCc', 'location',
-            'status', 'fobPrice', 'cifPrice', 'isPublished',
+            'mileage', 'engineCc', 'location',
+            'status', 'purchasePrice', 'fobPrice', 'cifPrice', 'isPublished',
             'shakenStatus', 'mashoStatus', 'jaaiStatus',
             'exportCertUrl', 'jaaiCertUrl',
             'taxAmount', 'dutyAmount', 'shippingCost',

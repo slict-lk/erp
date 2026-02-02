@@ -532,6 +532,7 @@ model User {
   assignedChats     LiveChatSession[]  @relation("AssignedChats")
   conversations     Conversation[]     @relation("UserConversations")
   doctorVisits      MedicalVisit[]     @relation("DoctorVisits")
+  assignedVehicleRequests VehicleRequest[] @relation("AssignedVehicleRequests")
   
   employeeId        String?            @unique
   employee          Employee?          @relation(fields: [employeeId], references: [id])
@@ -3780,6 +3781,7 @@ model ExportCustomer {
   
   vehicles        ExportVehicle[]
   bids            ExportBid[]
+  favorites       ExportFavorite[]
   wallet          ExportWallet?
 
   
@@ -3808,6 +3810,10 @@ model ExportVehicle {
   transmission    String?
   mileage         Int?
   engineCc        Int?
+  bodyType        String?
+  driveType       String?
+  seats           Int?
+  doors           Int?
   
   // -- Auction Data --
   auctionHouse    String?
@@ -3850,6 +3856,7 @@ model ExportVehicle {
   bids            ExportBid[]
   yardJobs        YardJob[]
   photos          ExportVehiclePhoto[]
+  favorites       ExportFavorite[]
   
   // -- Phase 5: Docs & Invoice --
   documents       DocumentDispatch?
@@ -3863,6 +3870,22 @@ model ExportVehicle {
   @@index([make, model])
   @@index([isPublished])
 }
+
+model ExportFavorite {
+  id              String        @id @default(cuid())
+  tenantId        String
+  customerId      String
+  customer        ExportCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vehicleId       String
+  vehicle         ExportVehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+
+  @@unique([customerId, vehicleId])
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([vehicleId])
+}
+
 
 model ExportVehiclePhoto {
   id              String        @id @default(cuid())
@@ -3981,6 +4004,8 @@ model ExportStoreConfig {
   howToBuyStockSteps  Json? // [{ step, title, description, icon }]
   howToBidSteps       Json? // [{ step, title, description, icon }]
   
+  contactPage         Json? // { title, subtitle, mapUrl, businessHours }
+  
   // Bidding Settings
   requireDeposit  Boolean @default(true)   // Require deposit before bidding
   minimumDeposit  Decimal @default(1000)   // Minimum deposit amount (USD)
@@ -4047,8 +4072,11 @@ model ExportWalletTransaction {
   amount        Decimal
   type          String   // DEPOSIT, REFUND, BID_LOCK, INVOICE_PAYMENT
   reference     String?  // Bank Slip ID or Bid ID
+  proofUrl      String?  // Receipt Image URL
   status        String   // PENDING, CLEARED, REJECTED
+  
   description   String?
+  adminNote     String?  // Rejection reason or internal note
   
   createdAt     DateTime @default(now())
   
@@ -4137,3 +4165,69 @@ model ExportInvoiceItem {
   
   @@index([invoiceId])
 }
+
+// ============================================================================
+// VEHICLE EXPORT: REQUESTS & CRM
+// ============================================================================
+
+enum RequestStatus {
+  NEW
+  ASSIGNED
+  IN_PROGRESS
+  FULFILLED
+  LOST
+}
+
+enum RequestPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model VehicleRequest {
+  id              String          @id @default(cuid())
+  ticketNumber    Int             @default(autoincrement())
+  
+  // Customer Details
+  customerName    String
+  email           String
+  phone           String?
+  budget          String?
+
+  // Vehicle Requirements
+  vehicleDetails  Json            // Flexible JSON for make, model, year, etc.
+  
+  // Workflow
+  status          RequestStatus   @default(NEW)
+  priority        RequestPriority @default(MEDIUM)
+  
+  // Assignment
+  assignedToUserId String?
+  assignedToUser   User?          @relation("AssignedVehicleRequests", fields: [assignedToUserId], references: [id])
+  
+  storeSlug       String
+  notes           RequestNote[]
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([storeSlug])
+  @@index([status])
+  @@index([assignedToUserId])
+  @@unique([ticketNumber])
+}
+
+model RequestNote {
+  id              String          @id @default(cuid())
+  content         String
+  
+  requestId       String
+  request         VehicleRequest  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  
+  authorId        String?         // Optional: could be system or deleted user
+  
+  createdAt       DateTime        @default(now())
+
+  @@index([requestId])
+}
+

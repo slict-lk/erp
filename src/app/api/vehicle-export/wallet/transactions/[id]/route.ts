@@ -14,9 +14,14 @@ export async function PUT(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        // Security: Only Admins can approve/reject transactions
+        if (session.user.role !== 'ADMIN' && !session.user.isSuperAdmin) {
+            return NextResponse.json({ error: 'Forbidden: Admins only' }, { status: 403 });
+        }
+
         const { id } = await params;
         const body = await request.json();
-        const { status } = body;
+        const { status, adminNote } = body;
 
         if (!status || !['PENDING', 'CLEARED', 'REJECTED'].includes(status)) {
             return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
@@ -37,7 +42,10 @@ export async function PUT(
             // Update transaction status
             const updatedTx = await tx.exportWalletTransaction.update({
                 where: { id },
-                data: { status },
+                data: {
+                    status,
+                    adminNote
+                },
             });
 
             // If clearing a deposit, update wallet balance

@@ -37,6 +37,18 @@ import {
 
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+
+import { PenSquare } from "lucide-react";
 
 // --- Types ---
 
@@ -373,6 +385,7 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                                     <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
                                         <DollarSign className="h-5 w-5 text-emerald-500" />
                                         Cost Breakdown
+                                        <EditFinancialsDialog vehicle={vehicle} onUpdate={updateVehicle} />
                                     </h3>
                                     <div className="space-y-6">
                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -577,5 +590,83 @@ function CostCard({ label, amount, color = "text-gray-900 dark:text-white" }: an
             <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{label}</p>
             <p className={cn("text-xl font-bold", color)}>{formatCurrency(amount)}</p>
         </div>
+    );
+}
+
+function EditFinancialsDialog({ vehicle, onUpdate }: { vehicle: Vehicle, onUpdate: (data: any) => Promise<void> }) {
+    const [open, setOpen] = useState(false);
+    const [formData, setFormData] = useState({
+        purchasePrice: vehicle.purchasePrice || 0,
+        fobPrice: vehicle.fobPrice || 0,
+        cifPrice: vehicle.cifPrice || 0,
+    });
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        await onUpdate({
+            purchasePrice: Number(formData.purchasePrice),
+            fobPrice: Number(formData.fobPrice),
+            cifPrice: Number(formData.cifPrice),
+        });
+        setOpen(false);
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="ml-auto h-8 w-8 p-0 transform scale-75">
+                    <PenSquare className="h-5 w-5 text-gray-400 hover:text-blue-500" />
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>Update Financials</DialogTitle>
+                    <DialogDescription>
+                        Set the cost structure for this vehicle. FOB Price is the displayed selling price.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="purchasePrice" className="text-right">
+                            Purchase
+                        </Label>
+                        <Input
+                            id="purchasePrice"
+                            type="number"
+                            value={formData.purchasePrice}
+                            onChange={(e) => setFormData({ ...formData, purchasePrice: Number(e.target.value) })}
+                            className="col-span-3"
+                        />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4 bg-blue-50/50 dark:bg-blue-900/20 p-2 rounded -mx-2">
+                        <Label htmlFor="fobPrice" className="text-right text-blue-600 font-bold">
+                            FOB Price
+                        </Label>
+                        <Input
+                            id="fobPrice"
+                            type="number"
+                            value={formData.fobPrice}
+                            onChange={(e) => setFormData({ ...formData, fobPrice: Number(e.target.value) })}
+                            className="col-span-3 border-blue-200 focus-visible:ring-blue-500"
+                        />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="cifPrice" className="text-right text-purple-600">
+                            CIF Price
+                        </Label>
+                        <Input
+                            id="cifPrice"
+                            type="number"
+                            value={formData.cifPrice}
+                            onChange={(e) => setFormData({ ...formData, cifPrice: Number(e.target.value) })}
+                            className="col-span-3"
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="submit" onClick={handleSubmit}>Save Changes</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

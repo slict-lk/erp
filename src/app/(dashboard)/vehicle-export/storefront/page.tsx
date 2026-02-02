@@ -43,6 +43,29 @@ interface ExportStoreConfig {
     // Bidding Settings
     requireDeposit?: boolean;
     minimumDeposit?: number;
+    // New Content Fields
+    aboutUs?: {
+        story?: string;
+        mission?: string;
+        stats?: Array<{ value: string; label: string; icon: string }>;
+        values?: Array<{ title: string; desc: string }>;
+    };
+    // New Contact Page Fields
+    contactPage?: {
+        title?: string;
+        subtitle?: string;
+        mapUrl?: string;
+        businessHours?: string;
+    };
+    // Bank Details
+    bankDetails?: {
+        bankName?: string;
+        accountName?: string;
+        accountNumber?: string;
+        swiftCode?: string;
+        branch?: string;
+        bankAddress?: string;
+    };
 }
 
 interface HeroSlide {
@@ -252,71 +275,210 @@ export default function StorefrontManagerPage() {
                             {/* CONTENT */}
                             <TabsContent value="content" className="space-y-6 mt-0">
                                 <FadeIn>
-                                    <div className="space-y-6">
-                                        <div className="flex justify-between items-center">
-                                            <h3 className="font-semibold text-lg">Hero Carousel</h3>
-                                            <Button size="sm" variant="outline" onClick={addSlide}><Plus className="h-4 w-4 mr-2" />Add Slide</Button>
-                                        </div>
+                                    <div className="space-y-8">
+                                        {/* HERO SECTION */}
+                                        <div className="space-y-6">
+                                            <div className="flex justify-between items-center">
+                                                <h3 className="font-semibold text-lg">Hero Carousel</h3>
+                                                <Button size="sm" variant="outline" onClick={addSlide}><Plus className="h-4 w-4 mr-2" />Add Slide</Button>
+                                            </div>
 
-                                        <AnimatePresence>
-                                            {(watch('heroSlides') || []).map((slide, index) => (
-                                                <motion.div
-                                                    key={slide.id || index}
-                                                    initial={{ opacity: 0, height: 0 }}
-                                                    animate={{ opacity: 1, height: 'auto' }}
-                                                    exit={{ opacity: 0, height: 0 }}
-                                                    className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 relative group"
-                                                >
-                                                    <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => removeSlide(index)}>
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
+                                            <AnimatePresence>
+                                                {(watch('heroSlides') || []).map((slide, index) => (
+                                                    <motion.div
+                                                        key={slide.id || index}
+                                                        initial={{ opacity: 0, height: 0 }}
+                                                        animate={{ opacity: 1, height: 'auto' }}
+                                                        exit={{ opacity: 0, height: 0 }}
+                                                        className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 relative group"
+                                                    >
+                                                        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => removeSlide(index)}>
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
 
-                                                    <div className="flex gap-4">
-                                                        <div className="w-40 h-24 bg-gray-200 dark:bg-gray-700 rounded-lg relative overflow-hidden shrink-0">
-                                                            {slide.imageUrl && <Image src={slide.imageUrl} alt="Slide" fill className="object-cover" />}
-                                                            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={(e) => handleFileUpload(e, 'hero', index)} />
-                                                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                                <ImageIcon className="text-gray-400" />
+                                                        <div className="flex gap-4">
+                                                            <div className="w-40 h-24 bg-gray-200 dark:bg-gray-700 rounded-lg relative overflow-hidden shrink-0">
+                                                                {slide.imageUrl && <Image src={slide.imageUrl} alt="Slide" fill className="object-cover" />}
+                                                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={(e) => handleFileUpload(e, 'hero', index)} />
+                                                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                                    <ImageIcon className="text-gray-400" />
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex-1 space-y-3">
+                                                                <Input {...register(`heroSlides.${index}.title` as const)} placeholder="Headline Text" className="font-bold" />
+                                                                <Input {...register(`heroSlides.${index}.subtitle` as const)} placeholder="Subtext (Optional)" />
                                                             </div>
                                                         </div>
-                                                        <div className="flex-1 space-y-3">
-                                                            <Input {...register(`heroSlides.${index}.title` as const)} placeholder="Headline Text" className="font-bold" />
-                                                            <Input {...register(`heroSlides.${index}.subtitle` as const)} placeholder="Subtext (Optional)" />
+                                                    </motion.div>
+                                                ))}
+                                            </AnimatePresence>
+                                        </div>
+
+                                        <Separator />
+
+                                        {/* ABOUT US SECTION */}
+                                        <div className="space-y-6">
+                                            <h3 className="font-semibold text-lg">About Us Page</h3>
+
+                                            <div className="grid gap-4">
+                                                <div className="space-y-2">
+                                                    <Label>Our Story</Label>
+                                                    <textarea
+                                                        {...register('aboutUs.story')}
+                                                        rows={5}
+                                                        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                        placeholder="Tell your story..."
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label>Mission Statement</Label>
+                                                    <textarea
+                                                        {...register('aboutUs.mission')}
+                                                        rows={2}
+                                                        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                        placeholder="Our mission is to..."
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Key Stats */}
+                                            <div className="space-y-4">
+                                                <Label className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Key Stats (Displayed on Page)</Label>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    {[0, 1, 2, 3].map((i) => (
+                                                        <div key={i} className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-700 space-y-2">
+                                                            <Input {...register(`aboutUs.stats.${i}.value` as any)} placeholder="10k+" className="h-8 text-sm" />
+                                                            <Input {...register(`aboutUs.stats.${i}.label` as any)} placeholder="Label" className="h-8 text-xs text-gray-500" />
                                                         </div>
-                                                    </div>
-                                                </motion.div>
-                                            ))}
-                                        </AnimatePresence>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Values */}
+                                            <div className="space-y-4">
+                                                <Label className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Core Values</Label>
+                                                <div className="grid gap-4">
+                                                    {[0, 1, 2].map((i) => (
+                                                        <div key={i} className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-700 space-y-3">
+                                                            <Input {...register(`aboutUs.values.${i}.title` as any)} placeholder="Value Title" className="font-semibold" />
+                                                            <textarea
+                                                                {...register(`aboutUs.values.${i}.desc` as any)}
+                                                                rows={2}
+                                                                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                placeholder="Description..."
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </FadeIn>
                             </TabsContent>
 
                             {/* CONTACT */}
                             <TabsContent value="contact" className="space-y-6 mt-0">
-                                <div className="grid grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <Label>Contact Email</Label>
-                                        <Input {...register('contactEmail')} />
+                                {/* Basic Info */}
+                                <div className="space-y-4">
+                                    <h3 className="font-semibold text-lg">Contact Information</h3>
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <Label>Contact Email</Label>
+                                            <Input {...register('contactEmail')} />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Phone</Label>
+                                            <Input {...register('contactPhone')} />
+                                        </div>
+                                        <div className="col-span-2 space-y-2">
+                                            <Label>WhatsApp (for direct chat)</Label>
+                                            <Input {...register('whatsappNumber')} placeholder="+1..." />
+                                        </div>
+                                        <div className="col-span-2 space-y-2">
+                                            <Label>Physical Address</Label>
+                                            <Input {...register('address')} />
+                                        </div>
+                                        <div className="col-span-2 space-y-2">
+                                            <Label>Social Links</Label>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <Input {...register('facebookUrl')} placeholder="Facebook URL" />
+                                                <Input {...register('instagramUrl')} placeholder="Instagram URL" />
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label>Phone</Label>
-                                        <Input {...register('contactPhone')} />
-                                    </div>
-                                    <div className="col-span-2 space-y-2">
-                                        <Label>WhatsApp (for direct chat)</Label>
-                                        <Input {...register('whatsappNumber')} placeholder="+1..." />
-                                    </div>
-                                    <div className="col-span-2 space-y-2">
-                                        <Label>Physical Address</Label>
-                                        <Input {...register('address')} />
+                                </div>
+
+                                <Separator />
+
+                                {/* Contact Page Content */}
+                                <div className="space-y-4">
+                                    <h3 className="font-semibold text-lg">Contact Page Content</h3>
+                                    <div className="grid gap-4">
+                                        <div className="space-y-2">
+                                            <Label>Page Header Title</Label>
+                                            <Input {...register('contactPage.title')} placeholder="Contact Us" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Page Subtitle</Label>
+                                            <textarea
+                                                {...register('contactPage.subtitle')}
+                                                rows={2}
+                                                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                placeholder="We're here to help..."
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Google Map Embed URL</Label>
+                                            <Input {...register('contactPage.mapUrl')} placeholder="<iframe src='...'></iframe> or URL" />
+                                            <p className="text-xs text-muted-foreground">Paste the full iframe code or just the src URL from Google Maps.</p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Business Hours Text</Label>
+                                            <Input {...register('contactPage.businessHours')} placeholder="Mon-Fri: 9am - 6pm" />
+                                        </div>
                                     </div>
                                 </div>
                             </TabsContent>
 
                             {/* SETTINGS */}
                             <TabsContent value="settings" className="space-y-6 mt-0">
+                                {/* Bank Details Config */}
+                                <div className="space-y-4">
+                                    <h3 className="font-semibold text-lg">Bank Configuration</h3>
+                                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 space-y-4">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label>Bank Name</Label>
+                                                <Input {...register('bankDetails.bankName')} placeholder="e.g. Chase Bank" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Account Name</Label>
+                                                <Input {...register('bankDetails.accountName')} placeholder="Company Name" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Account Number</Label>
+                                                <Input {...register('bankDetails.accountNumber')} className="font-mono" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>SWIFT / BIC Code</Label>
+                                                <Input {...register('bankDetails.swiftCode')} className="font-mono uppercase" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Branch Name</Label>
+                                                <Input {...register('bankDetails.branch')} />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Bank Address</Label>
+                                                <Input {...register('bankDetails.bankAddress')} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <Separator />
+
                                 <div className="bg-blue-50 dark:bg-blue-900/10 p-6 rounded-2xl border border-blue-100 dark:border-blue-900">
                                     <div className="flex items-center justify-between mb-4">
                                         <div>
