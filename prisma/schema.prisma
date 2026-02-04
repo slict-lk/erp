@@ -3784,6 +3784,7 @@ model ExportCustomer {
   bids            ExportBid[]
   favorites       ExportFavorite[]
   wallet          ExportWallet?
+  quoteRequests   ExportQuoteRequest[]
 
   
   createdAt       DateTime      @default(now())
@@ -3862,6 +3863,7 @@ model ExportVehicle {
   // -- Phase 5: Docs & Invoice --
   documents       DocumentDispatch?
   invoice         ExportInvoice?
+  quoteRequests   ExportQuoteRequest[]
 
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -4232,3 +4234,72 @@ model RequestNote {
   @@index([requestId])
 }
 
+
+// ============================================================================
+// EXPORT MODULE: SHIPPING & QUOTATIONS
+// ============================================================================
+
+model ExportCountry {
+  id        String       @id @default(cuid())
+  tenantId  String
+  name      String
+  code      String       // ISO 3166-1 alpha-2 (e.g., "LK")
+  isActive  Boolean      @default(true)
+  ports     ExportPort[]
+  quotes    ExportQuoteRequest[]
+  createdAt DateTime     @default(now())
+  
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model ExportPort {
+  id             String         @id @default(cuid())
+  tenantId       String
+  countryId      String
+  country        ExportCountry  @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  name           String
+  shippingMethod String         // "RORO" or "CONTAINER"
+  shippingCost   Decimal?       // null = Ask for Price
+  insuranceCost  Decimal?
+  inspectionFee  Decimal?
+  isDefault      Boolean        @default(false)
+  quotes         ExportQuoteRequest[]
+  createdAt      DateTime       @default(now())
+  
+  @@index([tenantId, countryId])
+}
+
+model ExportQuoteRequest {
+  id            String          @id @default(cuid())
+  tenantId      String
+  vehicleId     String
+  vehicle       ExportVehicle   @relation(fields: [vehicleId], references: [id])
+  customerId    String?
+  customer      ExportCustomer? @relation(fields: [customerId], references: [id])
+  
+  name          String
+  email         String
+  phone         String?
+  address       String?
+  
+  countryId     String
+  country       ExportCountry   @relation(fields: [countryId], references: [id])
+  portId        String
+  port          ExportPort      @relation(fields: [portId], references: [id])
+  
+  fobPrice      Decimal?
+  shippingCost  Decimal?
+  insuranceCost Decimal?
+  inspectionFee Decimal?
+  totalCIF      Decimal?
+  askForPrice   Boolean         @default(false)
+  
+  status        String          @default("PENDING") // PENDING, CONTACTED, QUOTED, CLOSED
+  adminNotes    String?
+  
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  
+  @@index([tenantId, status])
+}

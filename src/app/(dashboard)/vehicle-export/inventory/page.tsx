@@ -28,8 +28,20 @@ import {
     Filter,
     Calendar,
     Fuel,
-    Gauge
+    Gauge,
+    Trash2,
+    AlertTriangle,
+    Loader2
 } from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -83,6 +95,45 @@ export default function InventoryPage() {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [deleteId, setDeleteId] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const { toast } = useToast();
+
+    const confirmDelete = (e: React.MouseEvent, id: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDeleteId(id);
+    };
+
+    const handleDelete = async () => {
+        if (!deleteId) return;
+
+        setIsDeleting(true);
+        try {
+            const res = await fetch(`/api/vehicle-export/vehicles/${deleteId}`, {
+                method: 'DELETE',
+            });
+
+            if (res.ok) {
+                setVehicles(prev => prev.filter(v => v.id !== deleteId));
+                toast({
+                    title: "Vehicle Deleted",
+                    description: "The vehicle has been successfully removed from inventory.",
+                });
+                setDeleteId(null);
+            } else {
+                throw new Error("Failed to delete");
+            }
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to delete vehicle. Please try again.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsDeleting(false);
+        }
+    };
 
     const fetchVehicles = useCallback(async () => {
         try {
@@ -236,10 +287,18 @@ export default function InventoryPage() {
                                                             <Package className="h-12 w-12 opacity-20" />
                                                         </div>
                                                     )}
-                                                    <div className="absolute top-3 right-3">
+                                                    <div className="absolute top-3 right-3 flex gap-2">
                                                         <Badge variant="secondary" className={cn("backdrop-blur-md shadow-sm border", STATUS_STYLES[vehicle.status])}>
                                                             {STATUS_LABELS[vehicle.status] || vehicle.status}
                                                         </Badge>
+                                                        <Button
+                                                            variant="destructive"
+                                                            size="icon"
+                                                            className="h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                                                            onClick={(e) => confirmDelete(e, vehicle.id)}
+                                                        >
+                                                            <Trash2 className="h-3 w-3" />
+                                                        </Button>
                                                     </div>
                                                 </div>
 
@@ -332,12 +391,22 @@ export default function InventoryPage() {
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Link href={`/vehicle-export/inventory/${vehicle.id}`}>
-                                                            <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <Eye className="h-4 w-4 mr-2" />
-                                                                View
+                                                        <div className="flex items-center gap-2">
+                                                            <Link href={`/vehicle-export/inventory/${vehicle.id}`}>
+                                                                <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                    <Eye className="h-4 w-4 mr-2" />
+                                                                    View
+                                                                </Button>
+                                                            </Link>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-700 hover:bg-red-50"
+                                                                onClick={(e) => confirmDelete(e, vehicle.id)}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
                                                             </Button>
-                                                        </Link>
+                                                        </div>
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -349,6 +418,33 @@ export default function InventoryPage() {
                     </AnimatePresence>
                 )}
             </div>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Vehicle</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete this vehicle? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDeleteId(null)} disabled={isDeleting}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+                            {isDeleting ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Deleting...
+                                </>
+                            ) : (
+                                'Delete'
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

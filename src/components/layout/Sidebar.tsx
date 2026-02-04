@@ -141,6 +141,7 @@ const navigation: NavigationItem[] = [
     icon: Ship,
     children: [
       { name: 'Dashboard', href: '/vehicle-export', moduleId: 'vehicle-export' },
+      { name: 'Quote Requests', href: '/vehicle-export/quotes', moduleId: 'vehicle-export' },
       { name: 'Bids', href: '/vehicle-export/bids', moduleId: 'vehicle-export' },
       { name: 'Auction Entry', href: '/vehicle-export/auction/new', moduleId: 'vehicle-export' },
       { name: 'Inventory', href: '/vehicle-export/inventory', moduleId: 'vehicle-export' },
@@ -149,6 +150,7 @@ const navigation: NavigationItem[] = [
       { name: 'Customers', href: '/vehicle-export/customers', icon: Users, moduleId: 'vehicle-export' },
       { name: 'Finance', href: '/vehicle-export/finance', icon: Wallet, moduleId: 'vehicle-export' },
       { name: 'Auctioneer', href: '/vehicle-export/auction', icon: Gavel, moduleId: 'vehicle-export' },
+      { name: 'Shipping Setup', href: '/vehicle-export/shipping', icon: Settings, moduleId: 'vehicle-export' },
       { name: 'Storefront', href: '/vehicle-export/storefront', icon: Palette, moduleId: 'vehicle-export' },
     ],
   },
