@@ -115,8 +115,14 @@ export default function AuctionEntryPage() {
 
     const nextStep = () => {
         if (step === 1) {
-            if (!form.chassisNumber || !form.make || !form.model || !form.year) {
-                toast({ title: 'Missing Identity Info', description: 'Please fill in Chassis Number, Make, Model, and Year.', variant: 'destructive' });
+            if (!form.make || !form.model || !form.year) {
+                toast({ title: 'Missing Identity Info', description: 'Please fill in Make, Model, and Year.', variant: 'destructive' });
+                return;
+            }
+        }
+        if (step === 2) {
+            if (!form.mileage || !form.transmission || !form.fuelType) {
+                toast({ title: 'Missing Specs', description: 'Please fill in Mileage, Transmission, and Fuel Type.', variant: 'destructive' });
                 return;
             }
         }
@@ -125,8 +131,8 @@ export default function AuctionEntryPage() {
     const prevStep = () => setStep(s => Math.max(s - 1, 1));
 
     const handleSubmit = async () => {
-        if (!form.chassisNumber || !form.make || !form.model || !form.purchasePrice) {
-            toast({ title: 'Missing Fields', description: 'Please fill in all required fields.', variant: 'destructive' });
+        if (!form.make || !form.model || !form.year || !form.mileage || !form.transmission || !form.fuelType) {
+            toast({ title: 'Missing Fields', description: 'Please fill in all mandatory fields.', variant: 'destructive' });
             return;
         }
 
@@ -251,7 +257,7 @@ export default function AuctionEntryPage() {
                                                 />
                                             </div>
                                             <div>
-                                                <Label>Make</Label>
+                                                <Label>Make <span className="text-red-500">*</span></Label>
                                                 <Select value={form.make} onValueChange={(v) => handleChange('make', v)}>
                                                     <SelectTrigger>
                                                         <SelectValue placeholder="Select Make" />
@@ -262,7 +268,7 @@ export default function AuctionEntryPage() {
                                                 </Select>
                                             </div>
                                             <div>
-                                                <Label>Model</Label>
+                                                <Label>Model <span className="text-red-500">*</span></Label>
                                                 <Input
                                                     value={form.model}
                                                     onChange={(e) => handleChange('model', e.target.value)}
@@ -270,7 +276,7 @@ export default function AuctionEntryPage() {
                                                 />
                                             </div>
                                             <div>
-                                                <Label>Year</Label>
+                                                <Label>Year <span className="text-red-500">*</span></Label>
                                                 <Select value={form.year.toString()} onValueChange={(v) => handleChange('year', v)}>
                                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                                     <SelectContent>
@@ -321,14 +327,14 @@ export default function AuctionEntryPage() {
                                                 </div>
                                             </div>
                                             <div>
-                                                <Label>Fuel</Label>
+                                                <Label>Fuel <span className="text-red-500">*</span></Label>
                                                 <Select value={form.fuelType} onValueChange={(v) => handleChange('fuelType', v)}>
                                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                                     <SelectContent>{FUEL_TYPES.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
                                                 </Select>
                                             </div>
                                             <div>
-                                                <Label>Transmission</Label>
+                                                <Label>Transmission <span className="text-red-500">*</span></Label>
                                                 <Select value={form.transmission} onValueChange={(v) => handleChange('transmission', v)}>
                                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                                     <SelectContent>{TRANSMISSIONS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
@@ -339,7 +345,7 @@ export default function AuctionEntryPage() {
                                                 <Input value={form.color} onChange={(e) => handleChange('color', e.target.value)} placeholder="Pearl White" />
                                             </div>
                                             <div>
-                                                <Label>Mileage</Label>
+                                                <Label>Mileage <span className="text-red-500">*</span></Label>
                                                 <div className="relative">
                                                     <Input type="number" value={form.mileage} onChange={(e) => handleChange('mileage', e.target.value)} placeholder="50000" />
                                                     <span className="absolute right-3 top-2.5 text-gray-400 text-sm">km</span>

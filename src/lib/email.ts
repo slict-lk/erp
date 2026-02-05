@@ -1,17 +1,42 @@
 import { Resend } from "resend";
+import { prisma } from "./prisma";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-const FROM_EMAIL = "quotes@demo.slict.com"; // Replace with verified domain in production
+// The main verified domain for the system
+const DEFAULT_SYSTEM_DOMAIN = process.env.SYSTEM_EMAIL_DOMAIN || "demo.slict.com";
 
-export async function sendQuoteConfirmation(to: string, data: any) {
-    if (!process.env.RESEND_API_KEY) {
-        console.warn("RESEND_API_KEY missing, skipping email");
+/**
+ * Generates a professional "From" address based on tenant settings.
+ * Format: "Company Name <quotes@domain.com>"
+ */
+async function getFromAddress(tenantId?: string) {
+    if (!tenantId) return `Slict Auto <quotes@${DEFAULT_SYSTEM_DOMAIN}>`;
+
+    const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { companyName: true, name: true, domain: true }
+    });
+
+    if (!tenant) return `Slict Auto <quotes@${DEFAULT_SYSTEM_DOMAIN}>`;
+
+    const displayName = tenant.companyName || tenant.name;
+
+    // Logic: Use tenant's custom domain if they have one, otherwise use system default
+    // IMPORTANT: Custom domains must be verified in Resend dashboard first
+    const domain = tenant.domain || DEFAULT_SYSTEM_DOMAIN;
+
+    return `${displayName} <quotes@${domain}>`;
+}
+
+export async function sendQuoteConfirmation(to: string, data: any, tenantId?: string) {
+    if (!process.env.RESEND_API_KEY || !resend) {
+        console.warn("Resend not configured, skipping email");
         return;
     }
-    console.log("Sending email with key:", process.env.RESEND_API_KEY.slice(0, 5) + "...");
 
     const { name, vehicle, country, port, totalCIF } = data;
+    const fromAddress = await getFromAddress(tenantId);
 
     const subject = `Quote Request Received: ${vehicle.year} ${vehicle.make} ${vehicle.model}`;
 
@@ -31,13 +56,8 @@ export async function sendQuoteConfirmation(to: string, data: any) {
   `;
 
     try {
-        if (!resend) {
-            console.warn("Resend client not initialized. Check RESEND_API_KEY.");
-            return;
-        }
-
         const { data: resendData, error } = await resend.emails.send({
-            from: "Slict Auto <onboarding@resend.dev>", // Default for testing
+            from: fromAddress,
             to: [to],
             subject,
             html,
@@ -50,10 +70,11 @@ export async function sendQuoteConfirmation(to: string, data: any) {
     }
 }
 
-export async function sendQuotation(to: string, data: any) {
-    if (!process.env.RESEND_API_KEY) return;
+export async function sendQuotation(to: string, data: any, tenantId?: string) {
+    if (!process.env.RESEND_API_KEY || !resend) return;
 
     const { name, vehicle, quoteLink } = data;
+    const fromAddress = await getFromAddress(tenantId);
 
     const html = `
     <h1>Good News, ${name}!</h1>
@@ -66,15 +87,14 @@ export async function sendQuotation(to: string, data: any) {
     <p>If you have any questions, simply reply to this email.</p>
   `;
 
-    if (!resend) {
-        console.warn("Resend client not initialized. Check RESEND_API_KEY.");
-        return;
+    try {
+        await resend.emails.send({
+            from: fromAddress,
+            to: [to],
+            subject: `Your Quotation is Ready - ${vehicle.stockNumber}`,
+            html,
+        });
+    } catch (err) {
+        console.error("Email Send Failed:", err);
     }
-
-    await resend.emails.send({
-        from: "Slict Auto <onboarding@resend.dev>",
-        to: [to],
-        subject: `Your Quotation is Ready - ${vehicle.stockNumber}`,
-        html,
-    });
 }

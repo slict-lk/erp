@@ -32,8 +32,11 @@ import {
     Fuel,
     Gauge,
     Anchor,
-    Upload
+    Upload,
+    Download,
+    Loader2
 } from 'lucide-react';
+import JSZip from 'jszip';
 
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
@@ -110,6 +113,8 @@ const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
     READY_TO_SHIP: { color: 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800', label: 'Ready to Ship' },
     SHIPPED: { color: 'bg-purple-500/10 text-purple-600 border-purple-200 dark:border-purple-800', label: 'Shipped' },
     DELIVERED: { color: 'bg-slate-500/10 text-slate-600 border-slate-200 dark:border-slate-800', label: 'Delivered' },
+    SOLD: { color: 'bg-red-500/10 text-red-600 border-red-200 dark:border-red-800', label: 'Sold' },
+    RESERVED: { color: 'bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-800', label: 'Reserved' },
 };
 
 function formatCurrency(amount: number | null, currency: string = 'JPY'): string {
@@ -147,6 +152,39 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
     useEffect(() => {
         fetchVehicle();
     }, [fetchVehicle]);
+
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const downloadAllImages = async () => {
+        if (!vehicle?.photos?.length) return;
+        setIsDownloading(true);
+        const zip = new JSZip();
+
+        try {
+            const fetchPromises = vehicle.photos.map(async (photo, index) => {
+                const response = await fetch(photo.url);
+                const blob = await response.blob();
+                const extension = photo.url.split('.').pop()?.split(/[?#]/)[0] || 'jpg';
+                const filename = `vehicle-${vehicle.stockNumber}-${index + 1}.${extension}`;
+                zip.file(filename, blob);
+            });
+
+            await Promise.all(fetchPromises);
+            const content = await zip.generateAsync({ type: 'blob' });
+
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = `${vehicle.stockNumber}-pictures.zip`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            console.error('Download failed:', error);
+            toast({ title: 'Download Failed', variant: 'destructive' });
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     const updateVehicle = async (data: any) => {
         setUpdating(true);
@@ -279,6 +317,8 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                                         <SelectItem value="READY_TO_SHIP">Ready to Ship</SelectItem>
                                         <SelectItem value="SHIPPED">Shipped</SelectItem>
                                         <SelectItem value="DELIVERED">Delivered</SelectItem>
+                                        <SelectItem value="SOLD">Sold</SelectItem>
+                                        <SelectItem value="RESERVED">Reserved</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -317,8 +357,19 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                                                 Photos Pending
                                             </div>
                                         )}
-                                        <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md text-white px-3 py-1 rounded-full text-sm font-medium">
-                                            {vehicle.photos?.length || 0} Photos
+                                        <div className="absolute bottom-4 right-4 flex gap-2">
+                                            <Button
+                                                size="sm"
+                                                onClick={downloadAllImages}
+                                                disabled={isDownloading || !vehicle.photos?.length}
+                                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-8"
+                                            >
+                                                {isDownloading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+                                                Download All
+                                            </Button>
+                                            <div className="bg-black/60 backdrop-blur-md text-white px-3 py-1 rounded-full text-sm font-medium flex items-center">
+                                                {vehicle.photos?.length || 0} Photos
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="p-4 grid grid-cols-4 sm:grid-cols-5 gap-2">

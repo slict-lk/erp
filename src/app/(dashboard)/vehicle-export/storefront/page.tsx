@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Save, Upload, Plus, Trash2, Image as ImageIcon, Globe, Layout, Palette, Wrench, Eye, Monitor, Smartphone, Moon, Sun, Check } from 'lucide-react';
+import { Save, Upload, Plus, Trash2, Image as ImageIcon, Globe, Layout, Palette, Wrench, Eye, Monitor, Smartphone, Moon, Sun, Check, MessageCircle } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -171,6 +171,14 @@ export default function StorefrontManagerPage() {
                         newSlides[index].imageUrl = data.url;
                         setValue('heroSlides', newSlides, { shouldDirty: true });
                     }
+                } else if (fieldName === 'banner') {
+                    const newBanners = [...(watch('promoBanners') || [])];
+                    // Ensure entry exists
+                    if (newBanners.length === 0) {
+                        newBanners.push({ id: Date.now().toString(), title: 'Promo', imageUrl: '' });
+                    }
+                    newBanners[0].imageUrl = data.url;
+                    setValue('promoBanners', newBanners, { shouldDirty: true });
                 }
                 toast({ title: 'Upload Complete' });
             }
@@ -375,6 +383,90 @@ export default function StorefrontManagerPage() {
                                             </div>
                                         </div>
                                     </div>
+                                    {/* Promotional Banner Section */}
+                                    <div className="space-y-4 pt-6 border-t border-gray-100">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-lg font-semibold">Promotional Banner</h3>
+                                                <p className="text-sm text-gray-500">Add a banner below the hero section</p>
+                                            </div>
+                                            <Switch
+                                                checked={!!watch('promoBanners')?.[0]?.imageUrl}
+                                                onCheckedChange={(checked) => {
+                                                    const current = watch('promoBanners') || [];
+                                                    if (!checked) {
+                                                        setValue('promoBanners', []);
+                                                    } else if (current.length === 0) {
+                                                        setValue('promoBanners', [{ id: Date.now().toString(), title: '', imageUrl: '' }]);
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+
+                                        {(watch('promoBanners') || []).length > 0 && (
+                                            <Card className="p-4 border-dashed">
+                                                <div className="space-y-4">
+                                                    {/* Image Upload */}
+                                                    <div className="aspect-[21/5] relative bg-gray-50 rounded-lg overflow-hidden border-2 border-dashed border-gray-200 hover:border-indigo-500 transition-colors group">
+                                                        {watch('promoBanners')?.[0]?.imageUrl ? (
+                                                            <>
+                                                                <Image
+                                                                    src={watch('promoBanners')[0].imageUrl}
+                                                                    alt="Banner"
+                                                                    fill
+                                                                    className="object-cover"
+                                                                />
+                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                                                    <Label htmlFor="banner-upload" className="cursor-pointer p-2 bg-white rounded-full hover:bg-gray-100">
+                                                                        <Upload className="w-4 h-4" />
+                                                                    </Label>
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="destructive"
+                                                                        size="icon"
+                                                                        className="rounded-full h-8 w-8"
+                                                                        onClick={() => setValue('promoBanners', [])}
+                                                                    >
+                                                                        <Trash2 className="w-4 h-4" />
+                                                                    </Button>
+                                                                </div>
+                                                            </>
+                                                        ) : (
+                                                            <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+                                                                <ImageIcon className="w-8 h-8 mb-2" />
+                                                                <span className="text-sm font-medium">Upload Banner Image</span>
+                                                                <span className="text-xs text-gray-400 mt-1">Rec: 1400x350px</span>
+                                                                <Label htmlFor="banner-upload" className="absolute inset-0 cursor-pointer" />
+                                                            </div>
+                                                        )}
+                                                        <Input
+                                                            id="banner-upload"
+                                                            type="file"
+                                                            className="hidden"
+                                                            accept="image/*"
+                                                            onChange={(e) => handleFileUpload(e, 'banner')}
+                                                        />
+                                                    </div>
+
+                                                    {/* Link URL */}
+                                                    <div className="space-y-2">
+                                                        <Label>Banner Link (Optional)</Label>
+                                                        <Input
+                                                            placeholder="https://... or /inventory"
+                                                            value={watch('promoBanners')?.[0]?.link || ''}
+                                                            onChange={(e) => {
+                                                                const newBanners = [...(watch('promoBanners') || [])];
+                                                                if (newBanners[0]) {
+                                                                    newBanners[0].link = e.target.value;
+                                                                    setValue('promoBanners', newBanners, { shouldDirty: true });
+                                                                }
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </Card>
+                                        )}
+                                    </div>
                                 </FadeIn>
                             </TabsContent>
 
@@ -552,6 +644,20 @@ export default function StorefrontManagerPage() {
                                 <div className="h-2 w-1/3 bg-gray-200 dark:bg-gray-800 rounded opacity-50" />
                             </div>
                         ))}
+                    </div>
+
+                    {/* Simulated WhatsApp Button */}
+                    <div className="absolute bottom-6 right-6 z-20">
+                        <div
+                            className="bg-[#25D366] text-white p-3 rounded-full shadow-lg flex items-center gap-2 cursor-default"
+                        >
+                            <MessageCircle size={20} fill="white" />
+                        </div>
+                        {watch('whatsappNumber') && (
+                            <div className="absolute -top-10 right-0 bg-white dark:bg-gray-800 px-3 py-1 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 text-[10px] whitespace-nowrap animate-bounce">
+                                Linked: {watch('whatsappNumber')}
+                            </div>
+                        )}
                     </div>
 
                 </div>

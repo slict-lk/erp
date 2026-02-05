@@ -63,7 +63,7 @@ export async function POST(
                 stockNumber: quote.vehicle.stockNumber
             },
             quoteLink
-        });
+        }, user.tenantId);
 
         // 4. Update Status to QUOTED
         await prisma.exportQuoteRequest.update({

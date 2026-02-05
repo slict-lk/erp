@@ -3732,6 +3732,8 @@ enum ExportStatus {
   READY_TO_SHIP
   SHIPPED
   DELIVERED
+  SOLD
+  RESERVED
 }
 
 enum DocStatus {
@@ -3800,7 +3802,7 @@ model ExportVehicle {
   
   // -- Identity --
   stockNumber     String       @unique
-  chassisNumber   String       @unique
+  chassisNumber   String?      @unique
   make            String
   model           String
   year            Int

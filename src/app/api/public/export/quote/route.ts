@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
             country: { name: port.country.name },
             port: { name: port.name },
             totalCIF: cif ? cif.toNumber() : null
-        });
+        }, tenant.id);
 
         return NextResponse.json({ success: true, quoteId: quote.id });
 

@@ -287,6 +287,21 @@ export default function InventoryPage() {
                                                             <Package className="h-12 w-12 opacity-20" />
                                                         </div>
                                                     )}
+
+                                                    {/* Status Watermark */}
+                                                    {(vehicle.status === 'SOLD' || vehicle.status === 'RESERVED' || vehicle.status === 'HOLD') && (
+                                                        <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                                                            <div className={cn(
+                                                                "transform -rotate-12 px-6 py-2 border-4 text-xl font-black uppercase tracking-widest opacity-90 backdrop-blur-sm shadow-xl",
+                                                                vehicle.status === 'SOLD'
+                                                                    ? "border-red-600/80 text-red-600 bg-red-100/80"
+                                                                    : "border-orange-500/80 text-orange-500 bg-orange-100/80"
+                                                            )}>
+                                                                {vehicle.status}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
                                                     <div className="absolute top-3 right-3 flex gap-2">
                                                         <Badge variant="secondary" className={cn("backdrop-blur-md shadow-sm border", STATUS_STYLES[vehicle.status])}>
                                                             {STATUS_LABELS[vehicle.status] || vehicle.status}
