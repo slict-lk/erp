@@ -171,6 +171,12 @@ export default function StorefrontManagerPage() {
 
         try {
             const res = await fetch('/api/upload', { method: 'POST', body: formData });
+
+            if (!res.ok) {
+                const errorText = await res.text();
+                throw new Error(`Server Error: ${res.status} ${res.statusText} - ${errorText.substring(0, 50)}`);
+            }
+
             const data = await res.json();
 
             if (data.success) {
@@ -192,9 +198,16 @@ export default function StorefrontManagerPage() {
                     setValue('promoBanners', newBanners, { shouldDirty: true });
                 }
                 toast.success('Upload Complete', { id: toastId });
+            } else {
+                throw new Error(data.error || 'Upload failed');
             }
-        } catch (error) {
-            toast.error('Upload Failed', { id: toastId });
+        } catch (error: any) {
+            console.error('Upload Error:', error);
+            toast.error('Upload Failed', {
+                id: toastId,
+                description: error.message || 'Something went wrong',
+                duration: 5000
+            });
         }
     };
 

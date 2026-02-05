@@ -66,30 +66,57 @@ export default function AuctionEntryPage() {
         photos: [] as string[],
     });
 
+    const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files?.length) return;
-        const file = e.target.files[0];
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('field', 'vehicle-photo');
 
-        try {
-            const res = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData,
-            });
-            const data = await res.json();
-            if (data.success) {
-                setForm(prev => ({
-                    ...prev,
-                    photos: [...prev.photos, data.url]
-                }));
-            } else {
-                toast({ title: 'Upload Failed', description: data.error, variant: 'destructive' });
+        const files = Array.from(e.target.files);
+        const total = files.length;
+        let uploadedCount = 0;
+        const newPhotos: string[] = [];
+
+        // Notification for start
+        toast({ title: 'Uploading...', description: `Starting upload of ${total} photo(s).` });
+
+        for (let i = 0; i < total; i++) {
+            const file = files[i];
+
+            // Force status update
+            setUploadStatus(`Uploading ${i + 1}/${total}...`);
+            await new Promise(resolve => setTimeout(resolve, 100)); // Small delay to let UI render
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('field', 'vehicle-photo');
+
+            try {
+                const res = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData,
+                });
+                const data = await res.json();
+                if (data.success) {
+                    newPhotos.push(data.url);
+                    uploadedCount++;
+                } else {
+                    toast({ title: 'Upload Failed', description: `Could not upload ${file.name}`, variant: 'destructive' });
+                }
+            } catch (error) {
+                toast({ title: 'Error', description: `Failed to upload ${file.name}`, variant: 'destructive' });
             }
-        } catch (error) {
-            toast({ title: 'Error', description: 'Upload failed', variant: 'destructive' });
         }
+
+        if (newPhotos.length > 0) {
+            setForm(prev => ({
+                ...prev,
+                photos: [...prev.photos, ...newPhotos]
+            }));
+            toast({ title: 'Upload Complete', description: `Added ${uploadedCount} photos.` });
+        }
+
+        setUploadStatus(null);
+        e.target.value = '';
     };
 
     useEffect(() => {
@@ -453,7 +480,7 @@ export default function AuctionEntryPage() {
                                             <label className="flex flex-col items-center justify-center aspect-video border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                                                 <Upload className="h-6 w-6 text-gray-400" />
                                                 <span className="text-xs text-gray-500 mt-2">Upload Photo</span>
-                                                <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+                                                <input type="file" className="hidden" accept="image/*" multiple onChange={handleFileUpload} />
                                             </label>
                                         </div>
 

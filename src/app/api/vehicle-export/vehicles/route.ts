@@ -66,6 +66,19 @@ export async function POST(request: NextRequest) {
         const tenantId = session.user.tenantId;
         const body = await request.json();
 
+        // Check for duplicate chassis number ONLY if provided
+        const chassisNumber = body.chassisNumber?.trim() || null;
+
+        if (chassisNumber) {
+            const existingVehicle = await prisma.exportVehicle.findUnique({
+                where: { chassisNumber },
+            });
+
+            if (existingVehicle) {
+                return NextResponse.json({ error: `Vehicle with Chassis Number ${chassisNumber} already exists in inventory (Stock #${existingVehicle.stockNumber}).` }, { status: 409 });
+            }
+        }
+
         // Generate stock number
         const year = new Date().getFullYear();
         const prefix = `SL-${year}-`;
@@ -87,7 +100,7 @@ export async function POST(request: NextRequest) {
             data: {
                 tenantId,
                 stockNumber,
-                chassisNumber: body.chassisNumber,
+                chassisNumber, // Use the processed null/string value
                 make: body.make,
                 model: body.model,
                 year: body.year,
@@ -130,8 +143,13 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json({ vehicle }, { status: 201 });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Vehicle create error:', error);
+
+        if (error.code === 'P2002' && error.meta?.target?.includes('chassisNumber')) {
+            return NextResponse.json({ error: 'A vehicle with this Chassis Number already exists.' }, { status: 409 });
+        }
+
         return NextResponse.json({ error: 'Failed to create vehicle' }, { status: 500 });
     }
 }

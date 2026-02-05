@@ -133,6 +133,10 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
     const [vehicle, setVehicle] = useState<Vehicle | null>(null);
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState(false);
+    const [generatingInvoice, setGeneratingInvoice] = useState(false);
+    const [availableShipments, setAvailableShipments] = useState([]);
+    const [assigningShipment, setAssigningShipment] = useState(false);
+    const [dispatchingDocs, setDispatchingDocs] = useState(false);
     const { toast } = useToast();
 
     const fetchVehicle = useCallback(async () => {
@@ -209,6 +213,90 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
     };
 
     const updateStatus = (status: string) => updateVehicle({ status });
+
+    const handleGenerateInvoice = async () => {
+        setGeneratingInvoice(true);
+        try {
+            const res = await fetch(`/api/vehicle-export/vehicles/${id}/invoice`);
+            const data = await res.json();
+
+            if (res.ok) {
+                toast({ title: 'Invoice Generated', description: `Invoice #${data.invoiceNumber} created.` });
+                fetchVehicle(); // Refresh data to show invoice
+            } else {
+                toast({ title: 'Generation Failed', description: data.error, variant: 'destructive' });
+            }
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to generate invoice', variant: 'destructive' });
+        } finally {
+            setGeneratingInvoice(false);
+        }
+    };
+
+    const fetchShipments = async () => {
+        try {
+            const res = await fetch('/api/vehicle-export/shipments?status=BOOKED');
+            const data = await res.json();
+            if (data.shipments) {
+                setAvailableShipments(data.shipments);
+            }
+        } catch (error) {
+            console.error('Failed to fetch shipments', error);
+        }
+    };
+
+    const handleAssignShipment = async (shipmentId: string) => {
+        setAssigningShipment(true);
+        try {
+            const res = await fetch('/api/vehicle-export/shipments', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'assign',
+                    shipmentId,
+                    vehicleIds: [id]
+                })
+            });
+
+            if (res.ok) {
+                toast({ title: 'Assigned to Shipment', description: 'Vehicle has been added to the manifest.' });
+                await fetchVehicle();
+            } else {
+                const error = await res.json();
+                toast({ title: 'Assignment Failed', description: error.error, variant: 'destructive' });
+            }
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to assign shipment', variant: 'destructive' });
+        } finally {
+            setAssigningShipment(false);
+        }
+    };
+
+    const handleDispatchDocuments = async (data: any) => {
+        setDispatchingDocs(true);
+        try {
+            const res = await fetch('/api/vehicle-export/documents', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    vehicleId: id,
+                    ...data
+                })
+            });
+
+            if (res.ok) {
+                toast({ title: 'Documents Dispatched', description: 'Tracking information saved.' });
+                await fetchVehicle();
+            } else {
+                const error = await res.json();
+                toast({ title: 'Dispatch Failed', description: error.error, variant: 'destructive' });
+            }
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to dispatch documents', variant: 'destructive' });
+        } finally {
+            setDispatchingDocs(false);
+        }
+    };
 
     const handleDetailPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files?.length) return;
@@ -464,7 +552,14 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                                                         <p className="text-xs text-emerald-600/70 font-mono mt-1">#{vehicle.invoice.invoiceNumber}</p>
                                                     </div>
                                                 ) : (
-                                                    <Button size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">Generate Invoice</Button>
+                                                    <Button
+                                                        size="sm"
+                                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                        onClick={handleGenerateInvoice}
+                                                        disabled={generatingInvoice}
+                                                    >
+                                                        {generatingInvoice ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Generate Invoice'}
+                                                    </Button>
                                                 )}
                                             </div>
                                         </div>
@@ -509,7 +604,12 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                                         <div className="text-center py-10">
                                             <Ship className="h-10 w-10 text-gray-300 mx-auto mb-3" />
                                             <p className="text-gray-500 mb-4">No shipment assigned</p>
-                                            <Button>Assign to Shipment</Button>
+                                            <AssignShipmentDialog
+                                                shipments={availableShipments}
+                                                onOpen={fetchShipments}
+                                                onAssign={handleAssignShipment}
+                                                loading={assigningShipment}
+                                            />
                                         </div>
                                     )}
                                 </MotionCard>
@@ -583,7 +683,11 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                                         <div className="text-center py-10">
                                             <ClipboardCheck className="h-10 w-10 text-gray-300 mx-auto mb-3" />
                                             <p className="text-gray-500 mb-4">No documents uploaded</p>
-                                            <Button>Upload Documents</Button>
+                                            <DocumentDispatchDialog
+                                                invoiceStatus={vehicle.invoice?.status}
+                                                onDispatch={handleDispatchDocuments}
+                                                loading={dispatchingDocs}
+                                            />
                                         </div>
                                     )}
                                 </MotionCard>
@@ -716,6 +820,131 @@ function EditFinancialsDialog({ vehicle, onUpdate }: { vehicle: Vehicle, onUpdat
                 </div>
                 <DialogFooter>
                     <Button type="submit" onClick={handleSubmit}>Save Changes</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function AssignShipmentDialog({ shipments, onOpen, onAssign, loading }: { shipments: any[], onOpen: () => void, onAssign: (id: string) => Promise<void>, loading: boolean }) {
+    const [open, setOpen] = useState(false);
+    const [selectedId, setSelectedId] = useState<string>('');
+
+    return (
+        <Dialog open={open} onOpenChange={(v) => {
+            setOpen(v);
+            if (v) onOpen();
+        }}>
+            <DialogTrigger asChild>
+                <Button>Assign to Shipment</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>Select Shipment</DialogTitle>
+                    <DialogDescription>
+                        Choose an upcoming shipment for this vehicle. Only "Booked" shipments are shown.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <Select value={selectedId} onValueChange={setSelectedId}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select a vessel..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {shipments.length === 0 ? (
+                                <div className="p-2 text-sm text-gray-500 text-center">No active shipments found</div>
+                            ) : (
+                                shipments.map((s: any) => (
+                                    <SelectItem key={s.id} value={s.id}>
+                                        {s.vesselName} ({s.shipmentNumber}) - {new Date(s.etd).toLocaleDateString()}
+                                    </SelectItem>
+                                ))
+                            )}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <DialogFooter>
+                    <Button onClick={async () => {
+                        if (selectedId) {
+                            await onAssign(selectedId);
+                            setOpen(false);
+                        }
+                    }} disabled={!selectedId || loading}>
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Assign Vehicle'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function DocumentDispatchDialog({ invoiceStatus, onDispatch, loading }: { invoiceStatus?: string, onDispatch: (data: any) => Promise<void>, loading: boolean }) {
+    const [open, setOpen] = useState(false);
+    const [formData, setFormData] = useState({
+        courierName: 'DHL',
+        trackingNumber: '',
+    });
+
+    const isPaid = invoiceStatus === 'PAID';
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button>Dispatch Documents</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>Dispatch Documents</DialogTitle>
+                    <DialogDescription>
+                        Enter courier details to dispatch documents to the customer.
+                    </DialogDescription>
+                </DialogHeader>
+
+                {!isPaid && (
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg flex gap-3 items-start">
+                        <Info className="h-5 w-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm text-yellow-700 dark:text-yellow-300">
+                            <p className="font-bold">Warning: Invoice Unpaid</p>
+                            <p>The customer has not yet paid for this vehicle. Dispatching documents now is not recommended.</p>
+                        </div>
+                    </div>
+                )}
+
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="courier" className="text-right">Courier</Label>
+                        <Select value={formData.courierName} onValueChange={(v) => setFormData({ ...formData, courierName: v })}>
+                            <SelectTrigger className="col-span-3">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="DHL">DHL</SelectItem>
+                                <SelectItem value="FedEx">FedEx</SelectItem>
+                                <SelectItem value="UPS">UPS</SelectItem>
+                                <SelectItem value="EMS">EMS</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="tracking" className="text-right">Tracking #</Label>
+                        <Input
+                            id="tracking"
+                            value={formData.trackingNumber}
+                            onChange={(e) => setFormData({ ...formData, trackingNumber: e.target.value })}
+                            className="col-span-3"
+                            placeholder="e.g. 1234567890"
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button onClick={async () => {
+                        if (formData.trackingNumber) {
+                            await onDispatch(formData);
+                            setOpen(false);
+                        }
+                    }} disabled={!formData.trackingNumber || loading}>
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirm Dispatch'}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
