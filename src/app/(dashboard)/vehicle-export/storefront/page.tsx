@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Save, Upload, Plus, Trash2, Image as ImageIcon, Globe, Layout, Palette, Wrench, Eye, Monitor, Smartphone, Moon, Sun, Check, MessageCircle } from 'lucide-react';
 import Image from 'next/image';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
+import confetti from 'canvas-confetti';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -96,7 +97,6 @@ export default function StorefrontManagerPage() {
     const [config, setConfig] = useState<ExportStoreConfig | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const { toast } = useToast();
     const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
 
     const { register, handleSubmit, setValue, watch, reset } = useForm<ExportStoreConfig>();
@@ -117,7 +117,7 @@ export default function StorefrontManagerPage() {
                 reset(data);
             }
         } catch (error) {
-            toast({ title: 'Error', description: 'Failed to load config', variant: 'destructive' });
+            toast.error('Error', { description: 'Failed to load config' });
         } finally {
             setLoading(false);
         }
@@ -133,16 +133,27 @@ export default function StorefrontManagerPage() {
             });
 
             if (res.ok) {
-                toast({
-                    title: 'Published Successfully',
-                    description: 'Your storefront changes are now live.',
+                // Trigger Confetti
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 }
                 });
+
+                toast.success('Storefront Published Successfully!', {
+                    description: 'Your changes are now live on your vehicle export site.',
+                    duration: 5000,
+                    icon: '🚀'
+                });
+
                 fetchConfig();
             } else {
                 throw new Error('Failed to update');
             }
         } catch (error) {
-            toast({ title: 'Error', description: 'Could not save changes', variant: 'destructive' });
+            toast.error('Publication Failed', {
+                description: 'Could not save changes. Please try again.',
+            });
         } finally {
             setSaving(false);
         }
@@ -156,7 +167,7 @@ export default function StorefrontManagerPage() {
         formData.append('file', file);
         formData.append('folder', 'vehicle-export');
 
-        const toastId = toast({ title: 'Uploading...', description: 'Please wait' });
+        const toastId = toast.loading('Uploading...', { description: 'Please wait' });
 
         try {
             const res = await fetch('/api/upload', { method: 'POST', body: formData });
@@ -180,10 +191,10 @@ export default function StorefrontManagerPage() {
                     newBanners[0].imageUrl = data.url;
                     setValue('promoBanners', newBanners, { shouldDirty: true });
                 }
-                toast({ title: 'Upload Complete' });
+                toast.success('Upload Complete', { id: toastId });
             }
         } catch (error) {
-            toast({ title: 'Upload Failed', variant: 'destructive' });
+            toast.error('Upload Failed', { id: toastId });
         }
     };
 
@@ -290,6 +301,7 @@ export default function StorefrontManagerPage() {
                                                 <h3 className="font-semibold text-lg">Hero Carousel</h3>
                                                 <Button size="sm" variant="outline" onClick={addSlide}><Plus className="h-4 w-4 mr-2" />Add Slide</Button>
                                             </div>
+                                            <p className="text-xs text-gray-400 -mt-4">Suggested size: 1920x820px (Landscape 21:9)</p>
 
                                             <AnimatePresence>
                                                 {(watch('heroSlides') || []).map((slide, index) => (
@@ -307,11 +319,11 @@ export default function StorefrontManagerPage() {
                                                         </div>
 
                                                         <div className="flex gap-4">
-                                                            <div className="w-40 h-24 bg-gray-200 dark:bg-gray-700 rounded-lg relative overflow-hidden shrink-0">
+                                                            <div className="w-48 aspect-[21/9] bg-gray-200 dark:bg-gray-700 rounded-lg relative overflow-hidden shrink-0 border border-gray-100 dark:border-gray-800">
                                                                 {slide.imageUrl && <Image src={slide.imageUrl} alt="Slide" fill className="object-cover" />}
                                                                 <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={(e) => handleFileUpload(e, 'hero', index)} />
                                                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                                    <ImageIcon className="text-gray-400" />
+                                                                    <ImageIcon className="text-gray-400 w-5 h-5" />
                                                                 </div>
                                                             </div>
                                                             <div className="flex-1 space-y-3">
@@ -388,7 +400,7 @@ export default function StorefrontManagerPage() {
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <h3 className="text-lg font-semibold">Promotional Banner</h3>
-                                                <p className="text-sm text-gray-500">Add a banner below the hero section</p>
+                                                <p className="text-sm text-gray-500">Wide banner displayed below the hero section. Suggested: 1400x250px</p>
                                             </div>
                                             <Switch
                                                 checked={!!watch('promoBanners')?.[0]?.imageUrl}
