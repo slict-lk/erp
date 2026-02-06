@@ -74,6 +74,7 @@ interface HeroSlide {
     title: string;
     subtitle?: string;
     imageUrl: string;
+    mobileImageUrl?: string;
     link?: string;
 }
 
@@ -186,6 +187,12 @@ export default function StorefrontManagerPage() {
                     const newSlides = [...(watch('heroSlides') || [])];
                     if (index !== undefined && newSlides[index]) {
                         newSlides[index].imageUrl = data.url;
+                        setValue('heroSlides', newSlides, { shouldDirty: true });
+                    }
+                } else if (fieldName === 'hero-mobile') {
+                    const newSlides = [...(watch('heroSlides') || [])];
+                    if (index !== undefined && newSlides[index]) {
+                        newSlides[index].mobileImageUrl = data.url;
                         setValue('heroSlides', newSlides, { shouldDirty: true });
                     }
                 } else if (fieldName === 'banner') {
@@ -332,11 +339,24 @@ export default function StorefrontManagerPage() {
                                                         </div>
 
                                                         <div className="flex gap-4">
-                                                            <div className="w-48 aspect-[21/9] bg-gray-200 dark:bg-gray-700 rounded-lg relative overflow-hidden shrink-0 border border-gray-100 dark:border-gray-800">
-                                                                {slide.imageUrl && <Image src={slide.imageUrl} alt="Slide" fill className="object-cover" />}
-                                                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={(e) => handleFileUpload(e, 'hero', index)} />
-                                                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                                    <ImageIcon className="text-gray-400 w-5 h-5" />
+                                                            <div className="flex flex-col gap-2">
+                                                                {/* Desktop Image */}
+                                                                <div className="w-48 aspect-[21/9] bg-gray-200 dark:bg-gray-700 rounded-lg relative overflow-hidden shrink-0 border border-gray-100 dark:border-gray-800">
+                                                                    {slide.imageUrl && <Image src={slide.imageUrl} alt="Slide" fill className="object-cover" />}
+                                                                    <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={(e) => handleFileUpload(e, 'hero', index)} />
+                                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                                        <ImageIcon className="text-gray-400 w-5 h-5" />
+                                                                    </div>
+                                                                    <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded">Desktop</div>
+                                                                </div>
+                                                                {/* Mobile Image */}
+                                                                <div className="w-48 aspect-[4/5] bg-gray-200 dark:bg-gray-700 rounded-lg relative overflow-hidden shrink-0 border border-gray-100 dark:border-gray-800">
+                                                                    {slide.mobileImageUrl && <Image src={slide.mobileImageUrl} alt="Mobile Slide" fill className="object-cover" />}
+                                                                    <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={(e) => handleFileUpload(e, 'hero-mobile', index)} />
+                                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                                        <Smartphone className="text-gray-400 w-5 h-5" />
+                                                                    </div>
+                                                                    <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded">Mobile</div>
                                                                 </div>
                                                             </div>
                                                             <div className="flex-1 space-y-3">
