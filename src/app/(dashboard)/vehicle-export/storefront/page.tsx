@@ -321,7 +321,7 @@ export default function StorefrontManagerPage() {
                                                 <h3 className="font-semibold text-lg">Hero Carousel</h3>
                                                 <Button size="sm" variant="outline" onClick={addSlide}><Plus className="h-4 w-4 mr-2" />Add Slide</Button>
                                             </div>
-                                            <p className="text-xs text-gray-400 -mt-4">Suggested size: 1920x820px (Landscape 21:9)</p>
+                                            <p className="text-xs text-gray-400 -mt-4">Desktop: 1920×820px (21:9) · Mobile: 800×1000px (4:5 Portrait)</p>
 
                                             <AnimatePresence>
                                                 {(watch('heroSlides') || []).map((slide, index) => (
@@ -332,36 +332,41 @@ export default function StorefrontManagerPage() {
                                                         exit={{ opacity: 0, height: 0 }}
                                                         className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 relative group"
                                                     >
-                                                        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => removeSlide(index)}>
-                                                                <Trash2 className="h-4 w-4" />
+                                                        <div className="absolute top-2 right-2 sm:top-4 sm:right-4 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                                            <Button size="icon" variant="destructive" className="h-7 w-7 sm:h-8 sm:w-8" onClick={() => removeSlide(index)}>
+                                                                <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                                                             </Button>
                                                         </div>
 
-                                                        <div className="flex gap-4">
-                                                            <div className="flex flex-col gap-2">
+                                                        {/* Mobile-first layout: Text first, then images */}
+                                                        <div className="flex flex-col gap-4">
+                                                            {/* Text inputs - full width on mobile, side on desktop */}
+                                                            <div className="space-y-2 sm:space-y-3">
+                                                                <Input {...register(`heroSlides.${index}.title` as const)} placeholder="Headline Text" className="font-bold text-sm sm:text-base" />
+                                                                <Input {...register(`heroSlides.${index}.subtitle` as const)} placeholder="Subtext (Optional)" className="text-sm sm:text-base" />
+                                                            </div>
+
+                                                            {/* Images - side by side on mobile, row on desktop */}
+                                                            <div className="flex gap-2 sm:gap-3">
                                                                 {/* Desktop Image */}
-                                                                <div className="w-48 aspect-[21/9] bg-gray-200 dark:bg-gray-700 rounded-lg relative overflow-hidden shrink-0 border border-gray-100 dark:border-gray-800">
+                                                                <div className="flex-1 sm:flex-none sm:w-40 aspect-[21/9] bg-gray-200 dark:bg-gray-700 rounded-lg relative overflow-hidden border border-gray-100 dark:border-gray-800 border-dashed hover:border-primary/50 transition-colors">
                                                                     {slide.imageUrl && <Image src={slide.imageUrl} alt="Slide" fill className="object-cover" />}
-                                                                    <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={(e) => handleFileUpload(e, 'hero', index)} />
-                                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                                        <ImageIcon className="text-gray-400 w-5 h-5" />
+                                                                    <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={(e) => handleFileUpload(e, 'hero', index)} />
+                                                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-1">
+                                                                        <ImageIcon className="text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
+                                                                        {!slide.imageUrl && <span className="text-[10px] text-gray-400 hidden sm:block">Click to upload</span>}
                                                                     </div>
-                                                                    <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded">Desktop</div>
+                                                                    <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.5 rounded">Desktop</div>
                                                                 </div>
                                                                 {/* Mobile Image */}
-                                                                <div className="w-48 aspect-[4/5] bg-gray-200 dark:bg-gray-700 rounded-lg relative overflow-hidden shrink-0 border border-gray-100 dark:border-gray-800">
+                                                                <div className="w-16 sm:w-20 aspect-[4/5] bg-gray-200 dark:bg-gray-700 rounded-lg relative overflow-hidden border border-gray-100 dark:border-gray-800 border-dashed hover:border-primary/50 transition-colors">
                                                                     {slide.mobileImageUrl && <Image src={slide.mobileImageUrl} alt="Mobile Slide" fill className="object-cover" />}
-                                                                    <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={(e) => handleFileUpload(e, 'hero-mobile', index)} />
-                                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                                        <Smartphone className="text-gray-400 w-5 h-5" />
+                                                                    <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={(e) => handleFileUpload(e, 'hero-mobile', index)} />
+                                                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-1">
+                                                                        <Smartphone className="text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
                                                                     </div>
-                                                                    <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded">Mobile</div>
+                                                                    <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.5 rounded">Mobile</div>
                                                                 </div>
-                                                            </div>
-                                                            <div className="flex-1 space-y-3">
-                                                                <Input {...register(`heroSlides.${index}.title` as const)} placeholder="Headline Text" className="font-bold" />
-                                                                <Input {...register(`heroSlides.${index}.subtitle` as const)} placeholder="Subtext (Optional)" />
                                                             </div>
                                                         </div>
                                                     </motion.div>
