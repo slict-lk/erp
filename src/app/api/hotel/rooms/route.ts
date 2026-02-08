@@ -19,9 +19,16 @@ export async function GET(request: NextRequest) {
       where: {
         tenantId,
         ...(status && { status: status as any }),
-        ...(roomType && { roomType: roomType as any }),
+        // Support searching by string type or ID
+        ...(roomType && {
+          OR: [
+            { roomType: roomType },
+            { type: { name: roomType } }
+          ]
+        }),
       },
       include: {
+        type: true, // Include the RoomType details
         bookings: {
           where: {
             checkIn: { gte: new Date() },
@@ -43,21 +50,49 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { tenantId, roomNumber, roomType, floor, bedType, maxOccupancy, amenities, basePrice, description, images } = body;
+    const {
+      tenantId, roomNumber,
+      roomTypeId, // New Relation
+      roomType, floor, bedType, maxOccupancy, amenities, basePrice, description, images
+    } = body;
 
-    if (!tenantId || !roomNumber || !roomType || !basePrice) {
-      return NextResponse.json({ error: 'Required fields missing' }, { status: 400 });
+    // Validate
+    if (!tenantId || !roomNumber) {
+      return NextResponse.json({ error: 'Tenant ID and Room Number are required' }, { status: 400 });
+    }
+
+    // Logic: If roomTypeId is provided, link it. 
+    // If not, use legacy fields (but we encourage using Types now)
+
+    // We can fetch the type to fill in legacy fields if they are missing
+    let legacyData = { roomType, width: 0 };
+    if (roomTypeId && !roomType) {
+      const type = await prisma.roomType.findUnique({ where: { id: roomTypeId } });
+      if (type) {
+        legacyData.roomType = type.name;
+      }
     }
 
     const room = await prisma.hotelRoom.create({
       data: {
-        tenantId, roomNumber, roomType, floor: floor || 1,
-        bedType: bedType || 'Queen', maxOccupancy: maxOccupancy || 2,
-        amenities: amenities || [], basePrice,
-        description,
-        images: images || [],
+        tenantId,
+        roomNumber,
+        roomTypeId,
+        floor: floor || 1,
         status: 'AVAILABLE',
+
+        // Legacy / Fallback fields
+        roomType: legacyData.roomType || roomType || 'Standard',
+        basePrice: basePrice || 0, // Should come from Type ideally
+        maxOccupancy: maxOccupancy || 2,
+        amenities: amenities || [],
+        description: description,
+        images: images || [],
+        bedType: bedType || 'Queen',
       },
+      include: {
+        type: true
+      }
     });
 
     return NextResponse.json(room, { status: 201 });

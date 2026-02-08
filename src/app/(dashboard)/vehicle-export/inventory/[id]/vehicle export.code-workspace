@@ -7,5 +7,7 @@
 			"path": "../../../../../../../../vehicle-frontend"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "hotel"
+	}
 }

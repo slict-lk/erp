@@ -1958,18 +1958,46 @@ model RestaurantTable {
   @@index([tenantId])
 }
 
+model RoomType {
+  id            String      @id @default(cuid())
+  name          String
+  description   String?     @db.Text
+  basePrice     Float
+  maxOccupancy  Int         @default(2)
+  amenities     String[]    @default([])
+  images        String[]    @default([])
+  bedType       String?
+  sizeSqM       Float?
+  
+  tenantId      String
+  rooms         HotelRoom[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([name, tenantId])
+  @@index([tenantId])
+}
+
 model HotelRoom {
   id                  String               @id @default(cuid())
   roomNumber          String
-  roomType            String
+  
+  // Relation to Type (Configuration)
+  roomTypeId          String?
+  type                RoomType?            @relation(fields: [roomTypeId], references: [id], onDelete: SetNull)
+
+  // DEPRECATED FIELDS (Kept to prevent data loss)
+  roomType            String?              // Legacy string
+  basePrice           Float?               // Moved to RoomType
+  maxOccupancy        Int                  @default(2) // Moved to RoomType
+  amenities           String[]             @default([]) // Moved to RoomType
+  images              String[]             @default([]) // Moved to RoomType
+  description         String?              @db.Text     // Moved to RoomType
+  bedType             String?              // Moved to RoomType
+  
   floor               Int?
-  bedType             String?
-  maxOccupancy        Int                  @default(2)
-  amenities           String[]             @default([])
-  basePrice           Float
   status              RoomStatus           @default(AVAILABLE)
-  description         String?              @db.Text
-  images              String[]             @default([])
+  
   tenantId            String
   branchId            String?
   branch              HotelBranch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
@@ -1986,7 +2014,7 @@ model HotelRoom {
 
   @@unique([roomNumber, tenantId])
   @@index([status])
-  @@index([roomType])
+  @@index([roomTypeId])
   @@index([tenantId])
   @@index([branchId])
   @@index([housekeepingStatus])
