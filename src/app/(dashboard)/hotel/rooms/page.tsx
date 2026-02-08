@@ -2,31 +2,30 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-    Bed, Users, Plus, Edit, Trash, Check, X,
-    Search, Filter, MoreHorizontal, Settings,
-    Copy, ArrowRight, LayoutGrid, List
+    Bed, Users, Plus, Edit, Trash,
+    ChevronDown, ChevronRight, LayoutGrid, AlertCircle
 } from "lucide-react";
 import {
-    Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter
+    Card
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
 import {
-    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger
+    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
 } from "@/components/ui/dialog";
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import { RoomImages } from "@/components/hotel/room-images";
 
 // Types
 interface RoomType {
@@ -36,39 +35,38 @@ interface RoomType {
     basePrice: number;
     maxOccupancy: number;
     amenities: string[];
+    images: string[];
+    rooms?: HotelRoom[];
     _count?: { rooms: number };
 }
 
 interface HotelRoom {
     id: string;
     roomNumber: string;
-    status: string; // The Prisma Enum
+    status: string;
     floor: number;
-    type?: RoomType;
     roomTypeId?: string;
-    roomType?: string;
 }
 
 export default function RoomManagementPage() {
     const { data: session } = useSession();
-    const router = useRouter();
-    const [activeTab, setActiveTab] = useState("types");
-
-    // Data State
     const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
-    const [rooms, setRooms] = useState<HotelRoom[]>([]);
     const [loading, setLoading] = useState(true);
+    const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
 
     // Modal State
     const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
     const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
+    const [deleteAnalysis, setDeleteAnalysis] = useState<{ id: string, name: string } | null>(null);
 
     // Form State (Type)
+    const [editingType, setEditingType] = useState<RoomType | null>(null);
     const [typeName, setTypeName] = useState("");
     const [typePrice, setTypePrice] = useState("");
     const [typeOccupancy, setTypeOccupancy] = useState("2");
     const [typeDesc, setTypeDesc] = useState("");
     const [typeAmenities, setTypeAmenities] = useState("");
+    const [typeImages, setTypeImages] = useState<string[]>([]);
 
     // Form State (Room)
     const [roomNumber, setRoomNumber] = useState("");
@@ -82,14 +80,14 @@ export default function RoomManagementPage() {
         if (!tenantId) return;
         setLoading(true);
         try {
-            const [typesRes, roomsRes] = await Promise.all([
-                fetch(`/api/hotel/room-types?tenantId=${tenantId}`),
-                fetch(`/api/hotel/rooms?tenantId=${tenantId}`)
-            ]);
-
-            if (typesRes.ok) setRoomTypes(await typesRes.json());
-            if (roomsRes.ok) setRooms(await roomsRes.json());
-
+            const res = await fetch(`/api/hotel/room-types?tenantId=${tenantId}`);
+            if (res.ok) {
+                const data = await res.json();
+                setRoomTypes(data);
+                if (data.length > 0 && expandedTypes.size === 0) {
+                    setExpandedTypes(new Set([data[0].id]));
+                }
+            }
         } catch (error) {
             toast.error("Failed to load hotel data");
         } finally {
@@ -104,6 +102,46 @@ export default function RoomManagementPage() {
     }, [session?.user?.tenantId]);
 
     // Handlers
+    const toggleExpand = (id: string) => {
+        const newSet = new Set(expandedTypes);
+        if (newSet.has(id)) newSet.delete(id);
+        else newSet.add(id);
+        setExpandedTypes(newSet);
+    };
+
+    const handleOpenAddRoom = (typeId: string) => {
+        setSelectedTypeId(typeId);
+        setIsRoomModalOpen(true);
+    };
+
+    const handleEditType = (type: RoomType) => {
+        setEditingType(type);
+        setTypeName(type.name);
+        setTypePrice(type.basePrice.toString());
+        setTypeOccupancy(type.maxOccupancy.toString());
+        setTypeDesc(type.description || "");
+        setTypeAmenities(type.amenities.join(', '));
+        setTypeImages(type.images || []);
+        setIsTypeModalOpen(true);
+    };
+
+    const handleDeleteTypeConfirm = async () => {
+        if (!deleteAnalysis) return;
+        try {
+            const res = await fetch(`/api/hotel/room-types/${deleteAnalysis.id}`, {
+                method: 'DELETE',
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to delete');
+
+            toast.success("Category deleted");
+            setDeleteAnalysis(null);
+            fetchData();
+        } catch (e: any) {
+            toast.error(e.message);
+        }
+    };
+
     const handleSaveType = async () => {
         if (!tenantId) return;
         try {
@@ -114,22 +152,29 @@ export default function RoomManagementPage() {
                 maxOccupancy: parseInt(typeOccupancy),
                 description: typeDesc,
                 amenities: typeAmenities.split(',').map(s => s.trim()).filter(Boolean),
+                images: typeImages,
             };
 
-            const res = await fetch('/api/hotel/room-types', {
-                method: 'POST',
+            const url = editingType
+                ? `/api/hotel/room-types/${editingType.id}`
+                : '/api/hotel/room-types';
+
+            const method = editingType ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+                method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
 
             if (!res.ok) throw new Error('Failed to save');
 
-            toast.success("Room Type Saved");
+            toast.success(editingType ? "Category Updated" : "Category Created");
             setIsTypeModalOpen(false);
             resetTypeForm();
-            fetchData(); // Refresh
+            fetchData();
         } catch (e) {
-            toast.error("Error saving room type");
+            toast.error("Error saving category");
         }
     };
 
@@ -154,6 +199,11 @@ export default function RoomManagementPage() {
             toast.success("Room Created");
             setIsRoomModalOpen(false);
             setRoomNumber("");
+
+            const newSet = new Set(expandedTypes);
+            newSet.add(selectedTypeId);
+            setExpandedTypes(newSet);
+
             fetchData();
         } catch (e) {
             toast.error("Error saving room");
@@ -161,178 +211,195 @@ export default function RoomManagementPage() {
     };
 
     const resetTypeForm = () => {
+        setEditingType(null);
         setTypeName("");
         setTypePrice("");
         setTypeDesc("");
         setTypeAmenities("");
+        setTypeImages([]);
     };
 
-    if (loading && !rooms.length && !roomTypes.length) return <div className="p-8">Loading...</div>;
+    if (loading && !roomTypes.length) return <div className="p-8">Loading...</div>;
 
     return (
         <div className="container mx-auto py-8 max-w-7xl">
             <div className="flex justify-between items-center mb-8">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Room Management</h1>
-                    <p className="text-muted-foreground mt-1">Manage your hotel inventory and room configurations.</p>
+                    <p className="text-muted-foreground mt-1">Unified view for Categories and Inventory</p>
                 </div>
+                <Button onClick={() => { resetTypeForm(); setIsTypeModalOpen(true); }} size="lg">
+                    <Plus className="mr-2 h-5 w-5" /> Add Room Category
+                </Button>
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                <TabsList className="bg-muted/50 p-1">
-                    <TabsTrigger value="types" className="gap-2">
-                        <LayoutGrid className="h-4 w-4" /> Room Types
-                    </TabsTrigger>
-                    <TabsTrigger value="inventory" className="gap-2">
-                        <List className="h-4 w-4" /> Room Inventory
-                    </TabsTrigger>
-                </TabsList>
-
-                {/* ROOM TYPES TAB */}
-                <TabsContent value="types" className="space-y-6">
-                    <div className="flex justify-between items-center bg-card p-4 rounded-lg border shadow-sm">
-                        <div>
-                            <h3 className="font-semibold">Defined Room Categories</h3>
-                            <p className="text-sm text-muted-foreground">Standard, Deluxe, Suites, etc.</p>
-                        </div>
-                        <Button onClick={() => { resetTypeForm(); setIsTypeModalOpen(true); }}>
-                            <Plus className="mr-2 h-4 w-4" /> Add Room Type
-                        </Button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {roomTypes.map(type => (
-                            <Card key={type.id} className="overflow-hidden hover:shadow-md transition-shadow">
-                                <div className="h-32 bg-slate-100 flex items-center justify-center text-slate-400">
-                                    <div className="flex flex-col items-center">
-                                        <Bed className="h-8 w-8 mb-2" />
-                                        <span className="text-sm">No Image</span>
+            <div className="space-y-6">
+                {roomTypes.map(type => (
+                    <Card key={type.id} className="overflow-hidden border-2 hover:border-primary/20 transition-all">
+                        <div
+                            className="p-4 flex items-center justify-between cursor-pointer bg-muted/30 hover:bg-muted/50"
+                            onClick={() => toggleExpand(type.id)}
+                        >
+                            <div className="flex items-center gap-4">
+                                <Button variant="ghost" size="sm" className="bg-white/50">
+                                    {expandedTypes.has(type.id) ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                </Button>
+                                {/* Thumbnail */}
+                                <div className="h-12 w-12 rounded bg-muted flex items-center justify-center overflow-hidden border">
+                                    {type.images?.[0] ? (
+                                        <img src={type.images[0]} alt="" className="h-full w-full object-cover" />
+                                    ) : (
+                                        <Bed className="h-6 w-6 text-muted-foreground" />
+                                    )}
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-3">
+                                        <h3 className="text-xl font-bold">{type.name}</h3>
+                                        <Badge variant="outline" className="text-base">${type.basePrice}</Badge>
+                                    </div>
+                                    <div className="text-sm text-muted-foreground mt-1 flex gap-4">
+                                        <span className="flex items-center gap-1"><Users className="h-3 w-3" /> Max {type.maxOccupancy}</span>
+                                        <span className="flex items-center gap-1"><Bed className="h-3 w-3" /> {type.rooms?.length || 0} Units</span>
                                     </div>
                                 </div>
-                                <CardHeader className="pb-2">
-                                    <div className="flex justify-between items-start">
-                                        <CardTitle className="text-xl">{type.name}</CardTitle>
-                                        <Badge variant="secondary">${type.basePrice}</Badge>
-                                    </div>
-                                    <CardDescription className="line-clamp-2">{type.description || "No description"}</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="flex gap-4 text-sm text-muted-foreground">
-                                        <div className="flex items-center gap-1">
-                                            <Users className="h-4 w-4" /> {type.maxOccupancy} Guests
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <Bed className="h-4 w-4" /> {type._count?.rooms || 0} Rooms
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                        {!roomTypes.length && (
-                            <div className="col-span-full text-center py-12 text-muted-foreground bg-muted/20 rounded-xl border border-dashed">
-                                No room types defined yet. Create one to get started.
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={(e) => { e.stopPropagation(); handleEditType(type); }}
+                                >
+                                    <Edit className="h-4 w-4 mr-1" /> Edit Type
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    onClick={(e) => { e.stopPropagation(); handleOpenAddRoom(type.id); }}
+                                    className="bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
+                                    variant="ghost"
+                                >
+                                    <Plus className="h-4 w-4 mr-1" /> Add Room
+                                </Button>
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="text-muted-foreground hover:text-destructive"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDeleteAnalysis({ id: type.id, name: type.name });
+                                    }}
+                                >
+                                    <Trash className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* EXPANDED CONTENT: ROOMS LIST */}
+                        {expandedTypes.has(type.id) && (
+                            <div className="border-t animate-in slide-in-from-top-2 duration-200">
+                                <div className="p-4 bg-slate-50/50">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Number</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead>Floor</TableHead>
+                                                <TableHead className="text-right">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {type.rooms?.map(room => (
+                                                <TableRow key={room.id}>
+                                                    <TableCell className="font-bold">{room.roomNumber}</TableCell>
+                                                    <TableCell>
+                                                        <Badge variant={room.status === 'AVAILABLE' ? 'default' : 'secondary'} className={cn(
+                                                            room.status === 'AVAILABLE' && "bg-green-100 text-green-700 hover:bg-green-200",
+                                                            room.status === 'OCCUPIED' && "bg-red-100 text-red-700 hover:bg-red-200",
+                                                            room.status === 'DIRTY' && "bg-yellow-100 text-yellow-700 hover:bg-yellow-200",
+                                                        )}>
+                                                            {room.status}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell>{room.floor}</TableCell>
+                                                    <TableCell className="text-right">
+                                                        {/* Future: Edit Room Dialog */}
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                                                            <Trash className="h-4 w-4" />
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                            {(!type.rooms || type.rooms.length === 0) && (
+                                                <TableRow>
+                                                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground border-dashed">
+                                                        No rooms added to this category yet. Click "Add Room" to create one.
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             </div>
                         )}
-                    </div>
-                </TabsContent>
-
-                {/* INVENTORY TAB */}
-                <TabsContent value="inventory" className="space-y-6">
-                    <div className="flex justify-between items-center bg-card p-4 rounded-lg border shadow-sm">
-                        <div>
-                            <h3 className="font-semibold">Physical Rooms</h3>
-                            <p className="text-sm text-muted-foreground">Manage status and assignments</p>
-                        </div>
-                        <Button onClick={() => setIsRoomModalOpen(true)}>
-                            <Plus className="mr-2 h-4 w-4" /> Add Room
-                        </Button>
-                    </div>
-
-                    <Card>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Number</TableHead>
-                                    <TableHead>Type</TableHead>
-                                    <TableHead>Floor</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {rooms.map(room => (
-                                    <TableRow key={room.id}>
-                                        <TableCell className="font-medium">{room.roomNumber}</TableCell>
-                                        <TableCell>
-                                            {room.type?.name ? (
-                                                <Badge variant="outline">{room.type.name}</Badge>
-                                            ) : (
-                                                <Badge variant="secondary" className="opacity-50">{room.roomType || 'Unknown'}</Badge>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>{room.floor}</TableCell>
-                                        <TableCell>
-                                            <Badge variant={room.status === 'AVAILABLE' ? 'default' : 'destructive'}>
-                                                {room.status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <Button variant="ghost" size="sm">
-                                                <MoreHorizontal className="h-4 w-4" />
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                                {!rooms.length && (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                                            No rooms found.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
                     </Card>
-                </TabsContent>
-            </Tabs>
+                ))}
+            </div>
 
-            {/* CREATE TYPE DIALOG */}
+            {/* CREATE/EDIT TYPE DIALOG */}
             <Dialog open={isTypeModalOpen} onOpenChange={setIsTypeModalOpen}>
-                <DialogContent className="sm:max-w-[500px]">
+                <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Create Room Type</DialogTitle>
-                        <DialogDescription>Define a new category of rooms (e.g. Deluxe, Suite).</DialogDescription>
+                        <DialogTitle>{editingType ? "Edit Category" : "Create Room Category"}</DialogTitle>
+                        <DialogDescription>Define the product details, images, and amenities.</DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-right">Name</Label>
-                            <Input className="col-span-3" value={typeName} onChange={e => setTypeName(e.target.value)} placeholder="e.g. Deluxe Ocean View" />
+                    <div className="grid gap-6 py-4">
+                        {/* BASIC INFO */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Name</Label>
+                                <Input value={typeName} onChange={e => setTypeName(e.target.value)} placeholder="e.g. Deluxe Ocean View" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Base Price</Label>
+                                <Input type="number" value={typePrice} onChange={e => setTypePrice(e.target.value)} placeholder="0.00" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Occupancy</Label>
+                                <Select value={typeOccupancy} onValueChange={setTypeOccupancy}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="1">1 Person</SelectItem>
+                                        <SelectItem value="2">2 People</SelectItem>
+                                        <SelectItem value="3">3 People</SelectItem>
+                                        <SelectItem value="4">4 People</SelectItem>
+                                        <SelectItem value="5">5 People</SelectItem>
+                                        <SelectItem value="6">6 People</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-right">Base Price</Label>
-                            <Input className="col-span-3" type="number" value={typePrice} onChange={e => setTypePrice(e.target.value)} placeholder="0.00" />
+
+                        {/* DESCRIPTION */}
+                        <div className="space-y-2">
+                            <Label>Description</Label>
+                            <Textarea value={typeDesc} onChange={e => setTypeDesc(e.target.value)} placeholder="Describe the room features..." />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-right">Occupancy</Label>
-                            <Select value={typeOccupancy} onValueChange={setTypeOccupancy}>
-                                <SelectTrigger className="col-span-3">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="1">1 Person</SelectItem>
-                                    <SelectItem value="2">2 People</SelectItem>
-                                    <SelectItem value="3">3 People</SelectItem>
-                                    <SelectItem value="4">4 People</SelectItem>
-                                </SelectContent>
-                            </Select>
+
+                        {/* AMENITIES */}
+                        <div className="space-y-2">
+                            <Label>Amenities (comma separated)</Label>
+                            <Textarea value={typeAmenities} onChange={e => setTypeAmenities(e.target.value)} placeholder="Wifi, TV, Jacuzzi, Balcony..." />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-right">Amenities</Label>
-                            <Textarea className="col-span-3" value={typeAmenities} onChange={e => setTypeAmenities(e.target.value)} placeholder="Wifi, TV, Jacuzzi (comma allocated)" />
+
+                        {/* IMAGES */}
+                        <div className="space-y-2">
+                            <Label>Images</Label>
+                            <RoomImages value={typeImages} onChange={setTypeImages} maxImages={5} />
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button onClick={handleSaveType}>Save Room Type</Button>
+                        <Button onClick={handleSaveType}>{editingType ? "Update Category" : "Create Category"}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -341,8 +408,8 @@ export default function RoomManagementPage() {
             <Dialog open={isRoomModalOpen} onOpenChange={setIsRoomModalOpen}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
-                        <DialogTitle>Add Room</DialogTitle>
-                        <DialogDescription>Add a physical room unit to your inventory.</DialogDescription>
+                        <DialogTitle>Add Room to {roomTypes.find(t => t.id === selectedTypeId)?.name}</DialogTitle>
+                        <DialogDescription>Adding a physical unit to this category.</DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-4 items-center gap-4">
@@ -353,23 +420,25 @@ export default function RoomManagementPage() {
                             <Label className="text-right">Floor</Label>
                             <Input className="col-span-3" type="number" value={roomFloor} onChange={e => setRoomFloor(e.target.value)} />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-right">Type</Label>
-                            <Select value={selectedTypeId} onValueChange={setSelectedTypeId}>
-                                <SelectTrigger className="col-span-3">
-                                    <SelectValue placeholder="Select a type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {roomTypes.map(t => (
-                                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                                    ))}
-                                    {!roomTypes.length && <SelectItem value="none" disabled>No types available</SelectItem>}
-                                </SelectContent>
-                            </Select>
-                        </div>
                     </div>
                     <DialogFooter>
                         <Button onClick={handleSaveRoom}>Create Room</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* DELETE CONFIRMATION */}
+            <Dialog open={!!deleteAnalysis} onOpenChange={(open) => !open && setDeleteAnalysis(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Are you sure?</DialogTitle>
+                        <DialogDescription>
+                            This will delete the category "{deleteAnalysis?.name}". You cannot delete a category that has rooms attached.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDeleteAnalysis(null)}>Cancel</Button>
+                        <Button variant="destructive" onClick={handleDeleteTypeConfirm}>Delete</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

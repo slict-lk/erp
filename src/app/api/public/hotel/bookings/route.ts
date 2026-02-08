@@ -28,6 +28,22 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Resolve Tenant ID (Handle Slug vs UUID)
+        const tenant = await prisma.tenant.findFirst({
+            where: {
+                OR: [
+                    { id: tenantId },
+                    { subdomain: tenantId }
+                ]
+            }
+        });
+
+        if (!tenant) {
+            return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
+        }
+
+        const resolvedTenantId = tenant.id;
+
         const startDate = new Date(checkIn);
         const endDate = new Date(checkOut);
         const lengthOfStay = differenceInDays(endDate, startDate);
@@ -62,7 +78,7 @@ export async function POST(request: NextRequest) {
                 // Get all rooms of this type
                 const candidateRooms = await prisma.hotelRoom.findMany({
                     where: {
-                        tenantId,
+                        tenantId: resolvedTenantId,
                         // @ts-ignore
                         OR: [{ roomTypeId }, { roomType: roomType.name }], // Handle legacy link
                         status: 'AVAILABLE'
@@ -90,7 +106,7 @@ export async function POST(request: NextRequest) {
         } else {
             // DIRECT ROOM BOOKING (Legacy or specific room selection)
             const room = await prisma.hotelRoom.findUnique({ where: { id: roomId } });
-            if (!room || room.tenantId !== tenantId) {
+            if (!room || room.tenantId !== resolvedTenantId) {
                 return NextResponse.json({ error: 'Room not found' }, { status: 404 });
             }
             assignedRoomId = room.id;
@@ -145,7 +161,7 @@ export async function POST(request: NextRequest) {
         const bookingNumber = `BK-${Date.now().toString().slice(-6)}`;
         const newBooking = await prisma.hotelBooking.create({
             data: {
-                tenantId,
+                tenantId: resolvedTenantId,
                 roomId: assignedRoomId,
                 bookingNumber,
                 guestName,

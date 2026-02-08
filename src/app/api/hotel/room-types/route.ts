@@ -18,6 +18,9 @@ export async function GET(request: NextRequest) {
         const roomTypes = await prisma.roomType.findMany({
             where: { tenantId },
             include: {
+                rooms: {
+                    orderBy: { roomNumber: 'asc' }
+                },
                 _count: {
                     select: { rooms: true }
                 }
