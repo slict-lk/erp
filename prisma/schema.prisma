@@ -2297,6 +2297,177 @@ model PricingRule {
 }
 
 // ============================================================================
+// HOTEL SERVICES (Dining, Experiences, Events)
+// ============================================================================
+
+model DiningVenue {
+  id            String              @id @default(cuid())
+  tenantId      String
+  name          String
+  slug          String
+  description   String?             @db.Text
+  cuisine       String?
+  dressCode     String?
+  openingHours  Json?               // { mon: "7AM-10PM", tue: ... }
+  priceRange    String?             // "$", "$$", "$$$"
+  images        String[]            @default([])
+  menuUrl       String?
+  phone         String?
+  capacity      Int?
+  isActive      Boolean             @default(true)
+  isFeatured    Boolean             @default(false)
+  sortOrder     Int                 @default(0)
+  branchId      String?
+  reservations  DiningReservation[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([isActive])
+}
+
+model DiningReservation {
+  id                String       @id @default(cuid())
+  tenantId          String
+  venueId           String
+  venue             DiningVenue  @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  reservationNumber String       @unique
+  guestName         String
+  guestEmail        String
+  guestPhone        String?
+  date              DateTime
+  time              String
+  partySize         Int
+  specialRequests   String?      @db.Text
+  status            String       @default("CONFIRMED") // CONFIRMED, CANCELLED, COMPLETED, NO_SHOW
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([tenantId])
+  @@index([venueId])
+  @@index([date])
+  @@index([status])
+}
+
+model Experience {
+  id              String              @id @default(cuid())
+  tenantId        String
+  name            String
+  slug            String
+  category        String              // Wellness, Adventure, Leisure, Culture
+  description     String?             @db.Text
+  duration        String?             // "2 hours", "Half Day"
+  price           Float               @default(0)
+  images          String[]            @default([])
+  includes        String[]            @default([])
+  requirements    String?             @db.Text
+  maxParticipants Int?
+  isActive        Boolean             @default(true)
+  isFeatured      Boolean             @default(false)
+  sortOrder       Int                 @default(0)
+  branchId        String?
+  bookings        ExperienceBooking[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([category])
+  @@index([isActive])
+}
+
+model ExperienceBooking {
+  id              String      @id @default(cuid())
+  tenantId        String
+  experienceId    String
+  experience      Experience  @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  bookingNumber   String      @unique
+  guestName       String
+  guestEmail      String
+  guestPhone      String?
+  date            DateTime
+  time            String?
+  participants    Int         @default(1)
+  totalAmount     Float       @default(0)
+  specialRequests String?     @db.Text
+  status          String      @default("CONFIRMED")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([tenantId])
+  @@index([experienceId])
+  @@index([date])
+}
+
+model HotelEvent {
+  id            String                   @id @default(cuid())
+  tenantId      String
+  title         String
+  slug          String
+  description   String?                  @db.Text
+  category      String?                  // Music, Dining, Wellness, Culture
+  date          DateTime
+  endDate       DateTime?
+  time          String?
+  location      String?
+  images        String[]                 @default([])
+  price         Float                    @default(0)
+  capacity      Int?
+  isPublished   Boolean                  @default(false)
+  isFeatured    Boolean                  @default(false)
+  branchId      String?
+  registrations HotelEventRegistration[]
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([date])
+  @@index([isPublished])
+}
+
+model HotelEventRegistration {
+  id           String     @id @default(cuid())
+  tenantId     String
+  eventId      String
+  event        HotelEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  ticketNumber String     @unique
+  guestName    String
+  guestEmail   String
+  guestPhone   String?
+  ticketCount  Int        @default(1)
+  totalAmount  Float      @default(0)
+  status       String     @default("CONFIRMED")
+  createdAt    DateTime   @default(now())
+
+  @@index([tenantId])
+  @@index([eventId])
+}
+
+model ContactInquiry {
+  id          String    @id @default(cuid())
+  tenantId    String
+  firstName   String
+  lastName    String
+  email       String
+  phone       String?
+  subject     String?
+  message     String    @db.Text
+  inquiryType String?   // General, Reservation, Group, Wedding, Corporate
+  status      String    @default("NEW") // NEW, READ, REPLIED, CLOSED
+  assignedTo  String?
+  notes       String?   @db.Text
+  repliedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ============================================================================
 // SYSTEM & AUTOMATION (RESTORED)
 // ============================================================================
 

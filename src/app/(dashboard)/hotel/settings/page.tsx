@@ -276,8 +276,9 @@ export default function HotelSettingsPage() {
                                 <div className="space-y-2">
                                     <Label>Logo</Label>
                                     <ImageUpload
-                                        value={form.watch('logoUrl')}
+                                        value={form.watch('logoUrl') ? [form.watch('logoUrl')!] : []}
                                         onChange={(url) => form.setValue('logoUrl', url)}
+                                        onRemove={() => form.setValue('logoUrl', '')}
                                         aspectRatio="banner"
                                         placeholder="Upload your hotel logo"
                                     />
@@ -370,8 +371,9 @@ export default function HotelSettingsPage() {
                                 <div className="space-y-2">
                                     <Label>Hero Image</Label>
                                     <ImageUpload
-                                        value={form.watch('heroImageUrl')}
+                                        value={form.watch('heroImageUrl') ? [form.watch('heroImageUrl')!] : []}
                                         onChange={(url) => form.setValue('heroImageUrl', url)}
+                                        onRemove={() => form.setValue('heroImageUrl', '')}
                                         aspectRatio="video"
                                         placeholder="Upload a stunning hero image"
                                     />
@@ -687,8 +689,9 @@ export default function HotelSettingsPage() {
                                 <div className="space-y-2">
                                     <Label>Favicon</Label>
                                     <ImageUpload
-                                        value={form.watch('faviconUrl')}
+                                        value={form.watch('faviconUrl') ? [form.watch('faviconUrl')!] : []}
                                         onChange={(url) => form.setValue('faviconUrl', url)}
+                                        onRemove={() => form.setValue('faviconUrl', '')}
                                         aspectRatio="square"
                                         placeholder="Upload favicon (32x32 or 64x64)"
                                     />

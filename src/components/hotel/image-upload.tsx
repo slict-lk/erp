@@ -9,8 +9,9 @@ import { Upload, Link, X, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ImageUploadProps {
-    value?: string;
+    value: string[];
     onChange: (value: string) => void;
+    onRemove: (value: string) => void;
     onFileSelect?: (file: File) => void;
     placeholder?: string;
     aspectRatio?: 'square' | 'video' | 'banner';
@@ -18,8 +19,9 @@ interface ImageUploadProps {
 }
 
 export function ImageUpload({
-    value,
+    value = [],
     onChange,
+    onRemove,
     onFileSelect,
     placeholder = 'Upload an image',
     aspectRatio = 'video',
@@ -28,7 +30,6 @@ export function ImageUpload({
     const [activeTab, setActiveTab] = useState<'upload' | 'url'>('upload');
     const [isDragging, setIsDragging] = useState(false);
     const [urlInput, setUrlInput] = useState('');
-    const [previewUrl, setPreviewUrl] = useState<string | null>(value || null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -56,13 +57,12 @@ export function ImageUpload({
 
         // Create preview URL
         const objectUrl = URL.createObjectURL(file);
-        setPreviewUrl(objectUrl);
 
         // Call callbacks
         if (onFileSelect) {
             onFileSelect(file);
         }
-        // For now, just set the preview - actual upload will come later
+        // Add to list
         onChange(objectUrl);
     }, [onChange, onFileSelect]);
 
@@ -105,9 +105,9 @@ export function ImageUpload({
         // Validate URL by trying to load the image
         const img = new window.Image();
         img.onload = () => {
-            setPreviewUrl(urlInput);
             onChange(urlInput);
             setIsLoading(false);
+            setUrlInput('');
         };
         img.onerror = () => {
             setError('Could not load image from URL');
@@ -116,116 +116,111 @@ export function ImageUpload({
         img.src = urlInput;
     };
 
-    const handleRemove = () => {
-        setPreviewUrl(null);
-        setUrlInput('');
-        setError(null);
-        onChange('');
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
-    };
-
     return (
-        <div className={cn('w-full', className)}>
-            {/* Preview */}
-            {previewUrl ? (
-                <div className={cn('relative rounded-lg overflow-hidden border bg-muted', aspectClasses[aspectRatio])}>
-                    <img
-                        src={previewUrl}
-                        alt="Preview"
-                        className="w-full h-full object-cover"
-                    />
-                    <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-2 right-2 h-8 w-8"
-                        onClick={handleRemove}
-                    >
-                        <X className="h-4 w-4" />
-                    </Button>
+        <div className={cn('space-y-4', className)}>
+            {/* Image Grid */}
+            {value.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                    {value.map((url) => (
+                        <div key={url} className={cn('relative rounded-lg overflow-hidden border bg-muted', aspectClasses[aspectRatio])}>
+                            <img
+                                src={url}
+                                alt="Image"
+                                className="w-full h-full object-cover"
+                            />
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                size="icon"
+                                className="absolute top-2 right-2 h-6 w-6"
+                                onClick={() => onRemove(url)}
+                            >
+                                <X className="h-3 w-3" />
+                            </Button>
+                        </div>
+                    ))}
                 </div>
-            ) : (
-                /* Upload Interface */
-                <Card className="border-dashed">
-                    <CardContent className="p-0">
-                        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'upload' | 'url')}>
-                            <TabsList className="w-full rounded-b-none">
-                                <TabsTrigger value="upload" className="flex-1">
-                                    <Upload className="h-4 w-4 mr-2" />
-                                    Upload File
-                                </TabsTrigger>
-                                <TabsTrigger value="url" className="flex-1">
-                                    <Link className="h-4 w-4 mr-2" />
-                                    Image URL
-                                </TabsTrigger>
-                            </TabsList>
-
-                            <TabsContent value="upload" className="m-0">
-                                <div
-                                    className={cn(
-                                        'flex flex-col items-center justify-center p-8 cursor-pointer transition-colors',
-                                        aspectClasses[aspectRatio],
-                                        isDragging ? 'bg-primary/10 border-primary' : 'hover:bg-muted/50'
-                                    )}
-                                    onDragOver={handleDragOver}
-                                    onDragLeave={handleDragLeave}
-                                    onDrop={handleDrop}
-                                    onClick={() => fileInputRef.current?.click()}
-                                >
-                                    <ImageIcon className="h-10 w-10 text-muted-foreground mb-4" />
-                                    <p className="text-sm text-muted-foreground text-center">
-                                        {isDragging ? (
-                                            'Drop image here...'
-                                        ) : (
-                                            <>
-                                                <span className="font-medium text-primary">Click to upload</span> or drag and drop
-                                            </>
-                                        )}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground mt-1">PNG, JPG up to 5MB</p>
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        onChange={handleFileInputChange}
-                                    />
-                                </div>
-                            </TabsContent>
-
-                            <TabsContent value="url" className="m-0 p-4">
-                                <div className="space-y-4">
-                                    <div className="flex gap-2">
-                                        <Input
-                                            type="url"
-                                            placeholder="https://example.com/image.jpg"
-                                            value={urlInput}
-                                            onChange={(e) => setUrlInput(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
-                                        />
-                                        <Button
-                                            type="button"
-                                            onClick={handleUrlSubmit}
-                                            disabled={isLoading}
-                                        >
-                                            {isLoading ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                            ) : (
-                                                'Load'
-                                            )}
-                                        </Button>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">
-                                        Enter a direct link to an image file
-                                    </p>
-                                </div>
-                            </TabsContent>
-                        </Tabs>
-                    </CardContent>
-                </Card>
             )}
+
+            {/* Upload Interface */}
+            <Card className="border-dashed">
+                <CardContent className="p-0">
+                    <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'upload' | 'url')}>
+                        <TabsList className="w-full rounded-b-none">
+                            <TabsTrigger value="upload" className="flex-1">
+                                <Upload className="h-4 w-4 mr-2" />
+                                Upload File
+                            </TabsTrigger>
+                            <TabsTrigger value="url" className="flex-1">
+                                <Link className="h-4 w-4 mr-2" />
+                                Image URL
+                            </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="upload" className="m-0">
+                            <div
+                                className={cn(
+                                    'flex flex-col items-center justify-center p-8 cursor-pointer transition-colors',
+                                    aspectClasses[aspectRatio],
+                                    // Adjust height if we already have images to save space? Nah, keep consistent.
+                                    isDragging ? 'bg-primary/10 border-primary' : 'hover:bg-muted/50'
+                                )}
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                <ImageIcon className="h-10 w-10 text-muted-foreground mb-4" />
+                                <p className="text-sm text-muted-foreground text-center">
+                                    {isDragging ? (
+                                        'Drop image here...'
+                                    ) : (
+                                        <>
+                                            <span className="font-medium text-primary">Click to upload</span> or drag and drop
+                                        </>
+                                    )}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">PNG, JPG up to 5MB</p>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={handleFileInputChange}
+                                />
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="url" className="m-0 p-4">
+                            <div className="space-y-4">
+                                <div className="flex gap-2">
+                                    <Input
+                                        type="url"
+                                        placeholder="https://example.com/image.jpg"
+                                        value={urlInput}
+                                        onChange={(e) => setUrlInput(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
+                                    />
+                                    <Button
+                                        type="button"
+                                        onClick={handleUrlSubmit}
+                                        disabled={isLoading}
+                                    >
+                                        {isLoading ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            'Add'
+                                        )}
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Enter a direct link to an image file
+                                </p>
+                            </div>
+                        </TabsContent>
+                    </Tabs>
+                </CardContent>
+            </Card>
 
             {/* Error Message */}
             {error && (

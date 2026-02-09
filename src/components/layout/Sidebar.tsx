@@ -52,7 +52,8 @@ import {
   Gavel,
   Bed,
 
-  Building2
+  Building2,
+  Palmtree
 } from 'lucide-react';
 import { useModulePermissions } from '@/hooks/useModulePermissions';
 import type { LucideIcon } from 'lucide-react';
@@ -398,6 +399,10 @@ const navigation: NavigationItem[] = [
     children: [
       { name: 'Dashboard', href: '/hotel', moduleId: 'hotel' },
       { name: 'Rooms', href: '/hotel/rooms', icon: Bed, moduleId: 'hotel' },
+      { name: 'Dining', href: '/hotel/dining', icon: Utensils, moduleId: 'hotel' },
+      { name: 'Experiences', href: '/hotel/experiences', icon: Palmtree, moduleId: 'hotel' },
+      { name: 'Events', href: '/hotel/events', icon: Calendar, moduleId: 'hotel' },
+      { name: 'Inquiries', href: '/hotel/inquiries', icon: MessageSquare, moduleId: 'hotel' },
       { name: 'Front Desk', href: '/hotel/front-desk', moduleId: 'hotel' },
       { name: 'Guests', href: '/hotel/guests', moduleId: 'hotel' },
       { name: 'Housekeeping', href: '/hotel/housekeeping', moduleId: 'hotel' },
