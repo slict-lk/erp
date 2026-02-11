@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Loader2, Trash } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -47,6 +48,7 @@ interface DiningVenueFormProps {
 
 export function DiningVenueForm({ initialData }: DiningVenueFormProps) {
     const router = useRouter();
+    const { data: session } = useSession();
     const [loading, setLoading] = useState(false);
 
     const form = useForm<z.infer<typeof formSchema>>({
@@ -71,10 +73,18 @@ export function DiningVenueForm({ initialData }: DiningVenueFormProps) {
                 : "/api/hotel/dining";
             const method = initialData ? "PUT" : "POST";
 
+            const tenantId = (session?.user as any)?.tenantId;
+
+            if (!initialData && !tenantId) {
+                toast.error("User session not found. Please reload.");
+                setLoading(false);
+                return;
+            }
+
             const res = await fetch(url, {
                 method,
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(values),
+                body: JSON.stringify({ ...values, tenantId }),
             });
 
             if (!res.ok) throw new Error("Something went wrong");

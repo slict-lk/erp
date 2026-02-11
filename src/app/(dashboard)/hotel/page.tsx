@@ -6,11 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Hotel as HotelIcon, Plus, Users, Bed, Check, Trash2, Edit, Settings, Loader2, ExternalLink } from 'lucide-react';
+import { Hotel as HotelIcon, Users, Bed, Check, Settings, Loader2, ExternalLink } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { useSettings } from '@/components/providers/SettingsProvider';
-import { RoomFormSheet } from '@/components/hotel/room-form-sheet';
 import { useTranslations } from 'next-intl';
+import Link from 'next/link';
 
 // Types
 interface Room {
@@ -22,10 +22,12 @@ interface Room {
   basePrice: number;
   maxOccupancy: number;
   bedType?: string;
-  amenities: string[];
-  images: string[];
-  description?: string;
-  bookings: any[];
+  type?: {
+    name: string;
+    basePrice: number;
+    maxOccupancy: number;
+    bedType?: string;
+  };
 }
 
 interface Booking {
@@ -43,17 +45,13 @@ export default function HotelPage() {
   const t = useTranslations('hotel');
   const tc = useTranslations('common');
   const { data: session, status: sessionStatus } = useSession();
-  const tenantId = (session?.user as any)?.tenantId;
+  const tenantId = (session?.user as unknown as { tenantId?: string })?.tenantId;
 
   const { settings } = useSettings();
-  const currency = settings.currency;
   const [rooms, setRooms] = useState<Room[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Sheet States
-  const [isRoomSheetOpen, setIsRoomSheetOpen] = useState(false);
-  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [tenantSubdomain, setTenantSubdomain] = useState<string | null>(null);
 
   // Fetch tenant subdomain
@@ -83,10 +81,8 @@ export default function HotelPage() {
       (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
     if (isLocal) {
-      // Local development: use Live Server URL with subdomain param
       return `http://127.0.0.1:5500/hotel/index.html?subdomain=${tenantSubdomain}`;
     } else {
-      // Production: use subdomain-based URL
       return `https://${tenantSubdomain}.hotels.slict.lk/`;
     }
   };
@@ -133,27 +129,6 @@ export default function HotelPage() {
     );
   }
 
-  const handleDeleteRoom = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this room?')) return;
-
-    try {
-      const res = await fetch(`/api/hotel/rooms/${id}`, { method: 'DELETE' });
-      if (res.ok) fetchData();
-    } catch (error) {
-      console.error('Failed to delete room:', error);
-    }
-  };
-
-  const handleEditRoom = (room: Room) => {
-    setSelectedRoom(room);
-    setIsRoomSheetOpen(true);
-  };
-
-  const handleAddRoom = () => {
-    setSelectedRoom(null);
-    setIsRoomSheetOpen(true);
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'AVAILABLE': return 'bg-green-100 text-green-800';
@@ -170,13 +145,10 @@ export default function HotelPage() {
     occupied: rooms.filter(r => r.status === 'OCCUPIED' || r.status === 'RESERVED').length,
     available: rooms.filter(r => r.status === 'AVAILABLE').length,
     revenue: bookings.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0),
-    // ADR = Revenue / Occupied Rooms (Sold)
     adr: 0,
-    // RevPAR = Revenue / Total Rooms
     revPar: 0,
   };
 
-  // Avoid division by zero
   if (stats.occupied > 0) {
     stats.adr = stats.revenue / stats.occupied;
   }
@@ -212,8 +184,10 @@ export default function HotelPage() {
               <Settings className="mr-2 h-4 w-4" /> {t('settings')}
             </a>
           </Button>
-          <Button onClick={handleAddRoom}>
-            <Plus className="mr-2 h-4 w-4" /> {t('addRoom')}
+          <Button asChild>
+            <Link href="/hotel/rooms">
+              <Bed className="mr-2 h-4 w-4" /> Manage Rooms
+            </Link>
           </Button>
         </div>
       </div>
@@ -221,7 +195,6 @@ export default function HotelPage() {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">{t('overview')}</TabsTrigger>
-          <TabsTrigger value="rooms">{t('rooms')}</TabsTrigger>
           <TabsTrigger value="bookings">{t('bookings')}</TabsTrigger>
         </TabsList>
 
@@ -275,54 +248,60 @@ export default function HotelPage() {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
 
-        {/* ROOMS TAB */}
-        <TabsContent value="rooms">
-          <div className="grid gap-6 md:grid-cols-3 lg:grid-cols-4">
-            {rooms.map((room) => (
-              <Card key={room.id} className="hover:shadow-md transition-shadow relative group">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-xl">Room {room.roomNumber}</CardTitle>
-                    <Badge className={getStatusColor(room.status)}>{room.status}</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    <div className="flex justify-between">
-                      <span>Type</span>
-                      <span className="font-medium text-foreground">{room.roomType}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Price</span>
-                      <span className="font-medium text-foreground">{formatCurrency(room.basePrice)}/night</span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Users className="h-3 w-3" /> {room.maxOccupancy} Guests
-                      <span className="text-gray-300">|</span>
-                      <Bed className="h-3 w-3" /> {room.bedType}
-                    </div>
-                  </div>
-
-                  {/* Hover Actions */}
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleEditRoom(room)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500" onClick={() => handleDeleteRoom(room.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            {rooms.length === 0 && !loading && (
-              <div className="col-span-full text-center py-12 text-muted-foreground">
-                No rooms found. Create one to get started.
+          {/* Quick Room Summary */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Room Inventory</CardTitle>
+                  <CardDescription>Quick view of all rooms across categories</CardDescription>
+                </div>
+                <Button asChild>
+                  <Link href="/hotel/rooms">
+                    <Bed className="mr-2 h-4 w-4" /> Manage Rooms
+                  </Link>
+                </Button>
               </div>
-            )}
-          </div>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : rooms.length > 0 ? (
+                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  {rooms.slice(0, 12).map((room) => (
+                    <div key={room.id} className="flex items-center justify-between p-3 rounded-lg border">
+                      <div>
+                        <p className="font-semibold">Room {room.roomNumber}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {room.type?.name || room.roomType || "Unassigned"}
+                        </p>
+                      </div>
+                      <Badge className={getStatusColor(room.status)}>
+                        {room.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No rooms found.</p>
+                  <Button asChild className="mt-3" variant="outline">
+                    <Link href="/hotel/rooms">Set up rooms →</Link>
+                  </Button>
+                </div>
+              )}
+              {rooms.length > 12 && (
+                <div className="mt-4 text-center">
+                  <Button asChild variant="link">
+                    <Link href="/hotel/rooms">View all {rooms.length} rooms →</Link>
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* BOOKINGS TAB */}
@@ -374,15 +353,6 @@ export default function HotelPage() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* ROOM FORM SHEET */}
-      <RoomFormSheet
-        open={isRoomSheetOpen}
-        onOpenChange={setIsRoomSheetOpen}
-        room={selectedRoom}
-        tenantId={tenantId}
-        onSuccess={fetchData}
-      />
     </div>
   );
 }

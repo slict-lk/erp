@@ -50,6 +50,16 @@ const settingsSchema = z.object({
     footerText: z.string().optional(),
     metaTitle: z.string().optional(),
     metaDescription: z.string().optional(),
+    // Module Heroes
+    diningHeroTitle: z.string().optional(),
+    diningHeroSubtitle: z.string().optional(),
+    diningHeroImage: z.string().optional(),
+    experienceHeroTitle: z.string().optional(),
+    experienceHeroSubtitle: z.string().optional(),
+    experienceHeroImage: z.string().optional(),
+    eventHeroTitle: z.string().optional(),
+    eventHeroSubtitle: z.string().optional(),
+    eventHeroImage: z.string().optional(),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
@@ -85,6 +95,15 @@ export default function HotelSettingsPage() {
             footerText: '',
             metaTitle: '',
             metaDescription: '',
+            diningHeroTitle: '',
+            diningHeroSubtitle: '',
+            diningHeroImage: '',
+            experienceHeroTitle: '',
+            experienceHeroSubtitle: '',
+            experienceHeroImage: '',
+            eventHeroTitle: '',
+            eventHeroSubtitle: '',
+            eventHeroImage: '',
         },
     });
 
@@ -120,6 +139,15 @@ export default function HotelSettingsPage() {
                         footerText: data.footerText || '',
                         metaTitle: data.metaTitle || '',
                         metaDescription: data.metaDescription || '',
+                        diningHeroTitle: data.diningHeroTitle || '',
+                        diningHeroSubtitle: data.diningHeroSubtitle || '',
+                        diningHeroImage: data.diningHeroImage || '',
+                        experienceHeroTitle: data.experienceHeroTitle || '',
+                        experienceHeroSubtitle: data.experienceHeroSubtitle || '',
+                        experienceHeroImage: data.experienceHeroImage || '',
+                        eventHeroTitle: data.eventHeroTitle || '',
+                        eventHeroSubtitle: data.eventHeroSubtitle || '',
+                        eventHeroImage: data.eventHeroImage || '',
                     });
                 }
             } catch (error) {
@@ -406,6 +434,125 @@ export default function HotelSettingsPage() {
                                 </div>
                             </CardContent>
                         </Card>
+
+                        <div className="grid gap-6">
+                            {/* Dining Page Hero */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Dining Page</CardTitle>
+                                    <CardDescription>
+                                        Configure the banner for the Dining page
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="space-y-2">
+                                        <Label>Dining Banner Image</Label>
+                                        <ImageUpload
+                                            value={form.watch('diningHeroImage') ? [form.watch('diningHeroImage')!] : []}
+                                            onChange={(url) => form.setValue('diningHeroImage', url)}
+                                            onRemove={() => form.setValue('diningHeroImage', '')}
+                                            aspectRatio="video"
+                                            placeholder="Upload dining banner"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-6">
+                                        <div className="space-y-2">
+                                            <Label>Dining Title</Label>
+                                            <Input
+                                                {...form.register('diningHeroTitle')}
+                                                placeholder="e.g. Culinary Excellence"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Dining Subtitle</Label>
+                                            <Textarea
+                                                {...form.register('diningHeroSubtitle')}
+                                                placeholder="e.g. Savor exquisite flavors..."
+                                                rows={2}
+                                            />
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Experiences Page Hero */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Experiences Page</CardTitle>
+                                    <CardDescription>
+                                        Configure the banner for the Experiences page
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="space-y-2">
+                                        <Label>Experiences Banner Image</Label>
+                                        <ImageUpload
+                                            value={form.watch('experienceHeroImage') ? [form.watch('experienceHeroImage')!] : []}
+                                            onChange={(url) => form.setValue('experienceHeroImage', url)}
+                                            onRemove={() => form.setValue('experienceHeroImage', '')}
+                                            aspectRatio="video"
+                                            placeholder="Upload experiences banner"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-6">
+                                        <div className="space-y-2">
+                                            <Label>Experiences Title</Label>
+                                            <Input
+                                                {...form.register('experienceHeroTitle')}
+                                                placeholder="e.g. Unforgettable Adventures"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Experiences Subtitle</Label>
+                                            <Textarea
+                                                {...form.register('experienceHeroSubtitle')}
+                                                placeholder="e.g. Discover the hidden gems..."
+                                                rows={2}
+                                            />
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Events Page Hero */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Events Page</CardTitle>
+                                    <CardDescription>
+                                        Configure the banner for the Events page
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="space-y-2">
+                                        <Label>Events Banner Image</Label>
+                                        <ImageUpload
+                                            value={form.watch('eventHeroImage') ? [form.watch('eventHeroImage')!] : []}
+                                            onChange={(url) => form.setValue('eventHeroImage', url)}
+                                            onRemove={() => form.setValue('eventHeroImage', '')}
+                                            aspectRatio="video"
+                                            placeholder="Upload events banner"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-6">
+                                        <div className="space-y-2">
+                                            <Label>Events Title</Label>
+                                            <Input
+                                                {...form.register('eventHeroTitle')}
+                                                placeholder="e.g. Host Your Dream Event"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Events Subtitle</Label>
+                                            <Textarea
+                                                {...form.register('eventHeroSubtitle')}
+                                                placeholder="e.g. Perfect venues for every occasion..."
+                                                rows={2}
+                                            />
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
                     </TabsContent>
 
                     {/* ASSETS TAB */}

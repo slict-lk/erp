@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const tenantId = searchParams.get('tenantId');
     const status = searchParams.get('status');
-    const roomType = searchParams.get('roomType');
+    const roomTypeId = searchParams.get('roomTypeId');
 
     if (!tenantId) {
       return NextResponse.json({ error: 'Tenant ID required' }, { status: 400 });
@@ -18,17 +18,11 @@ export async function GET(request: NextRequest) {
     const rooms = await prisma.hotelRoom.findMany({
       where: {
         tenantId,
-        ...(status && { status: status as any }),
-        // Support searching by string type or ID
-        ...(roomType && {
-          OR: [
-            { roomType: roomType },
-            { type: { name: roomType } }
-          ]
-        }),
+        ...(status && { status: status as 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'MAINTENANCE' | 'CLEANING' }),
+        ...(roomTypeId && { roomTypeId }),
       },
       include: {
-        type: true, // Include the RoomType details
+        type: true,
         bookings: {
           where: {
             checkIn: { gte: new Date() },
@@ -41,36 +35,37 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json(rooms);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Server error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
-// POST /api/hotel/rooms - Create room
+// POST /api/hotel/rooms - Create room unit (linked to a RoomType category)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const {
-      tenantId, roomNumber,
-      roomTypeId, // New Relation
-      roomType, floor, bedType, maxOccupancy, amenities, basePrice, description, images
-    } = body;
+    const { tenantId, roomNumber, roomTypeId, floor } = body;
 
-    // Validate
+    // Validate required fields
     if (!tenantId || !roomNumber) {
-      return NextResponse.json({ error: 'Tenant ID and Room Number are required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Tenant ID and Room Number are required' },
+        { status: 400 }
+      );
     }
 
-    // Logic: If roomTypeId is provided, link it. 
-    // If not, use legacy fields (but we encourage using Types now)
+    if (!roomTypeId) {
+      return NextResponse.json(
+        { error: 'Room Type is required. Create a category first.' },
+        { status: 400 }
+      );
+    }
 
-    // We can fetch the type to fill in legacy fields if they are missing
-    let legacyData = { roomType, width: 0 };
-    if (roomTypeId && !roomType) {
-      const type = await prisma.roomType.findUnique({ where: { id: roomTypeId } });
-      if (type) {
-        legacyData.roomType = type.name;
-      }
+    // Fetch the room type to populate legacy fields for backward compatibility
+    const roomType = await prisma.roomType.findUnique({ where: { id: roomTypeId } });
+    if (!roomType) {
+      return NextResponse.json({ error: 'Room Type not found' }, { status: 404 });
     }
 
     const room = await prisma.hotelRoom.create({
@@ -78,25 +73,25 @@ export async function POST(request: NextRequest) {
         tenantId,
         roomNumber,
         roomTypeId,
-        floor: floor || 1,
+        floor: parseInt(floor) || 1,
         status: 'AVAILABLE',
-
-        // Legacy / Fallback fields
-        roomType: legacyData.roomType || roomType || 'Standard',
-        basePrice: basePrice || 0, // Should come from Type ideally
-        maxOccupancy: maxOccupancy || 2,
-        amenities: amenities || [],
-        description: description,
-        images: images || [],
-        bedType: bedType || 'Queen',
+        // Legacy fields auto-populated from category for backward compat
+        roomType: roomType.name,
+        basePrice: roomType.basePrice,
+        maxOccupancy: roomType.maxOccupancy,
+        amenities: roomType.amenities,
+        images: roomType.images,
+        description: roomType.description,
+        bedType: roomType.bedType,
       },
       include: {
-        type: true
-      }
+        type: true,
+      },
     });
 
     return NextResponse.json(room, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Server error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

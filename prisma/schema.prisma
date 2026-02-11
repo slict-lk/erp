@@ -2224,6 +2224,19 @@ model HotelConfig {
   footerText      String?
   metaTitle       String?
   metaDescription String?
+
+  // Module Landing Page Config
+  diningHeroTitle       String?
+  diningHeroSubtitle    String?
+  diningHeroImage       String?
+  
+  experienceHeroTitle    String?
+  experienceHeroSubtitle String?
+  experienceHeroImage    String?
+
+  eventHeroTitle         String?
+  eventHeroSubtitle      String?
+  eventHeroImage         String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -2305,6 +2318,7 @@ model DiningVenue {
   tenantId      String
   name          String
   slug          String
+  location      String?             // e.g. "Rooftop", "Lobby"
   description   String?             @db.Text
   cuisine       String?
   dressCode     String?
@@ -2355,6 +2369,7 @@ model Experience {
   tenantId        String
   name            String
   slug            String
+  location        String?             // e.g. "Beach", "Main Pool"
   category        String              // Wellness, Adventure, Leisure, Culture
   description     String?             @db.Text
   duration        String?             // "2 hours", "Half Day"

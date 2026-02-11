@@ -46,11 +46,13 @@ export async function POST(request: Request) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
+    const folder = formData.get('folder') as string || 'vehicle-export';
+
     // Upload to Cloudinary using a Promise wrapper
     const result = await new Promise<any>((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
-          folder: 'vehicle-export', // specific folder in Cloudinary
+          folder, // specific folder in Cloudinary
           resource_type: 'auto',
           format: 'webp', // auto-convert to webp for performance
         },

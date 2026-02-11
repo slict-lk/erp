@@ -3,47 +3,91 @@ import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * GET /api/public/hotel/room-types?tenantId=...
+ * Public endpoint that serves room category data to the hotel storefront.
+ * Accepts either a tenant UUID or subdomain slug as tenantId.
+ */
 export async function GET(request: NextRequest) {
     try {
         const searchParams = request.nextUrl.searchParams;
         const tenantId = searchParams.get('tenantId');
-        const featuredStr = searchParams.get('featured');
+        const subdomain = searchParams.get('subdomain');
 
-        if (!tenantId) {
-            return NextResponse.json({ error: 'Tenant ID required' }, { status: 400 });
+        if (!tenantId && !subdomain) {
+            return NextResponse.json({ error: 'Tenant ID or Subdomain required' }, { status: 400 });
         }
 
-        const where: any = { tenantId };
+        // Resolve Tenant ID (Handle Slug vs UUID)
+        const tenant = await prisma.tenant.findFirst({
+            where: {
+                OR: [
+                    ...(tenantId ? [{ id: tenantId }, { subdomain: tenantId }] : []),
+                    ...(subdomain ? [{ subdomain }] : []),
+                ],
+            },
+        });
 
-        // Handle featured filter
-        if (featuredStr === 'true') {
-            // RoomType doesn't have isFeatured flag in schema based on previous read, 
-            // but FeaturedRooms passed featured=true. 
-            // If RoomType schema doesn't have it, valid logic is needed.
-            // Let's check prisma schema or just ignore if not present.
-            // Based on internal API: `const roomTypes = await prisma.roomType.findMany({ where: { tenantId } ...`
-            // It didn't filter by featured. 
-            // However, RoomType definition in POST didn't have isFeatured. 
-            // So we'll ignore it for now or implement if needed. 
-            // Wait, standard for `featured` rooms usually implies specific promotion. 
-            // If schema lacks it, we just return all or limited set.
+        if (!tenant) {
+            return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
         }
+
+        const resolvedTenantId = tenant.id;
 
         const roomTypes = await prisma.roomType.findMany({
-            where,
+            where: { tenantId: resolvedTenantId },
             include: {
                 rooms: {
-                    orderBy: { roomNumber: 'asc' }
+                    select: {
+                        id: true,
+                        roomNumber: true,
+                        status: true,
+                        floor: true,
+                        description: true,
+                        images: true,
+                    },
+                    orderBy: { roomNumber: 'asc' },
                 },
                 _count: {
-                    select: { rooms: true }
-                }
+                    select: { rooms: true },
+                },
             },
             orderBy: { name: 'asc' },
         });
 
-        return NextResponse.json(roomTypes);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        // Transform for frontend consumption
+        const enrichedTypes = roomTypes.map(type => {
+            const totalRooms = type._count.rooms;
+            const availableRooms = type.rooms.filter(r => r.status === 'AVAILABLE').length;
+
+            return {
+                id: type.id,
+                name: type.name,
+                description: type.description,
+                basePrice: type.basePrice,
+                maxOccupancy: type.maxOccupancy,
+                amenities: type.amenities,
+                images: type.images,
+                bedType: type.bedType,
+                sizeSqM: type.sizeSqM,
+                totalRooms,
+                availableRooms,
+                slug: type.name.toLowerCase().replace(/\s+/g, '-'),
+                // Specific rooms with their own overrides
+                roomUnits: type.rooms.map(room => ({
+                    id: room.id,
+                    roomNumber: room.roomNumber,
+                    status: room.status,
+                    floor: room.floor,
+                    description: room.description || type.description,
+                    images: (room.images && room.images.length > 0) ? room.images : type.images,
+                })),
+            };
+        });
+
+        return NextResponse.json(enrichedTypes);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Server error';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

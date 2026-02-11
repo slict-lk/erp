@@ -53,7 +53,9 @@ import {
   Bed,
 
   Building2,
-  Palmtree
+  Palmtree,
+  ConciergeBell,
+  Sparkles
 } from 'lucide-react';
 import { useModulePermissions } from '@/hooks/useModulePermissions';
 import type { LucideIcon } from 'lucide-react';
@@ -397,17 +399,17 @@ const navigation: NavigationItem[] = [
     icon: HotelIcon,
     moduleId: 'hotel',
     children: [
-      { name: 'Dashboard', href: '/hotel', moduleId: 'hotel' },
+      { name: 'Dashboard', href: '/hotel', icon: LayoutDashboard, moduleId: 'hotel' },
       { name: 'Rooms', href: '/hotel/rooms', icon: Bed, moduleId: 'hotel' },
       { name: 'Dining', href: '/hotel/dining', icon: Utensils, moduleId: 'hotel' },
       { name: 'Experiences', href: '/hotel/experiences', icon: Palmtree, moduleId: 'hotel' },
       { name: 'Events', href: '/hotel/events', icon: Calendar, moduleId: 'hotel' },
       { name: 'Inquiries', href: '/hotel/inquiries', icon: MessageSquare, moduleId: 'hotel' },
-      { name: 'Front Desk', href: '/hotel/front-desk', moduleId: 'hotel' },
-      { name: 'Guests', href: '/hotel/guests', moduleId: 'hotel' },
-      { name: 'Housekeeping', href: '/hotel/housekeeping', moduleId: 'hotel' },
-      { name: 'Maintenance', href: '/hotel/maintenance', moduleId: 'hotel' },
-      { name: 'Branches', href: '/hotel/branches', moduleId: 'hotel' },
+      { name: 'Front Desk', href: '/hotel/front-desk', icon: ConciergeBell, moduleId: 'hotel' },
+      { name: 'Guests', href: '/hotel/guests', icon: Users, moduleId: 'hotel' },
+      { name: 'Housekeeping', href: '/hotel/housekeeping', icon: Sparkles, moduleId: 'hotel' },
+      { name: 'Maintenance', href: '/hotel/maintenance', icon: Wrench, moduleId: 'hotel' },
+      { name: 'Branches', href: '/hotel/branches', icon: Building2, moduleId: 'hotel' },
       { name: 'Storefront', href: '/hotel/storefront', icon: Palette, moduleId: 'hotel' },
     ],
   },

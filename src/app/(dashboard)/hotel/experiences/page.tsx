@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Plus, Search, Loader2, Palmtree, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,14 +18,16 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function ExperiencesPage() {
+    const { data: session } = useSession();
     const [experiences, setExperiences] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
 
     useEffect(() => {
         const fetchExperiences = async () => {
+            if (!session?.user?.tenantId) return;
             try {
-                const res = await fetch("/api/hotel/experiences");
+                const res = await fetch(`/api/hotel/experiences?tenantId=${session.user.tenantId}&activeOnly=false`);
                 if (res.ok) {
                     const data = await res.json();
                     setExperiences(data);
@@ -37,10 +40,10 @@ export default function ExperiencesPage() {
         };
 
         fetchExperiences();
-    }, []);
+    }, [session]);
 
     const filteredExperiences = experiences.filter((exp) =>
-        exp.title.toLowerCase().includes(searchTerm.toLowerCase())
+        exp.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -91,7 +94,7 @@ export default function ExperiencesPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Title</TableHead>
+                                        <TableHead>Name</TableHead>
                                         <TableHead>Category</TableHead>
                                         <TableHead>Duration</TableHead>
                                         <TableHead>Price</TableHead>
@@ -111,7 +114,7 @@ export default function ExperiencesPage() {
                                             <TableRow key={exp.id}>
                                                 <TableCell className="font-medium">
                                                     <div className="flex flex-col">
-                                                        <span>{exp.title}</span>
+                                                        <span>{exp.name}</span>
                                                         <span className="text-xs text-muted-foreground truncate max-w-[200px]">{exp.description}</span>
                                                     </div>
                                                 </TableCell>

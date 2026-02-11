@@ -16,7 +16,21 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Tenant ID required' }, { status: 400 });
         }
 
-        const where: any = { tenantId };
+        // Resolve Tenant (Handle Slug vs UUID)
+        const tenant = await prisma.tenant.findFirst({
+            where: {
+                OR: [
+                    { id: tenantId },
+                    { subdomain: tenantId }
+                ]
+            }
+        });
+
+        if (!tenant) {
+            return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
+        }
+
+        const where: any = { tenantId: tenant.id };
         if (publishedOnly) where.isPublished = true;
         if (category) where.category = category;
         if (upcoming) where.date = { gte: new Date() };

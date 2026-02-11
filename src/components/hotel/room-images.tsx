@@ -31,7 +31,7 @@ export function RoomImages({ value = [], onChange, maxImages = 10 }: RoomImagesP
     const [error, setError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleFileSelect = (file: File) => {
+    const handleFileSelect = async (file: File) => {
         setError(null);
 
         if (!file.type.startsWith('image/')) {
@@ -44,10 +44,38 @@ export function RoomImages({ value = [], onChange, maxImages = 10 }: RoomImagesP
             return;
         }
 
-        const objectUrl = URL.createObjectURL(file);
-        onChange([...value, objectUrl]);
-        setShowUploader(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
+        setIsLoading(true);
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('folder', 'hotel-rooms');
+
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!res.ok) {
+                const errorData = await res.text();
+                throw new Error(errorData || 'Upload failed');
+            }
+
+            const data = await res.json();
+
+            if (data.url) {
+                onChange([...value, data.url]);
+                setShowUploader(false);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+            } else {
+                throw new Error('No URL returned');
+            }
+        } catch (err: any) {
+            console.error('Upload error:', err);
+            setError('Failed to upload image. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleDrop = (e: React.DragEvent) => {

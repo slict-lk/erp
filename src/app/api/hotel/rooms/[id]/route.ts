@@ -11,6 +11,7 @@ export async function GET(
     const room = await prisma.hotelRoom.findUnique({
       where: { id },
       include: {
+        type: true,
         bookings: {
           orderBy: { checkIn: 'asc' },
         },
@@ -22,12 +23,13 @@ export async function GET(
     }
 
     return NextResponse.json(room);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Server error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
-// PATCH /api/hotel/rooms/[id] - Update room
+// PATCH /api/hotel/rooms/[id] - Update room (operational fields only)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -40,19 +42,19 @@ export async function PATCH(
       where: { id },
       data: {
         ...(body.roomNumber !== undefined && { roomNumber: body.roomNumber }),
-        ...(body.roomType !== undefined && { roomType: body.roomType }),
         ...(body.floor !== undefined && { floor: body.floor }),
-        ...(body.bedType !== undefined && { bedType: body.bedType }),
-        ...(body.maxOccupancy !== undefined && { maxOccupancy: body.maxOccupancy }),
-        ...(body.amenities !== undefined && { amenities: body.amenities }),
-        ...(body.basePrice !== undefined && { basePrice: body.basePrice }),
         ...(body.status !== undefined && { status: body.status }),
+        ...(body.roomTypeId !== undefined && { roomTypeId: body.roomTypeId }),
+      },
+      include: {
+        type: true,
       },
     });
 
     return NextResponse.json(room);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Server error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -68,7 +70,8 @@ export async function DELETE(
     });
 
     return NextResponse.json({ message: 'Room deleted successfully' });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Server error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

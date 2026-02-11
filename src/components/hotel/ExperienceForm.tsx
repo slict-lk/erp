@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Loader2, Trash } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -31,8 +32,9 @@ import { ImageUpload } from "@/components/hotel/image-upload";
 import { toast } from "sonner";
 
 const formSchema = z.object({
-    title: z.string().min(2, "Title must be at least 2 characters."),
+    name: z.string().min(2, "Name must be at least 2 characters."),
     description: z.string().optional(),
+    location: z.string().optional(),
     category: z.string().min(1, "Category is required."),
     price: z.coerce.number().min(0, "Price must be non-negative."),
     duration: z.string().optional(),
@@ -46,13 +48,15 @@ interface ExperienceFormProps {
 
 export function ExperienceForm({ initialData }: ExperienceFormProps) {
     const router = useRouter();
+    const { data: session } = useSession();
     const [loading, setLoading] = useState(false);
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: initialData || {
-            title: "",
+            name: "",
             description: "",
+            location: "",
             category: "",
             price: 0,
             duration: "",
@@ -69,10 +73,18 @@ export function ExperienceForm({ initialData }: ExperienceFormProps) {
                 : "/api/hotel/experiences";
             const method = initialData ? "PUT" : "POST";
 
+            const tenantId = (session?.user as any)?.tenantId;
+
+            if (!initialData && !tenantId) {
+                toast.error("User session not found. Please reload.");
+                setLoading(false);
+                return;
+            }
+
             const res = await fetch(url, {
                 method,
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(values),
+                body: JSON.stringify({ ...values, tenantId }),
             });
 
             if (!res.ok) throw new Error("Something went wrong");
@@ -114,10 +126,10 @@ export function ExperienceForm({ initialData }: ExperienceFormProps) {
                     <div className="space-y-8">
                         <FormField
                             control={form.control}
-                            name="title"
+                            name="name"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Title</FormLabel>
+                                    <FormLabel>Name</FormLabel>
                                     <FormControl>
                                         <Input placeholder="Snorkeling Adventure" {...field} />
                                     </FormControl>
@@ -137,6 +149,19 @@ export function ExperienceForm({ initialData }: ExperienceFormProps) {
                                             className="resize-none"
                                             {...field}
                                         />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="location"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Location</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Main Beach, Lobby, etc." {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>

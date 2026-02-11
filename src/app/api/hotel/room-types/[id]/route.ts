@@ -21,6 +21,8 @@ export async function PUT(
             maxOccupancy,
             amenities,
             images,
+            bedType,
+            sizeSqM,
         } = body;
 
         const updatedRoomType = await prisma.roomType.update({
@@ -32,6 +34,8 @@ export async function PUT(
                 maxOccupancy: parseInt(maxOccupancy),
                 amenities: amenities || [],
                 images: images || [],
+                bedType: bedType || null,
+                sizeSqM: sizeSqM ? parseFloat(sizeSqM) : null,
             },
         });
 

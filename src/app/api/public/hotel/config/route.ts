@@ -86,6 +86,16 @@ export async function GET(request: NextRequest) {
                 footerText: config.footerText,
                 metaTitle: config.metaTitle,
                 metaDescription: config.metaDescription,
+                // Module Heroes
+                diningHeroTitle: config.diningHeroTitle,
+                diningHeroSubtitle: config.diningHeroSubtitle,
+                diningHeroImage: config.diningHeroImage,
+                experienceHeroTitle: config.experienceHeroTitle,
+                experienceHeroSubtitle: config.experienceHeroSubtitle,
+                experienceHeroImage: config.experienceHeroImage,
+                eventHeroTitle: config.eventHeroTitle,
+                eventHeroSubtitle: config.eventHeroSubtitle,
+                eventHeroImage: config.eventHeroImage,
             }
         });
 

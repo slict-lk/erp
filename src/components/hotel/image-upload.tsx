@@ -40,7 +40,7 @@ export function ImageUpload({
         banner: 'aspect-[3/1]',
     };
 
-    const handleFileSelect = useCallback((file: File) => {
+    const handleFileSelect = useCallback(async (file: File) => {
         setError(null);
 
         // Validate file type
@@ -55,15 +55,40 @@ export function ImageUpload({
             return;
         }
 
-        // Create preview URL
-        const objectUrl = URL.createObjectURL(file);
+        setIsLoading(true);
 
-        // Call callbacks
-        if (onFileSelect) {
-            onFileSelect(file);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('folder', 'hotel');
+
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!res.ok) {
+                const errorData = await res.text(); // or res.json() depending on what backend returns on fail
+                throw new Error(errorData || 'Upload failed');
+            }
+
+            const data = await res.json();
+
+            if (data.url) {
+                // Add to list
+                onChange(data.url);
+                if (onFileSelect) {
+                    onFileSelect(file);
+                }
+            } else {
+                throw new Error('No URL returned');
+            }
+        } catch (err: any) {
+            console.error('Upload error:', err);
+            setError('Failed to upload image. Please try again.');
+        } finally {
+            setIsLoading(false);
         }
-        // Add to list
-        onChange(objectUrl);
     }, [onChange, onFileSelect]);
 
     const handleDragOver = useCallback((e: React.DragEvent) => {
