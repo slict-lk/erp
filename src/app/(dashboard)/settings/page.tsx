@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Settings, User, Bell, Shield, Palette, Database, Building } from 'lucide-react';
+import { Settings, User, Bell, Shield, Palette, Database, Building, CreditCard } from 'lucide-react';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 
@@ -44,6 +44,12 @@ export default async function SettingsPage() {
           description="Connect third-party services"
           icon={Database}
           href="/settings/integrations"
+        />
+        <SettingCard
+          title="Billing & Subscription"
+          description="Manage your plan, usage, and payments"
+          icon={CreditCard}
+          href="/settings/billing"
         />
         <SettingCard
           title="System Settings"

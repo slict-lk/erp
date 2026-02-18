@@ -435,6 +435,7 @@ const navigation: NavigationItem[] = [
       { name: 'Appearance', href: '/settings/appearance', moduleId: 'settings' },
       { name: 'Integrations', href: '/settings/integrations', moduleId: 'settings' },
       { name: 'Notifications', href: '/settings/notifications', moduleId: 'settings' },
+      { name: 'Billing', href: '/settings/billing', moduleId: 'settings' },
       { name: 'System', href: '/settings/system', moduleId: 'settings' },
     ],
   },

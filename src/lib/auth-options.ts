@@ -43,6 +43,8 @@ export const authOptions: NextAuthOptions = {
               tenantId: user.tenantId,
               tenant: user.tenant?.name ?? 'Default',
               employee: (user as any).employee,
+              trialEnd: user.tenant?.trialEnd?.toISOString() || null,
+              plan: user.tenant?.plan || 'starter',
             };
           }
         }
@@ -79,6 +81,8 @@ export const authOptions: NextAuthOptions = {
           tenantId: user.tenantId,
           tenant: user.tenant?.name ?? 'Default',
           employee: (user as any).employee,
+          trialEnd: user.tenant?.trialEnd?.toISOString() || null,
+          plan: user.tenant?.plan || 'starter',
         };
       },
     }),
@@ -99,6 +103,8 @@ export const authOptions: NextAuthOptions = {
         token.tenantId = user.tenantId as string;
         token.tenant = user.tenant;
         token.employee = user.employee;
+        token.trialEnd = user.trialEnd || null;
+        token.plan = user.plan || 'starter';
       }
 
       // On subsequent requests, refresh user data from database to get latest role AND permissions
@@ -120,6 +126,8 @@ export const authOptions: NextAuthOptions = {
                 select: {
                   name: true,
                   companyName: true,
+                  trialEnd: true,
+                  plan: true,
                 }
               }
             }
@@ -139,6 +147,8 @@ export const authOptions: NextAuthOptions = {
             token.tenantId = dbUser.tenantId;
             token.tenant = dbUser.tenant?.name ?? dbUser.tenant?.companyName ?? 'Default';
             token.employee = (dbUser as any).employee;
+            token.trialEnd = dbUser.tenant?.trialEnd?.toISOString() || null;
+            token.plan = dbUser.tenant?.plan || 'starter';
           }
         } catch (error) {
           console.error('Error refreshing user data in JWT:', error);
@@ -157,6 +167,8 @@ export const authOptions: NextAuthOptions = {
         session.user.tenantId = token.tenantId as string;
         session.user.tenant = token.tenant as string;
         session.user.employee = token.employee;
+        session.user.trialEnd = token.trialEnd as string | null;
+        session.user.plan = token.plan as string;
       }
       return session;
     },

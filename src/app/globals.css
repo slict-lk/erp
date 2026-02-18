@@ -7,6 +7,10 @@
 
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   :root {
     /* Premium Color Palette - Light Mode */
     --background: 0 0% 100%;

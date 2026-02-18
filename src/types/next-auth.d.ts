@@ -11,6 +11,8 @@ declare module 'next-auth' {
             enabledModuleIds: string[];
             modulePermissions?: any;
             employee?: any;
+            trialEnd?: string | null;
+            plan?: string;
         } & DefaultSession['user'];
     }
 
@@ -22,6 +24,8 @@ declare module 'next-auth' {
         modulePermissions?: any;
         enabledModuleIds?: string[];
         employee?: any;
+        trialEnd?: string | null;
+        plan?: string;
     }
 }
 
@@ -35,5 +39,7 @@ declare module 'next-auth/jwt' {
         enabledModuleIds?: string[];
         modulePermissions?: any;
         employee?: any;
+        trialEnd?: string | null;
+        plan?: string;
     }
 }

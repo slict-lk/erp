@@ -15,6 +15,8 @@ declare module 'next-auth' {
       modulePermissions?: Record<string, any>;
       employee?: any;
       image?: string | null;
+      trialEnd?: string | null;
+      plan?: string;
     };
   }
 
@@ -22,8 +24,10 @@ declare module 'next-auth' {
     tenant: string;
     role: string | null;
     isSuperAdmin: boolean;
-    modulePermissions: Record<string, any>; // Keep full object for User interface as it comes from DB
+    modulePermissions: Record<string, any>;
     employee?: any;
+    trialEnd?: string | null;
+    plan?: string;
   }
 }
 
@@ -37,5 +41,7 @@ declare module 'next-auth/jwt' {
     enabledModuleIds: string[];
     modulePermissions?: Record<string, any>;
     employee?: any;
+    trialEnd?: string | null;
+    plan?: string;
   }
 }

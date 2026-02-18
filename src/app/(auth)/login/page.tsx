@@ -214,9 +214,9 @@ export default function LoginPage() {
 
             <p className="text-center text-sm text-gray-500">
               Don't have an account?{' '}
-              <button className="text-primary font-semibold hover:underline transition-all">
-                Contact Sales
-              </button>
+              <a href="/register" className="text-primary font-semibold hover:underline transition-all">
+                Start Free Trial
+              </a>
             </p>
           </CardContent>
         </Card>

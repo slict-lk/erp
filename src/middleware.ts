@@ -111,6 +111,22 @@ export default withAuth(
       });
     }
 
+    // Trial expiration check
+    if (token?.plan === 'trial' && token?.trialEnd) {
+      const trialEndDate = new Date(token.trialEnd as string);
+      const now = new Date();
+
+      if (trialEndDate < now) {
+        // Allow access to trial-expired page, billing, auth, and API routes
+        const allowedPaths = ['/trial-expired', '/settings/billing', '/api/auth', '/login', '/register'];
+        const isAllowed = allowedPaths.some(p => path.startsWith(p));
+
+        if (!isAllowed) {
+          return NextResponse.redirect(new URL('/trial-expired', req.url));
+        }
+      }
+    }
+
     // Check module permissions
     for (const [route, moduleId] of Object.entries(ROUTE_TO_MODULE_ID_MAP)) {
       if (path.startsWith(route)) {
@@ -145,6 +161,6 @@ export default withAuth(
 export const config = {
   matcher: [
     // Include api/public in matcher so middleware runs for it
-    '/((?!api/auth|_next/|_static/|login|register|favicon.ico|$).*)',
+    '/((?!api/auth|_next/|_static/|login|register|trial-expired|favicon.ico|$).*)',
   ],
 };
