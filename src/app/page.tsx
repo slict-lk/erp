@@ -1446,7 +1446,7 @@ function Footer() {
         </div>
 
         <div className="pt-8 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
-          <p className="text-sm text-gray-400">© 2025 SLICT ERP. All rights reserved.</p>
+          <p className="text-sm text-gray-400">© {new Date().getFullYear()} SLICT ERP. All rights reserved.</p>
           <div className="flex gap-6">
             {[Globe, MessageSquare, Mail].map((Icon, i) => (
               <a key={i} href="#" className="text-gray-400 hover:text-blue-600 transition-colors transform hover:scale-110">
