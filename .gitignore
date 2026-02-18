@@ -23,6 +23,8 @@ logs
 .DS_Store
 .vscode/
 .idea/
+.agent/
+.gemini/
 
 # Build output
 dist/

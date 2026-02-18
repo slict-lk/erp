@@ -505,6 +505,8 @@ function LogoMarquee() {
 function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const dropdownTimeout = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -512,7 +514,17 @@ function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileMenuOpen]);
+
+  const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement | HTMLButtonElement>, id: string) => {
     e.preventDefault();
     const element = document.getElementById(id);
     if (element) {
@@ -521,92 +533,310 @@ function Navbar() {
       const elementRect = element.getBoundingClientRect().top;
       const elementPosition = elementRect - bodyRect;
       const offsetPosition = elementPosition - offset;
-
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: 'smooth'
-      });
+      window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
       setMobileMenuOpen(false);
+      setActiveDropdown(null);
     }
   };
 
+  const handleDropdownEnter = (id: string) => {
+    if (dropdownTimeout.current) clearTimeout(dropdownTimeout.current);
+    setActiveDropdown(id);
+  };
+
+  const handleDropdownLeave = () => {
+    dropdownTimeout.current = setTimeout(() => setActiveDropdown(null), 200);
+  };
+
+  const NAV_ITEMS = [
+    {
+      label: 'Features', id: 'features',
+      preview: {
+        heading: 'Powerful Capabilities',
+        description: '40+ integrated business apps with AI copilots, automation, and enterprise-grade security.',
+        highlights: [
+          { icon: Sparkles, text: 'AI-Powered Insights' },
+          { icon: ShieldCheck, text: 'Enterprise Security' },
+          { icon: Zap, text: 'Smart Automation' },
+        ]
+      }
+    },
+    {
+      label: 'Solutions', id: 'solutions',
+      preview: {
+        heading: 'Industry Solutions',
+        description: 'Purpose-built modules for healthcare, hospitality, automotive, real estate, and more.',
+        highlights: [
+          { icon: Heart, text: 'Healthcare' },
+          { icon: Hotel, text: 'Hospitality' },
+          { icon: Wrench, text: 'Automotive' },
+        ]
+      }
+    },
+    {
+      label: 'Pricing', id: 'pricing',
+      preview: {
+        heading: 'Flexible Plans',
+        description: 'Pay only for the modules you use. Start free for 14 days, no credit card required.',
+        highlights: [
+          { icon: CheckSquare, text: 'Free 14-Day Trial' },
+          { icon: Package, text: 'Modular Pricing' },
+          { icon: Users, text: 'Unlimited Users' },
+        ]
+      }
+    },
+    {
+      label: 'Resources', id: 'resources',
+      preview: {
+        heading: 'Learn & Connect',
+        description: 'Documentation, API reference, community, and 24/7 support to help you succeed.',
+        highlights: [
+          { icon: BookOpen, text: 'Documentation' },
+          { icon: Code, text: 'API Reference' },
+          { icon: MessageSquare, text: 'Community' },
+        ]
+      }
+    },
+  ];
+
+  const mobileLinks = [
+    { label: 'Features', id: 'features', icon: Sparkles, desc: 'AI-powered business apps' },
+    { label: 'Solutions', id: 'solutions', icon: Building2, desc: 'Industry-specific modules' },
+    { label: 'Pricing', id: 'pricing', icon: CreditCard, desc: 'Flexible, modular plans' },
+    { label: 'Resources', id: 'resources', icon: BookOpen, desc: 'Docs, API & community' },
+  ];
+
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-md shadow-sm py-3' : 'bg-transparent py-5'}`}>
-      <div className="container mx-auto px-6 flex items-center justify-between">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-          <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-600/20">S</div>
-          <span className="text-xl font-bold text-gray-900 tracking-tight">SLICT<span className="text-blue-600">ERP</span></span>
-        </div>
-
-        <nav className="hidden md:flex items-center gap-1">
-          {[
-            { label: 'Features', id: 'features' },
-            { label: 'Solutions', id: 'solutions' },
-            { label: 'Pricing', id: 'pricing' },
-            { label: 'Resources', id: 'resources' }
-          ].map((item) => (
-            <a
-              key={item.label}
-              href={`#${item.id}`}
-              onClick={(e) => scrollToSection(e, item.id)}
-              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50/50 rounded-full transition-all"
+    <>
+      <header
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled
+          ? 'py-2'
+          : 'py-4'
+          }`}
+      >
+        {/* Floating glass pill container */}
+        <div className={`container mx-auto px-4 transition-all duration-500 ${scrolled ? 'max-w-5xl' : 'max-w-7xl'}`}>
+          <div className={`flex items-center justify-between transition-all duration-500 rounded-2xl px-5 ${scrolled
+            ? 'bg-white/80 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.08)] border border-white/60 py-2.5'
+            : 'bg-transparent py-1'
+            }`}>
+            {/* Logo */}
+            <div
+              className="flex items-center gap-2.5 cursor-pointer group"
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             >
-              {item.label}
-            </a>
-          ))}
-        </nav>
+              <div className="relative h-9 w-9">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-lg shadow-blue-600/25 group-hover:shadow-blue-600/40 transition-shadow duration-300" />
+                <div className="absolute inset-0 flex items-center justify-center text-white font-bold text-lg">S</div>
+              </div>
+              <span className="text-xl font-bold tracking-tight">
+                <span className={`transition-colors duration-300 ${scrolled ? 'text-gray-900' : 'text-gray-900'}`}>SLICT</span>
+                <span className="bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">ERP</span>
+              </span>
+            </div>
 
-        <div className="hidden md:flex items-center gap-3">
-          <Link href="/login">
-            <Button variant="ghost" className="text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-full px-6">Sign In</Button>
-          </Link>
-          <Link href="/login">
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-200 rounded-full px-6 transition-transform hover:scale-105">Get Started</Button>
-          </Link>
-        </div>
-
-        <button className="md:hidden p-2 text-gray-600 hover:text-gray-900" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-          {mobileMenuOpen ? <X /> : <Menu />}
-        </button>
-      </div>
-
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white border-b absolute top-full left-0 right-0 shadow-xl overflow-hidden"
-          >
-            <div className="container mx-auto px-6 py-6 flex flex-col gap-2">
-              {[
-                { label: 'Features', id: 'features' },
-                { label: 'Solutions', id: 'solutions' },
-                { label: 'Pricing', id: 'pricing' },
-                { label: 'Resources', id: 'resources' }
-              ].map((item) => (
-                <a
+            {/* Desktop Navigation */}
+            <nav className="hidden lg:flex items-center gap-0.5">
+              {NAV_ITEMS.map((item) => (
+                <div
                   key={item.label}
-                  href={`#${item.id}`}
-                  onClick={(e) => scrollToSection(e, item.id)}
-                  className="px-4 py-3 text-base font-medium text-gray-600 hover:bg-gray-50 rounded-xl transition-colors flex justify-between items-center"
+                  className="relative"
+                  onMouseEnter={() => handleDropdownEnter(item.id)}
+                  onMouseLeave={handleDropdownLeave}
                 >
-                  {item.label}
-                  <ChevronRight className="h-4 w-4 text-gray-300" />
-                </a>
+                  <a
+                    href={`#${item.id}`}
+                    onClick={(e) => scrollToSection(e, item.id)}
+                    className={`relative px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 flex items-center gap-1 ${activeDropdown === item.id
+                      ? 'text-blue-600 bg-blue-50/80'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50/80'
+                      }`}
+                  >
+                    {item.label}
+                    <ChevronRight className={`h-3 w-3 transition-transform duration-200 ${activeDropdown === item.id ? 'rotate-90 text-blue-500' : 'text-gray-300'
+                      }`} />
+                  </a>
+
+                  {/* Mega-menu dropdown */}
+                  <AnimatePresence>
+                    {activeDropdown === item.id && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                        transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                        className="absolute top-full left-1/2 -translate-x-1/2 pt-3 z-50"
+                        onMouseEnter={() => handleDropdownEnter(item.id)}
+                        onMouseLeave={handleDropdownLeave}
+                      >
+                        <div className="w-80 bg-white/95 backdrop-blur-xl rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.12)] border border-gray-100/80 overflow-hidden">
+                          {/* Gradient accent top */}
+                          <div className="h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-blue-600" />
+                          <div className="p-5">
+                            <h4 className="text-sm font-bold text-gray-900 mb-1">{item.preview.heading}</h4>
+                            <p className="text-xs text-gray-500 leading-relaxed mb-4">{item.preview.description}</p>
+                            <div className="space-y-2.5">
+                              {item.preview.highlights.map((h, i) => (
+                                <div key={i} className="flex items-center gap-3 group/item cursor-pointer">
+                                  <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center group-hover/item:bg-blue-100 transition-colors duration-200">
+                                    <h.icon className="h-4 w-4 text-blue-600" />
+                                  </div>
+                                  <span className="text-sm text-gray-700 font-medium group-hover/item:text-gray-900 transition-colors">{h.text}</span>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="mt-4 pt-3 border-t border-gray-100">
+                              <a
+                                href={`#${item.id}`}
+                                onClick={(e) => scrollToSection(e, item.id)}
+                                className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
+                              >
+                                Explore {item.label} <ArrowRight className="h-3 w-3" />
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               ))}
-              <div className="h-px bg-gray-100 my-4" />
-              <Link href="/login" className="w-full">
-                <Button variant="outline" className="w-full justify-center rounded-xl h-12 text-base">Sign In</Button>
+            </nav>
+
+            {/* Desktop CTA */}
+            <div className="hidden lg:flex items-center gap-2">
+              <Link href="/login">
+                <Button
+                  variant="ghost"
+                  className="text-gray-600 hover:text-gray-900 hover:bg-gray-100/60 rounded-xl px-5 h-9 text-sm font-medium transition-all duration-200"
+                >
+                  Sign In
+                </Button>
               </Link>
-              <Link href="/login" className="w-full">
-                <Button className="w-full justify-center bg-blue-600 h-12 text-base rounded-xl shadow-lg shadow-blue-200">Get Started</Button>
+              <Link href="/register">
+                <Button className="relative bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white rounded-xl px-5 h-9 text-sm font-medium shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
+                  Start Free Trial
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/0 via-white/20 to-white/0 opacity-0 hover:opacity-100 transition-opacity duration-500" />
+                </Button>
               </Link>
             </div>
-          </motion.div>
+
+            {/* Mobile menu toggle */}
+            <button
+              className="lg:hidden relative p-2 rounded-xl text-gray-600 hover:text-gray-900 hover:bg-gray-100/60 transition-all duration-200"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              <AnimatePresence mode="wait">
+                {mobileMenuOpen ? (
+                  <motion.div key="close" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.2 }}>
+                    <X className="h-5 w-5" />
+                  </motion.div>
+                ) : (
+                  <motion.div key="open" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.2 }}>
+                    <Menu className="h-5 w-5" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* --- Full-screen mobile menu overlay --- */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <>
+            {/* Backdrop - fades in separately */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+              className="fixed inset-0 z-40 bg-white/98 backdrop-blur-2xl lg:hidden"
+            />
+
+            {/* Content - slides up from bottom */}
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{
+                duration: 0.45,
+                ease: [0.16, 1, 0.3, 1],
+                exit: { duration: 0.25, ease: [0.4, 0, 1, 1] }
+              }}
+              className="fixed inset-0 z-40 lg:hidden"
+            >
+              <div className="relative h-full flex flex-col pt-24 pb-8 px-6 overflow-y-auto">
+                {/* Gradient accent line */}
+                <motion.div
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: 1 }}
+                  transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                  className="h-0.5 bg-gradient-to-r from-blue-500 via-purple-500 to-blue-400 mb-8 origin-left rounded-full"
+                />
+
+                {/* Navigation links */}
+                <nav className="flex-1 space-y-1">
+                  {mobileLinks.map((item, i) => (
+                    <motion.a
+                      key={item.label}
+                      href={`#${item.id}`}
+                      onClick={(e) => scrollToSection(e as unknown as React.MouseEvent<HTMLAnchorElement>, item.id)}
+                      initial={{ opacity: 0, y: 20, filter: 'blur(4px)' }}
+                      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                      transition={{
+                        duration: 0.45,
+                        delay: 0.12 + 0.08 * i,
+                        ease: [0.16, 1, 0.3, 1]
+                      }}
+                      className="flex items-center gap-4 px-4 py-4 rounded-2xl hover:bg-blue-50/60 active:bg-blue-100/60 transition-colors duration-200 group"
+                    >
+                      <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/80 flex items-center justify-center group-hover:from-blue-100 group-hover:to-blue-200/80 transition-all duration-300 shadow-sm">
+                        <item.icon className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-base font-semibold text-gray-900">{item.label}</div>
+                        <div className="text-sm text-gray-500">{item.desc}</div>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all duration-200" />
+                    </motion.a>
+                  ))}
+                </nav>
+
+                {/* Mobile CTA buttons */}
+                <motion.div
+                  initial={{ opacity: 0, y: 24 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: 0.5,
+                    delay: 0.35,
+                    ease: [0.16, 1, 0.3, 1]
+                  }}
+                  className="space-y-3 mt-8"
+                >
+                  <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent mb-6" />
+                  <Link href="/register" className="block w-full">
+                    <Button className="w-full justify-center bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white h-13 text-base rounded-2xl shadow-lg shadow-blue-500/20 font-semibold transition-all duration-300 active:scale-[0.98]">
+                      Start Free Trial
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Link href="/login" className="block w-full">
+                    <Button variant="outline" className="w-full justify-center h-13 text-base rounded-2xl border-gray-200 hover:bg-gray-50 hover:border-gray-300 font-medium transition-all duration-200 active:scale-[0.98]">
+                      Sign In
+                    </Button>
+                  </Link>
+                  <p className="text-center text-xs text-gray-400 mt-4">
+                    14-day free trial · No credit card required
+                  </p>
+                </motion.div>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
-    </header>
+    </>
   );
 }
 
@@ -1102,9 +1332,9 @@ function CTA() {
             Join thousands of companies using SLICT ERP to streamline operations and drive growth. Start your journey today.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link href="/login">
+            <Link href="/register">
               <Button size="lg" className="h-16 px-10 text-lg bg-white text-gray-900 hover:bg-blue-50 hover:text-blue-700 rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 font-semibold">
-                Get Started Now <ArrowRight className="ml-2 h-5 w-5" />
+                Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
             <Link href="/contact">
