@@ -3,6 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import { prisma } from './prisma';
 import { compare } from 'bcryptjs';
+import { convertPermissionsToModulePermissions } from './rbac';
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -27,19 +28,28 @@ export const authOptions: NextAuthOptions = {
             where: { email: credentials.email },
             include: {
               tenant: true,
+              userRole: true,
               // @ts-ignore
               employee: true,
             },
           });
 
           if (user) {
+            // Merge Role permissions with User permissions (Role is base, User overrides)
+            const rolePermissions = user.userRole?.permissions
+              ? convertPermissionsToModulePermissions(user.userRole.permissions as string[])
+              : {};
+
+            const userPermissions = (user.modulePermissions as Record<string, any>) || {};
+            const mergedPermissions = { ...rolePermissions, ...userPermissions };
+
             return {
               id: user.id,
               email: user.email,
               name: user.name,
               role: user.role || 'USER',
               isSuperAdmin: user.isSuperAdmin,
-              modulePermissions: (user.modulePermissions as Record<string, any>) || {},
+              modulePermissions: mergedPermissions,
               tenantId: user.tenantId,
               tenant: user.tenant?.name ?? 'Default',
               employee: (user as any).employee,
@@ -53,6 +63,7 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email },
           include: {
             tenant: true,
+            userRole: true,
             // @ts-ignore
             employee: true,
           },
@@ -71,13 +82,21 @@ export const authOptions: NextAuthOptions = {
         // Determine user role: prioritize isSuperAdmin, then use database role field, default to USER
         const userRole = user.isSuperAdmin ? 'ADMIN' : (user.role || 'USER');
 
+        // Merge Role permissions with User permissions
+        const rolePermissions = user.userRole?.permissions
+          ? convertPermissionsToModulePermissions(user.userRole.permissions as string[])
+          : {};
+
+        const userPermissions = (user.modulePermissions as Record<string, any>) || {};
+        const mergedPermissions = { ...rolePermissions, ...userPermissions };
+
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           role: userRole,
           isSuperAdmin: user.isSuperAdmin,
-          modulePermissions: (user.modulePermissions as Record<string, any>) || {},
+          modulePermissions: mergedPermissions,
           tenantId: user.tenantId,
           tenant: user.tenant?.name ?? 'Default',
           employee: (user as any).employee,
@@ -120,6 +139,7 @@ export const authOptions: NextAuthOptions = {
               isSuperAdmin: true,
               tenantId: true,
               modulePermissions: true,
+              userRole: true, // Fetch dynamic role
               // @ts-ignore
               employee: true,
               tenant: {
@@ -139,10 +159,15 @@ export const authOptions: NextAuthOptions = {
             token.role = userRole;
             token.isSuperAdmin = dbUser.isSuperAdmin || false;
 
-            // Optimize JWT: Store only enabled module IDs
-            const permissions = (dbUser.modulePermissions as Record<string, any>) || {};
-            token.enabledModuleIds = Object.keys(permissions).filter(key => permissions[key]?.enabled);
-            token.modulePermissions = permissions;
+            // Merge Role permissions with User permissions
+            const rolePermissions = dbUser.userRole?.permissions
+              ? convertPermissionsToModulePermissions(dbUser.userRole.permissions as string[])
+              : {};
+            const userPermissions = (dbUser.modulePermissions as Record<string, any>) || {};
+            const finalPermissions = { ...rolePermissions, ...userPermissions };
+
+            token.modulePermissions = finalPermissions;
+            token.enabledModuleIds = Object.keys(finalPermissions).filter(key => finalPermissions[key]?.enabled);
 
             token.tenantId = dbUser.tenantId;
             token.tenant = dbUser.tenant?.name ?? dbUser.tenant?.companyName ?? 'Default';

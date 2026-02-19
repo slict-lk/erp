@@ -30,7 +30,41 @@ import {
   CreditCard,
   CheckCircle2,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Wrench,
+  Store,
+  Ship,
+  Home,
+  Building,
+  UtensilsCrossed,
+  Briefcase,
+  FolderKanban,
+  Megaphone,
+  Headphones,
+  Stethoscope,
+  Pill,
+  TestTube,
+  Bed,
+  HeartPulse,
+  LayoutDashboard,
+  Settings,
+  FileText,
+  CheckCircle,
+  Gift,
+  UserCheck,
+  MessageSquare,
+  Phone,
+  Calendar,
+  GraduationCap,
+  BookOpen,
+  MessagesSquare,
+  Presentation,
+  Workflow,
+  Puzzle,
+  Code,
+  Brain,
+  Heart,
+  UserPlus
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -45,6 +79,7 @@ import {
   Bar
 } from 'recharts';
 import { FinancialOverview } from '@/components/dashboard/financial-overview';
+import { AVAILABLE_MODULES } from '@/lib/modules';
 
 // --- Types ---
 
@@ -59,13 +94,22 @@ type DashboardResponse = {
     productCount?: number;
     productChange?: number;
   };
-  recentOrders?: Array<{
+  revenueTrend?: Array<{ name: string; value: number }>;
+  recentActivity?: Array<{
     id: string;
+    type: string;
+    description: string;
     customer: string;
     amount: number;
     status: string;
-    createdAt?: string;
+    date: string;
   }>;
+  systemHealth?: {
+    trialDaysRemaining: number;
+    isTrial: boolean;
+    dbStatus: string;
+    uptime: number;
+  };
   manufacturing?: {
     inProgress?: number;
     scheduled?: number;
@@ -75,15 +119,7 @@ type DashboardResponse = {
 
 // --- Mock Data for Charts ---
 
-const REVENUE_DATA = [
-  { name: 'Jan', value: 4000 },
-  { name: 'Feb', value: 3000 },
-  { name: 'Mar', value: 2000 },
-  { name: 'Apr', value: 2780 },
-  { name: 'May', value: 1890 },
-  { name: 'Jun', value: 2390 },
-  { name: 'Jul', value: 3490 },
-];
+// --- Mock Data Removed (Now Dynamic) ---
 
 const SALES_BY_CATEGORY = [
   { name: 'Electronics', value: 4000 },
@@ -94,14 +130,33 @@ const SALES_BY_CATEGORY = [
 
 // --- Constants ---
 
-const QUICK_LINKS = [
-  { href: '/sales', title: 'Sales & CRM', icon: ShoppingCart, color: 'text-blue-600 bg-blue-50' },
-  { href: '/accounting', title: 'Accounting', icon: DollarSign, color: 'text-emerald-600 bg-emerald-50' },
-  { href: '/inventory', title: 'Inventory', icon: Package, color: 'text-violet-600 bg-violet-50' },
-  { href: '/hr', title: 'HR & People', icon: Users, color: 'text-orange-600 bg-orange-50' },
-  { href: '/manufacturing', title: 'Manufacturing', icon: Factory, color: 'text-amber-600 bg-amber-50' },
-  { href: '/projects', title: 'Projects', icon: BarChart3, color: 'text-indigo-600 bg-indigo-50' },
-];
+const iconMap: Record<string, LucideIcon> = {
+  LayoutDashboard, Settings, Users, FileText, ShoppingCart, DollarSign, ShoppingBag, CreditCard,
+  Package, Factory, CheckCircle, Wrench, Store, Ship, Briefcase, Clock, FolderKanban,
+  Megaphone, ClipboardList: FileText, // Fallback common icon
+  Headphones, Gift, Home, UserCheck, Building, UtensilsCrossed, MessageSquare, Phone,
+  Calendar, GraduationCap, BookOpen, MessagesSquare, Presentation, Workflow, Puzzle, Code,
+  Brain, Heart, UserPlus, Stethoscope, Pill, TestTube, Bed, HeartPulse, Activity
+};
+
+// Map categories to colors
+const categoryColorMap: Record<string, string> = {
+  core: 'text-slate-600 bg-slate-50',
+  sales: 'text-blue-600 bg-blue-50',
+  finance: 'text-emerald-600 bg-emerald-50',
+  operations: 'text-violet-600 bg-violet-50',
+  hr: 'text-orange-600 bg-orange-50',
+  projects: 'text-indigo-600 bg-indigo-50',
+  marketing: 'text-pink-600 bg-pink-50',
+  services: 'text-cyan-600 bg-cyan-50',
+  ecommerce: 'text-teal-600 bg-teal-50',
+  realestate: 'text-rose-600 bg-rose-50',
+  hospitality: 'text-amber-600 bg-amber-50',
+  communication: 'text-sky-600 bg-sky-50',
+  productivity: 'text-lime-600 bg-lime-50',
+  automation: 'text-fuchsia-600 bg-fuchsia-50',
+  healthcare: 'text-red-600 bg-red-50',
+};
 
 // --- Helper Functions ---
 
@@ -123,6 +178,7 @@ export default function DashboardPage() {
   const [response, setResponse] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const tenantId = session?.user?.tenantId;
+  const enabledModuleIds: string[] = session?.user?.enabledModuleIds || [];
 
   useEffect(() => {
     if (!tenantId) {
@@ -148,46 +204,66 @@ export default function DashboardPage() {
   }, [tenantId]);
 
   const stats = response?.stats ?? {};
-  const recentOrders = response?.recentOrders ?? [];
+  const recentActivity = response?.recentActivity ?? [];
+  const systemHealth = response?.systemHealth;
   const manufacturing = response?.manufacturing ?? {};
+  const revenueTrend = response?.revenueTrend ?? [];
 
   const metrics = useMemo(
-    () => [
-      {
-        title: 'Total Revenue',
-        value: formatCurrency(stats.totalRevenue ?? 0),
-        change: stats.revenueChange,
-        icon: DollarSign,
-        color: 'text-emerald-600',
-        bg: 'bg-emerald-50',
-      },
-      {
-        title: 'Active Customers',
-        value: formatNumber(stats.customerCount),
-        change: stats.customerChange,
-        icon: Users,
-        color: 'text-blue-600',
-        bg: 'bg-blue-50',
-      },
-      {
-        title: 'Total Orders',
-        value: formatNumber(stats.orderCount),
-        change: stats.orderChange,
-        icon: ShoppingBag,
-        color: 'text-violet-600',
-        bg: 'bg-violet-50',
-      },
-      {
-        title: 'Products in Stock',
-        value: formatNumber(stats.productCount),
-        change: stats.productChange,
-        icon: Package,
-        color: 'text-amber-600',
-        bg: 'bg-amber-50',
-      },
-    ],
-    [stats]
+    () => {
+      const baseMetrics = [
+        {
+          title: 'Total Revenue',
+          value: formatCurrency(stats.totalRevenue ?? 0),
+          change: stats.revenueChange,
+          icon: DollarSign,
+          color: 'text-emerald-600',
+          bg: 'bg-emerald-50',
+          show: true,
+        },
+        {
+          title: 'Active Customers',
+          value: formatNumber(stats.customerCount),
+          change: stats.customerChange,
+          icon: Users,
+          color: 'text-blue-600',
+          bg: 'bg-blue-50',
+          show: true,
+        },
+        {
+          title: 'Total Orders',
+          value: formatNumber(stats.orderCount),
+          change: stats.orderChange,
+          icon: ShoppingBag,
+          color: 'text-violet-600',
+          bg: 'bg-violet-50',
+          show: enabledModuleIds.includes('sales') || enabledModuleIds.includes('pos'),
+        },
+        {
+          title: 'Products in Stock',
+          value: formatNumber(stats.productCount),
+          change: stats.productChange,
+          icon: Package,
+          color: 'text-amber-600',
+          bg: 'bg-amber-50',
+          show: enabledModuleIds.includes('inventory') || enabledModuleIds.includes('spareparts'),
+        },
+      ];
+      return baseMetrics.filter(m => m.show);
+    },
+    [stats, enabledModuleIds]
   );
+
+  const quickLinks = useMemo(() => {
+    return AVAILABLE_MODULES
+      .filter(m => enabledModuleIds.includes(m.id) && m.category !== 'core' && m.id !== 'dashboard')
+      .map(m => ({
+        href: m.route || '#',
+        title: m.name,
+        icon: (m.icon && iconMap[m.icon]) ? iconMap[m.icon] : CheckCircle, // Fallback icon
+        color: categoryColorMap[m.category] || 'text-slate-600 bg-slate-50'
+      }));
+  }, [enabledModuleIds]);
 
   if (loading) {
     return (
@@ -290,12 +366,12 @@ export default function DashboardPage() {
         <Card className="col-span-4 border-slate-200 shadow-sm">
           <CardHeader>
             <CardTitle>Revenue Overview</CardTitle>
-            <CardDescription>Monthly revenue performance for the current year</CardDescription>
+            <CardDescription>Monthly revenue performance (Last 6 Months)</CardDescription>
           </CardHeader>
           <CardContent className="pl-2">
             <div className="h-[350px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={REVENUE_DATA}>
+                <AreaChart data={revenueTrend}>
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
@@ -333,12 +409,12 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Recent Orders / Activity */}
+        {/* Recent Activity */}
         <Card className="col-span-3 border-slate-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>Recent Orders</CardTitle>
-              <CardDescription>Latest transactions from your store</CardDescription>
+              <CardTitle>Recent Activity</CardTitle>
+              <CardDescription>Latest transactions across all modules</CardDescription>
             </div>
             <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">
               View All
@@ -346,31 +422,37 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {recentOrders.length === 0 ? (
+              {recentActivity.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <div className="rounded-full bg-slate-100 p-3">
-                    <ShoppingBag className="h-6 w-6 text-slate-400" />
+                    <Activity className="h-6 w-6 text-slate-400" />
                   </div>
-                  <p className="mt-2 text-sm text-slate-500">No recent orders found</p>
+                  <p className="mt-2 text-sm text-slate-500">No recent activity found</p>
                 </div>
               ) : (
-                recentOrders.slice(0, 5).map((order) => (
-                  <div key={order.id} className="flex items-center justify-between">
+                recentActivity.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                        <ShoppingBag className="h-5 w-5" />
+                      {/* Icon based on Activity Type */}
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-full 
+                        ${item.type === 'Booking' ? 'bg-amber-50 text-amber-600' :
+                          item.type === 'Invoice' ? 'bg-emerald-50 text-emerald-600' :
+                            'bg-blue-50 text-blue-600'}`}>
+                        {item.type === 'Booking' ? <Bed className="h-5 w-5" /> :
+                          item.type === 'Invoice' ? <FileText className="h-5 w-5" /> :
+                            <ShoppingBag className="h-5 w-5" />}
                       </div>
                       <div>
-                        <p className="font-medium text-slate-900">{order.customer}</p>
+                        <p className="font-medium text-slate-900">{item.description}</p>
                         <p className="text-xs text-slate-500">
-                          {new Date(order.createdAt || '').toLocaleDateString()} • #{order.id}
+                          {item.customer} • {new Date(item.date).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium text-slate-900">{formatCurrency(order.amount)}</p>
+                      <p className="font-medium text-slate-900">{formatCurrency(item.amount)}</p>
                       <Badge variant="outline" className="mt-1 border-slate-200 text-xs font-normal text-slate-600">
-                        {order.status}
+                        {item.status}
                       </Badge>
                     </div>
                   </div>
@@ -401,7 +483,7 @@ export default function DashboardPage() {
       <div>
         <h2 className="mb-4 text-lg font-semibold text-slate-900">Quick Access</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {QUICK_LINKS.map((link) => (
+          {quickLinks.map((link) => (
             <Link key={link.href} href={link.href}>
               <Card className="group cursor-pointer border-slate-200 shadow-sm transition-all hover:-translate-y-1 hover:border-blue-200 hover:shadow-md">
                 <CardContent className="flex flex-col items-center gap-3 p-6 text-center">
@@ -420,26 +502,28 @@ export default function DashboardPage() {
 
       {/* Production & Tasks Row */}
       <div className="grid gap-8 lg:grid-cols-2">
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle>Production Status</CardTitle>
-            <CardDescription>Real-time manufacturing overview</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-4">
-              {[
-                { label: 'In Progress', value: manufacturing.inProgress || 0, color: 'text-blue-600', bg: 'bg-blue-50' },
-                { label: 'Scheduled', value: manufacturing.scheduled || 0, color: 'text-amber-600', bg: 'bg-amber-50' },
-                { label: 'Pending', value: manufacturing.pending || 0, color: 'text-slate-600', bg: 'bg-slate-50' },
-              ].map((item) => (
-                <div key={item.label} className="flex flex-col items-center rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-                  <span className={`text-2xl font-bold ${item.color}`}>{item.value}</span>
-                  <span className="text-xs font-medium text-slate-500">{item.label}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {enabledModuleIds.includes('manufacturing') && (
+          <Card className="border-slate-200 shadow-sm">
+            <CardHeader>
+              <CardTitle>Production Status</CardTitle>
+              <CardDescription>Real-time manufacturing overview</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  { label: 'In Progress', value: manufacturing.inProgress || 0, color: 'text-blue-600', bg: 'bg-blue-50' },
+                  { label: 'Scheduled', value: manufacturing.scheduled || 0, color: 'text-amber-600', bg: 'bg-amber-50' },
+                  { label: 'Pending', value: manufacturing.pending || 0, color: 'text-slate-600', bg: 'bg-slate-50' },
+                ].map((item) => (
+                  <div key={item.label} className="flex flex-col items-center rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                    <span className={`text-2xl font-bold ${item.color}`}>{item.value}</span>
+                    <span className="text-xs font-medium text-slate-500">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="border-slate-200 shadow-sm">
           <CardHeader>
@@ -456,18 +540,29 @@ export default function DashboardPage() {
                     <p className="text-xs text-emerald-700">Database, API, and Workers running normally</p>
                   </div>
                 </div>
-                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200">99.9% Uptime</Badge>
+                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200">
+                  {systemHealth?.uptime || 99.9}% Uptime
+                </Badge>
               </div>
 
+              {/* Trial / Subscription Status */}
               <div className="flex items-center justify-between rounded-lg border border-slate-100 p-3">
                 <div className="flex items-center gap-3">
                   <Clock className="h-5 w-5 text-slate-400" />
                   <div>
-                    <p className="text-sm font-medium text-slate-900">Last Backup</p>
-                    <p className="text-xs text-slate-500">2 hours ago • 1.2GB</p>
+                    <p className="text-sm font-medium text-slate-900">
+                      {systemHealth?.isTrial ? 'Free Trial' : 'Subscription Active'}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {systemHealth?.isTrial
+                        ? `${systemHealth?.trialDaysRemaining} days remaining`
+                        : 'Next billing date: --'}
+                    </p>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" className="h-8 text-xs">View Log</Button>
+                <Button variant="ghost" size="sm" className="h-8 text-xs">
+                  {systemHealth?.isTrial ? 'Upgrade' : 'Manage'}
+                </Button>
               </div>
             </div>
           </CardContent>

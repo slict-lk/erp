@@ -12,16 +12,17 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Shield, Plus, Edit, Trash2, Users, Lock, RefreshCw, Search, Check, X, Filter } from 'lucide-react';
-import { Permission, formatPermission, groupPermissionsByCategory } from '@/lib/rbac';
+import { formatPermission, groupPermissionsByCategory, SystemRoles } from '@/lib/rbac';
+import { getAllPermissions } from '@/lib/modules';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Role {
   id: string;
   name: string;
+  code: string;
   description: string | null;
   permissions: string[];
-  isSystem?: boolean;
   userCount?: number;
   users?: any[];
   createdAt: string;
@@ -29,6 +30,7 @@ interface Role {
 
 export default function RolesPage() {
   const [roles, setRoles] = useState<Role[]>([]);
+  const [enabledModules, setEnabledModules] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -41,6 +43,9 @@ export default function RolesPage() {
       if (res.ok) {
         const json = await res.json();
         setRoles(json.data ?? json ?? []);
+        if (json.meta?.enabledModules) {
+          setEnabledModules(json.meta.enabledModules);
+        }
       }
     } catch (error) {
       console.error(error);
@@ -100,6 +105,7 @@ export default function RolesPage() {
               <RoleForm
                 key={editingRole?.id ?? 'new'}
                 initialRole={editingRole}
+                enabledModules={enabledModules}
                 onSuccess={handleSuccess}
                 onCancel={() => setDialogOpen(false)}
               />
@@ -117,70 +123,80 @@ export default function RolesPage() {
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {roles.map(role => (
-            <Card key={role.id} className={cn(
-              "group hover:shadow-xl transition-all duration-300 border-none ring-1 ring-slate-200",
-              role.isSystem ? "bg-gradient-to-br from-blue-50/50 to-indigo-50/50" : "bg-white"
-            )}>
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={cn(
-                      "p-2.5 rounded-xl shadow-sm",
-                      role.isSystem ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 group-hover:bg-blue-600 group-hover:text-white transition-colors"
-                    )}>
-                      {role.name === 'Admin' ? <Shield className="h-5 w-5" /> : <Users className="h-5 w-5" />}
+          {roles.map(role => {
+            const isSystem = Object.keys(SystemRoles).includes(role.code);
+            return (
+              <Card key={role.id} className={cn(
+                "group hover:shadow-xl transition-all duration-300 border-none ring-1 ring-slate-200",
+                isSystem ? "bg-gradient-to-br from-blue-50/50 to-indigo-50/50" : "bg-white"
+              )}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "p-2.5 rounded-xl shadow-sm",
+                        isSystem ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 group-hover:bg-blue-600 group-hover:text-white transition-colors"
+                      )}>
+                        {role.name === 'Admin' ? <Shield className="h-5 w-5" /> : <Users className="h-5 w-5" />}
+                      </div>
+                      <div>
+                        <CardTitle className="text-xl font-bold text-slate-900">{role.name}</CardTitle>
+                        {isSystem && <span className="text-xs font-medium text-blue-600">System Default</span>}
+                      </div>
                     </div>
-                    <div>
-                      <CardTitle className="text-xl font-bold text-slate-900">{role.name}</CardTitle>
-                      {role.isSystem && <span className="text-xs font-medium text-blue-600">System Default</span>}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <p className="text-sm text-slate-600 min-h-[40px] leading-relaxed">
+                    {role.description || 'No description provided for this role.'}
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-4 py-4 border-t border-b border-slate-100">
+                    <div className="text-center p-2 rounded-lg bg-slate-50">
+                      <div className="text-2xl font-bold text-slate-900">{role.userCount ?? 0}</div>
+                      <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">Active Users</div>
+                    </div>
+                    <div className="text-center p-2 rounded-lg bg-slate-50">
+                      <div className="text-2xl font-bold text-slate-900">{role.permissions.length}</div>
+                      <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">Permissions</div>
                     </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <p className="text-sm text-slate-600 min-h-[40px] leading-relaxed">
-                  {role.description || 'No description provided for this role.'}
-                </p>
 
-                <div className="grid grid-cols-2 gap-4 py-4 border-t border-b border-slate-100">
-                  <div className="text-center p-2 rounded-lg bg-slate-50">
-                    <div className="text-2xl font-bold text-slate-900">{role.userCount ?? 0}</div>
-                    <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">Active Users</div>
-                  </div>
-                  <div className="text-center p-2 rounded-lg bg-slate-50">
-                    <div className="text-2xl font-bold text-slate-900">{role.permissions.length}</div>
-                    <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">Permissions</div>
-                  </div>
-                </div>
-
-                {!role.isSystem && (
-                  <div className="flex gap-3 pt-2">
-                    <Button variant="outline" className="flex-1 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200" onClick={() => handleEdit(role)}>
-                      <Edit className="h-4 w-4 mr-2" /> Edit Configuration
-                    </Button>
-                    <Button variant="ghost" size="icon" className="text-slate-400 hover:text-red-600 hover:bg-red-50" onClick={() => handleDelete(role.id)} disabled={(role.userCount ?? 0) > 0}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
-                {role.isSystem && (
-                  <div className="pt-2">
-                    <Button variant="ghost" className="w-full justify-start text-slate-400 cursor-not-allowed font-normal" disabled>
-                      <Lock className="h-3 w-3 mr-2" /> System roles cannot be modified
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  {!isSystem && (
+                    <div className="flex gap-3 pt-2">
+                      <Button variant="outline" className="flex-1 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200" onClick={() => handleEdit(role)}>
+                        <Edit className="h-4 w-4 mr-2" /> Edit Configuration
+                      </Button>
+                      <Button variant="ghost" size="icon" className="text-slate-400 hover:text-red-600 hover:bg-red-50" onClick={() => handleDelete(role.id)} disabled={(role.userCount ?? 0) > 0}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                  {isSystem && (
+                    <div className="pt-2">
+                      <Button variant="ghost" className="w-full justify-start text-slate-400 cursor-not-allowed font-normal" disabled>
+                        <Lock className="h-3 w-3 mr-2" /> System roles cannot be modified
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
-function RoleForm({ initialRole, onSuccess, onCancel }: { initialRole: Role | null, onSuccess: () => void, onCancel: () => void }) {
+interface RoleFormProps {
+  initialRole: Role | null;
+  enabledModules: string[];
+  onSuccess: () => void;
+  onCancel: () => void;
+}
+
+function RoleForm({ initialRole, enabledModules, onSuccess, onCancel }: RoleFormProps) {
   const [formData, setFormData] = useState({
     name: initialRole?.name || '',
     description: initialRole?.description || '',
@@ -212,7 +228,12 @@ function RoleForm({ initialRole, onSuccess, onCancel }: { initialRole: Role | nu
   };
 
   const permissionGroups = useMemo(() => {
-    const groups = groupPermissionsByCategory(Object.values(Permission));
+    // Dynamically get permissions instead of using Enum
+    // Filter by enabled modules if provided. 
+    // IMPORTANT: Pass enabledModules directly. If it's empty, it means the tenant has no optional modules enabled.
+    const allPermissions = getAllPermissions(enabledModules);
+    const groups = groupPermissionsByCategory(allPermissions);
+
     if (!permissionSearch) return groups;
 
     const filteredGroups: Record<string, string[]> = {};
@@ -226,7 +247,7 @@ function RoleForm({ initialRole, onSuccess, onCancel }: { initialRole: Role | nu
       }
     });
     return filteredGroups;
-  }, [permissionSearch]);
+  }, [permissionSearch, enabledModules]);
 
   const getSelectedCount = (categoryPerms: string[]) => {
     return categoryPerms.filter(p => Array.isArray(formData.permissions) && formData.permissions.includes(p)).length;
@@ -246,9 +267,13 @@ function RoleForm({ initialRole, onSuccess, onCancel }: { initialRole: Role | nu
 
       if (res.ok) {
         onSuccess();
+      } else {
+        const errorData = await res.json();
+        alert(`Failed to save role: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error(error);
+      alert('An unexpected error occurred while saving the role.');
     }
   };
 
@@ -370,7 +395,7 @@ function RoleForm({ initialRole, onSuccess, onCancel }: { initialRole: Role | nu
                                     isChecked ? "text-blue-900" : "text-slate-700"
                                   )}
                                 >
-                                  {formatPermission(permission as Permission)}
+                                  {formatPermission(permission as any)}
                                 </label>
                               </div>
                             );

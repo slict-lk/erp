@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from 'sonner';
+import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,7 +16,7 @@ import { Camera, Loader2, Save } from 'lucide-react';
 const profileSchema = z.object({
     fullName: z.string().min(2, 'Name must be at least 2 characters'),
     email: z.string().email(),
-    phone: z.string().min(10, 'Phone number must be at least 10 characters'),
+    phone: z.string().min(10, 'Phone number must be at least 10 characters').optional().or(z.literal('')),
     jobTitle: z.string().min(2, 'Job title is required'),
     bio: z.string().max(160, 'Bio must not exceed 160 characters').optional(),
 });
@@ -23,18 +24,27 @@ const profileSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export function ProfileGeneralTab() {
+    const { data: session } = useSession();
+    const user = session?.user;
     const [isLoading, setIsLoading] = useState(false);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
     const form = useForm<ProfileFormValues>({
         resolver: zodResolver(profileSchema),
         defaultValues: {
-            fullName: 'SLICT Admin', // Mock data
-            email: 'team@slict.lk',
-            phone: '+94 77 123 4567',
-            jobTitle: 'Senior Administrator',
-            bio: 'Managing the ERP system and overseeing daily operations.',
+            fullName: user?.name || '',
+            email: user?.email || '',
+            phone: '', // TODO: Fetch from actual profile data if available
+            jobTitle: user?.role === 'ADMIN' || user?.isSuperAdmin ? 'Administrator' : 'User',
+            bio: '',
         },
+        values: { // Update form when session loads
+            fullName: user?.name || '',
+            email: user?.email || '',
+            phone: '',
+            jobTitle: user?.role === 'ADMIN' || user?.isSuperAdmin ? 'Administrator' : 'User',
+            bio: '',
+        }
     });
 
     const handleAvatarClick = () => {
@@ -70,8 +80,10 @@ export function ProfileGeneralTab() {
             <div className="flex items-center gap-6">
                 <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
                     <Avatar className="h-24 w-24 border-2 border-slate-100 shadow-md group-hover:opacity-90 transition-opacity">
-                        <AvatarImage src={avatarPreview || ''} />
-                        <AvatarFallback className="text-xl bg-blue-600 text-white">SA</AvatarFallback>
+                        <AvatarImage src={avatarPreview || user?.image || ''} />
+                        <AvatarFallback className="text-xl bg-blue-600 text-white">
+                            {user?.name?.[0]?.toUpperCase() || 'U'}
+                        </AvatarFallback>
                     </Avatar>
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                         <Camera className="h-6 w-6 text-white" />
@@ -85,6 +97,17 @@ export function ProfileGeneralTab() {
 
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 max-w-2xl">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                        <Label htmlFor="company">Company</Label>
+                        <Input
+                            id="company"
+                            value={user?.tenant || ''}
+                            disabled
+                            className="bg-slate-50 text-slate-500 font-medium"
+                        />
+                        <p className="text-xs text-slate-400">Company name is managed in settings.</p>
+                    </div>
+
                     <div className="space-y-2">
                         <Label htmlFor="fullName">Full Name</Label>
                         <Input id="fullName" {...form.register('fullName')} placeholder="Enter your name" />

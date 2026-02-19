@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Save, X, Eye, EyeOff } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { AVAILABLE_MODULES, MODULE_CATEGORIES, generateDefaultModulePermissions, ModulePermissions } from '@/lib/modules';
+import { convertPermissionsToModulePermissions } from '@/lib/rbac';
 
 // Dynamically generate permissions schema
 const permissionsSchema = z.record(z.boolean());
@@ -99,20 +100,17 @@ export function UserForm({ initialData, onSubmit, onCancel }: UserFormProps) {
 
       // Update permissions from role
       const newPermissions: Record<string, boolean> = {};
-      const rolePerms = selectedRole.permissions; // Array of strings e.g. "sales:view"
+      const rolePerms = selectedRole.permissions;
 
-      // We need to map RBAC permissions (strings) to ModulePermissions (object)
-      // Actually, currently role.permissions is just JSON. 
-      // The backend 'migrate-roles.ts' created it using generateDefaultModulePermissions(roleCode).
-      // So it is likely object structure or array.
-      // Let's assume it matches the structure expected by the form for now?
-      // Wait, migrate-roles script: permissions: generateDefaultModulePermissions(roleCode) -> This returns ModulePermissions object (nested).
-      // But UserForm expects flat permissions: { 'sales': true, 'inventory': true } keys?
-      // UserForm L62: `permissions: initialData?.permissions || defaultPermissions` (flat)
-      // UserForm L78: `newPermissions[key] = defaults[key].enabled`.
-
-      // So we need to flatten the role permissions if they are nested.
-      if (rolePerms && typeof rolePerms === 'object') {
+      if (Array.isArray(rolePerms)) {
+        // New RBAC format: String[]
+        const modulePermissions = convertPermissionsToModulePermissions(rolePerms as string[]);
+        // Flatten for form checkboxes
+        Object.keys(modulePermissions).forEach(key => {
+          newPermissions[key] = modulePermissions[key].enabled;
+        });
+      } else if (rolePerms && typeof rolePerms === 'object') {
+        // Legacy format: JSON
         Object.keys(rolePerms).forEach(key => {
           newPermissions[key] = rolePerms[key].enabled;
         });
@@ -121,9 +119,6 @@ export function UserForm({ initialData, onSubmit, onCancel }: UserFormProps) {
       setValue('permissions', newPermissions);
 
     } else {
-      // Fallback for hardcoded values if we keep them in the list (we probably won't)
-      // But if the value passed IS a code (e.g. "ADMIN"), handle it?
-      // Let's assume the Select uses ID as value.
       console.warn('Selected role ID not found in roles list:', selectedRoleId);
     }
   };

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
-import { Permission } from '@/lib/rbac';
+import { SystemRoles } from '@/lib/rbac';
+import { getAllPermissions } from '@/lib/modules';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,11 +15,20 @@ export async function GET() {
     // If no user (e.g. dev mode or public), fallback to default tenant, 
     // but ideally we should require auth. For now, matching existing pattern but prioritizing user.
     let tenantId;
+    let enabledModules: string[] = [];
+
     if (user?.tenantId) {
       tenantId = user.tenantId;
+      // Fetch enabled modules for the tenant
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { enabledModules: true }
+      });
+      enabledModules = tenant?.enabledModules || [];
     } else {
       const tenant = await getOrCreateDefaultTenant();
       tenantId = tenant.id;
+      enabledModules = tenant.enabledModules || [];
     }
 
     const roles = await prisma.role.findMany({
@@ -40,7 +50,12 @@ export async function GET() {
       // users: [], // Legacy field if needed by UI
     }));
 
-    return NextResponse.json({ data: rolesWithCount });
+    return NextResponse.json({
+      data: rolesWithCount,
+      meta: {
+        enabledModules: enabledModules
+      }
+    });
   } catch (error) {
     console.error('Error fetching roles:', error);
     return NextResponse.json({ error: 'Failed to fetch roles' }, { status: 500 });
@@ -50,13 +65,23 @@ export async function GET() {
 // POST /api/rbac/roles - Create new role
 export async function POST(request: NextRequest) {
   try {
-    const tenant = await getOrCreateDefaultTenant();
+    const { getCurrentUser } = await import('@/lib/auth');
+    const user = await getCurrentUser();
+
+    let tenantId;
+    if (user?.tenantId) {
+      tenantId = user.tenantId;
+    } else {
+      const tenant = await getOrCreateDefaultTenant();
+      tenantId = tenant.id;
+    }
+
     const body = await request.json();
 
     // Validate permissions
-    const validPermissions = Object.values(Permission);
+    const validPermissions = getAllPermissions();
     const invalidPermissions = body.permissions?.filter(
-      (p: string) => !validPermissions.includes(p as Permission)
+      (p: string) => !validPermissions.includes(p)
     );
 
     if (invalidPermissions && invalidPermissions.length > 0) {
@@ -72,7 +97,7 @@ export async function POST(request: NextRequest) {
         code: body.code || body.name.toUpperCase().replace(/\s+/g, '_'),
         description: body.description || '',
         permissions: body.permissions || [],
-        tenantId: tenant.id,
+        tenantId: tenantId,
       },
     });
 
@@ -95,10 +120,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Role ID required' }, { status: 400 });
     }
 
-    const client = prisma as any;
-
-    // Check if role exists and is not a system role
-    const existingRole = await client.role.findFirst({
+    // Check if role exists
+    const existingRole = await prisma.role.findFirst({
       where: {
         id: roleId,
         tenantId: tenant.id,
@@ -109,7 +132,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Role not found' }, { status: 404 });
     }
 
-    if (existingRole.isSystem) {
+    // Check if system role by Code
+    const isSystem = Object.keys(SystemRoles).includes(existingRole.code);
+    if (isSystem) {
       return NextResponse.json(
         { error: 'Cannot modify system roles' },
         { status: 403 }
@@ -118,9 +143,9 @@ export async function PUT(request: NextRequest) {
 
     // Validate permissions
     if (body.permissions) {
-      const validPermissions = Object.values(Permission);
+      const validPermissions = getAllPermissions();
       const invalidPermissions = body.permissions.filter(
-        (p: string) => !validPermissions.includes(p as Permission)
+        (p: string) => !validPermissions.includes(p)
       );
 
       if (invalidPermissions.length > 0) {
@@ -131,7 +156,7 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    const role = await client.role.update({
+    const role = await prisma.role.update({
       where: { id: roleId },
       data: {
         name: body.name,
@@ -158,13 +183,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Role ID required' }, { status: 400 });
     }
 
-    const client = prisma as any;
-
-    // Check if role exists and is not a system role
-    const existingRole = await client.role.findFirst({
+    // Check if role exists
+    const existingRole = await prisma.role.findUnique({
       where: {
         id: roleId,
-        tenantId: tenant.id,
       },
       include: {
         _count: {
@@ -175,11 +197,13 @@ export async function DELETE(request: NextRequest) {
       },
     });
 
-    if (!existingRole) {
+    if (!existingRole || existingRole.tenantId !== tenant.id) {
       return NextResponse.json({ error: 'Role not found' }, { status: 404 });
     }
 
-    if (existingRole.isSystem) {
+    // Check if system role by Code
+    const isSystem = Object.keys(SystemRoles).includes(existingRole.code);
+    if (isSystem) {
       return NextResponse.json(
         { error: 'Cannot delete system roles' },
         { status: 403 }
@@ -193,7 +217,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await client.role.delete({
+    await prisma.role.delete({
       where: { id: roleId },
     });
 
@@ -203,4 +227,3 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to delete role' }, { status: 500 });
   }
 }
-

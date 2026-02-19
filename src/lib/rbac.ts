@@ -3,65 +3,9 @@
  * Manages user permissions across the ERP system
  */
 
-export enum Permission {
-  // Sales & CRM
-  SALES_VIEW = 'sales:view',
-  SALES_CREATE = 'sales:create',
-  SALES_EDIT = 'sales:edit',
-  SALES_DELETE = 'sales:delete',
+import { getAllPermissions, getModuleById } from './modules';
 
-  // Accounting
-  ACCOUNTING_VIEW = 'accounting:view',
-  ACCOUNTING_CREATE = 'accounting:create',
-  ACCOUNTING_EDIT = 'accounting:edit',
-  ACCOUNTING_DELETE = 'accounting:delete',
-
-  // Inventory
-  INVENTORY_VIEW = 'inventory:view',
-  INVENTORY_CREATE = 'inventory:create',
-  INVENTORY_EDIT = 'inventory:edit',
-  INVENTORY_DELETE = 'inventory:delete',
-
-  // Manufacturing
-  MANUFACTURING_VIEW = 'manufacturing:view',
-  MANUFACTURING_CREATE = 'manufacturing:create',
-  MANUFACTURING_EDIT = 'manufacturing:edit',
-  MANUFACTURING_DELETE = 'manufacturing:delete',
-
-  // HR
-  HR_VIEW = 'hr:view',
-  HR_CREATE = 'hr:create',
-  HR_EDIT = 'hr:edit',
-  HR_DELETE = 'hr:delete',
-
-  // Projects
-  PROJECTS_VIEW = 'projects:view',
-  PROJECTS_CREATE = 'projects:create',
-  PROJECTS_EDIT = 'projects:edit',
-  PROJECTS_DELETE = 'projects:delete',
-
-  // Admin
-  USERS_MANAGE = 'users:manage',
-  ROLES_MANAGE = 'roles:manage',
-  SETTINGS_MANAGE = 'settings:manage',
-  AUDIT_VIEW = 'audit:view',
-
-  // Reports
-  REPORTS_VIEW = 'reports:view',
-  REPORTS_CREATE = 'reports:create',
-  REPORTS_EXPORT = 'reports:export',
-
-  // Vehicle Export Module
-  EXPORT_VIEW = 'export:view',
-  EXPORT_CREATE = 'export:create',
-  EXPORT_EDIT = 'export:edit',
-  EXPORT_DELETE = 'export:delete',
-  EXPORT_FINANCIALS = 'export:financials',      // View purchase prices, costs
-  EXPORT_COMPLIANCE = 'export:compliance',       // Update JAAI/Masho status
-  EXPORT_YARD = 'export:yard',                   // Manage yard jobs
-  EXPORT_SHIPMENT = 'export:shipment',           // Create/manage shipments
-  EXPORT_BIDS = 'export:bids',                   // Approve/reject customer bids
-}
+export type Permission = string;
 
 export interface Role {
   id: string;
@@ -73,120 +17,85 @@ export interface Role {
   updatedAt: Date;
 }
 
+/**
+ * Helper to get all permissions for specific modules
+ */
+function getPermissionsForModules(moduleIds: string[]): Permission[] {
+  const all = getAllPermissions();
+  return all.filter(p => {
+    const [moduleId] = p.split(':');
+    return moduleIds.includes(moduleId);
+  });
+}
+
+/**
+ * Helper to get permissions for a specific category
+ */
+// function getPermissionsForCategory(categoryId: string): Permission[] {
+//   // Implementation would require importing modules list
+//   return []; 
+// }
+
+const ALL_PERMISSIONS = getAllPermissions();
+
 // Predefined system roles
 export const SystemRoles = {
   SUPER_ADMIN: {
     name: 'Super Admin',
     description: 'Full system access with all permissions',
-    permissions: Object.values(Permission),
+    permissions: ALL_PERMISSIONS,
     isSystem: true,
   },
   ADMIN: {
     name: 'Admin',
     description: 'Administrative access excluding system settings',
-    permissions: [
-      Permission.SALES_VIEW, Permission.SALES_CREATE, Permission.SALES_EDIT, Permission.SALES_DELETE,
-      Permission.ACCOUNTING_VIEW, Permission.ACCOUNTING_CREATE, Permission.ACCOUNTING_EDIT, Permission.ACCOUNTING_DELETE,
-      Permission.INVENTORY_VIEW, Permission.INVENTORY_CREATE, Permission.INVENTORY_EDIT, Permission.INVENTORY_DELETE,
-      Permission.MANUFACTURING_VIEW, Permission.MANUFACTURING_CREATE, Permission.MANUFACTURING_EDIT, Permission.MANUFACTURING_DELETE,
-      Permission.HR_VIEW, Permission.HR_CREATE, Permission.HR_EDIT, Permission.HR_DELETE,
-      Permission.PROJECTS_VIEW, Permission.PROJECTS_CREATE, Permission.PROJECTS_EDIT, Permission.PROJECTS_DELETE,
-      Permission.USERS_MANAGE,
-      Permission.REPORTS_VIEW, Permission.REPORTS_CREATE, Permission.REPORTS_EXPORT,
-    ],
+    permissions: ALL_PERMISSIONS.filter(p => !p.startsWith('settings:')),
     isSystem: true,
   },
   MANAGER: {
     name: 'Manager',
     description: 'Department manager with view and edit access',
-    permissions: [
-      Permission.SALES_VIEW, Permission.SALES_CREATE, Permission.SALES_EDIT,
-      Permission.ACCOUNTING_VIEW,
-      Permission.INVENTORY_VIEW, Permission.INVENTORY_CREATE, Permission.INVENTORY_EDIT,
-      Permission.MANUFACTURING_VIEW, Permission.MANUFACTURING_CREATE, Permission.MANUFACTURING_EDIT,
-      Permission.HR_VIEW,
-      Permission.PROJECTS_VIEW, Permission.PROJECTS_CREATE, Permission.PROJECTS_EDIT,
-      Permission.REPORTS_VIEW, Permission.REPORTS_CREATE,
-    ],
+    permissions: ALL_PERMISSIONS.filter(p => {
+      const [_, action] = p.split(':');
+      return ['view', 'create', 'edit', 'approve', 'export'].includes(action);
+    }),
     isSystem: true,
   },
   EMPLOYEE: {
     name: 'Employee',
     description: 'Standard employee with limited access',
-    permissions: [
-      Permission.SALES_VIEW,
-      Permission.INVENTORY_VIEW,
-      Permission.PROJECTS_VIEW,
-      Permission.REPORTS_VIEW,
-    ],
+    permissions: ALL_PERMISSIONS.filter(p => {
+      const [_, action] = p.split(':');
+      return ['view'].includes(action);
+    }),
+    isSystem: true,
+  },
+  VIEWER: {
+    name: 'Viewer',
+    description: 'Read-only access',
+    permissions: ALL_PERMISSIONS.filter(p => p.endsWith(':view')),
+    isSystem: true,
+  },
+
+  // Custom Role Templates - can serve as starting points
+  SALES_REP: {
+    name: 'Sales Representative',
+    description: 'Sales and CRM specialist',
+    permissions: getPermissionsForModules(['sales', 'contacts', 'inventory', 'reports']),
     isSystem: true,
   },
   ACCOUNTANT: {
     name: 'Accountant',
     description: 'Financial operations specialist',
-    permissions: [
-      Permission.ACCOUNTING_VIEW, Permission.ACCOUNTING_CREATE, Permission.ACCOUNTING_EDIT,
-      Permission.SALES_VIEW,
-      Permission.INVENTORY_VIEW,
-      Permission.REPORTS_VIEW, Permission.REPORTS_CREATE, Permission.REPORTS_EXPORT,
-    ],
+    permissions: getPermissionsForModules(['accounting', 'purchasing', 'sales', 'inventory', 'reports']),
     isSystem: true,
   },
-  SALES_REP: {
-    name: 'Sales Representative',
-    description: 'Sales and CRM specialist',
-    permissions: [
-      Permission.SALES_VIEW, Permission.SALES_CREATE, Permission.SALES_EDIT,
-      Permission.INVENTORY_VIEW,
-      Permission.REPORTS_VIEW,
-    ],
+  HR_MANAGER: {
+    name: 'HR Manager',
+    description: 'HR and Payroll management',
+    permissions: getPermissionsForModules(['hr', 'attendance', 'payroll', 'users']),
     isSystem: true,
-  },
-
-  // Vehicle Export Module Roles
-  EXPORT_SALES: {
-    name: 'Export Sales',
-    description: 'Vehicle export sales and customer bid management',
-    permissions: [
-      Permission.EXPORT_VIEW,
-      Permission.EXPORT_CREATE,
-      Permission.EXPORT_EDIT,
-      Permission.EXPORT_BIDS,
-      Permission.REPORTS_VIEW,
-    ],
-    isSystem: true,
-  },
-  EXPORT_AUCTION: {
-    name: 'Export Auction',
-    description: 'Auction team - creates vehicles from auction wins',
-    permissions: [
-      Permission.EXPORT_VIEW,
-      Permission.EXPORT_CREATE,
-      Permission.EXPORT_EDIT,
-      Permission.EXPORT_FINANCIALS, // Can see purchase prices
-    ],
-    isSystem: true,
-  },
-  EXPORT_YARD: {
-    name: 'Export Yard Staff',
-    description: 'Yard operations - repairs, photos, inspections',
-    permissions: [
-      Permission.EXPORT_VIEW,
-      Permission.EXPORT_YARD,
-      // Note: No EXPORT_FINANCIALS - yard staff cannot see costs
-    ],
-    isSystem: true,
-  },
-  EXPORT_DOCS: {
-    name: 'Export Docs Admin',
-    description: 'Document compliance - JAAI, Masho, certificates',
-    permissions: [
-      Permission.EXPORT_VIEW,
-      Permission.EXPORT_COMPLIANCE,
-      Permission.EXPORT_SHIPMENT,
-    ],
-    isSystem: true,
-  },
+  }
 };
 
 /**
@@ -228,14 +137,19 @@ export function getPermissionAction(permission: Permission): string {
  * Format permission for display
  */
 export function formatPermission(permission: Permission): string {
-  const [category, action] = permission.split(':');
-  const formattedCategory = category.charAt(0).toUpperCase() + category.slice(1);
+  const parts = permission.split(':');
+  if (parts.length < 2) return permission;
+
+  const [moduleId, action] = parts;
+  const module = getModuleById(moduleId);
+  const moduleName = module ? module.name : moduleId.charAt(0).toUpperCase() + moduleId.slice(1);
   const formattedAction = action.charAt(0).toUpperCase() + action.slice(1);
-  return `${formattedCategory} - ${formattedAction}`;
+
+  return `${moduleName} - ${formattedAction}`;
 }
 
 /**
- * Group permissions by category
+ * Group permissions by category (Module)
  */
 export function groupPermissionsByCategory(permissions: Permission[]): Record<string, Permission[]> {
   return permissions.reduce((acc, permission) => {
@@ -246,4 +160,49 @@ export function groupPermissionsByCategory(permissions: Permission[]): Record<st
     acc[category].push(permission);
     return acc;
   }, {} as Record<string, Permission[]>);
+}
+
+import { getAllModuleIds, ModulePermissions } from './modules';
+
+/**
+ * Convert string array permissions to ModulePermissions object (Legacy Support)
+ * This allows the new RBAC system to feed into the existing Session/Frontend structure.
+ */
+export function convertPermissionsToModulePermissions(permissions: Permission[]): ModulePermissions {
+  const result: ModulePermissions = {};
+  const allModuleIds = getAllModuleIds();
+
+  // Initialize all modules as disabled
+  allModuleIds.forEach(moduleId => {
+    result[moduleId] = {
+      enabled: false,
+      view: false,
+      create: false,
+      edit: false,
+      delete: false,
+      export: false,
+      import: false,
+      approve: false,
+    };
+  });
+
+  // Apply permissions
+  permissions.forEach(perm => {
+    const [moduleId, action] = perm.split(':');
+    if (result[moduleId]) {
+      result[moduleId].enabled = true; // Implicitly enable module if any permission is present
+
+      switch (action) {
+        case 'view': result[moduleId].view = true; break;
+        case 'create': result[moduleId].create = true; break;
+        case 'edit': result[moduleId].edit = true; break;
+        case 'delete': result[moduleId].delete = true; break;
+        case 'export': result[moduleId].export = true; break;
+        case 'import': result[moduleId].import = true; break;
+        case 'approve': result[moduleId].approve = true; break;
+      }
+    }
+  });
+
+  return result;
 }

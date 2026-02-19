@@ -597,10 +597,10 @@ export function Sidebar({
         <div className="flex items-center justify-between p-6 border-b border-slate-800/50">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/20">
-              S
+              {user?.tenant?.[0]?.toUpperCase() || 'S'}
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight text-white">SLICT ERP</h1>
+              <h1 className="text-lg font-bold tracking-tight text-white">{user?.tenant || 'SLICT ERP'}</h1>
               <p className="text-xs text-slate-400 font-medium">Enterprise Suite</p>
             </div>
           </div>

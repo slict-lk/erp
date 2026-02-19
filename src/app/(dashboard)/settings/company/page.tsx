@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Loader2, Save, Building2, Mail, MapPin, FileText, Banknote, Clock, Globe, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSession } from 'next-auth/react';
 
 // Form validation schema
 const companyFormSchema = z.object({
@@ -87,6 +88,7 @@ const defaultBusinessHours = [
 ];
 
 export default function CompanySettingsPage() {
+  const { update } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('company');
 
@@ -165,6 +167,8 @@ export default function CompanySettingsPage() {
       }
 
       toast.success('Company settings saved successfully');
+      // Refresh session to update company name in sidebar
+      await update();
     } catch (error: any) {
       console.error('Failed to save company settings:', error);
       toast.error(error.message || 'Failed to save company settings');

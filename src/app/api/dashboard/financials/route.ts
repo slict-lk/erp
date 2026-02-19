@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import { startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
+import { AVAILABLE_MODULES } from '@/lib/modules';
 
 
 
@@ -60,10 +61,24 @@ export async function GET(req: NextRequest) {
 
         // Initialize Key Business Modules with 0 values to ensure they appear in the card
         // These are the "Core" business units we want to track explicitly
-        const coreModules = ['Hotel', 'Restaurant', 'Real Estate'];
-        coreModules.forEach(mod => {
-            segmentMap.set(mod, { revenue: 0, cogs: 0, opex: 0 });
+        // Initialize Key Business Modules with 0 values to ensure they appear in the card
+        // These are the "Core" business units we want to track explicitly
+        // We filter available modules based on what the user has enabled
+        const enabledModuleIds = session.user.enabledModuleIds || [];
+
+        // Filter available modules to get only enable ones (excluding core/dashboard/settings if desired, or include them)
+        // Usually we want revenue-generating modules. 
+        // Let's include all non-core enabled modules or just all enabled ones.
+        // We map ID to Name for the display.
+        const activeModules = AVAILABLE_MODULES.filter(m =>
+            enabledModuleIds.includes(m.id) &&
+            m.category !== 'core' // Optional: exclude core modules like Settings/Dashboard from P&L if they don't generate revenue
+        );
+
+        activeModules.forEach(mod => {
+            segmentMap.set(mod.name, { revenue: 0, cogs: 0, opex: 0 });
         });
+
 
         // Process Revenue & COGS
         invoiceLines.forEach(line => {

@@ -36,11 +36,37 @@ export function ProfileSecurityTab() {
 
     const onSubmit = async (data: SecurityFormValues) => {
         setIsLoading(true);
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        setIsLoading(false);
-        toast.success('Password updated successfully');
-        form.reset();
+        try {
+            const response = await fetch('/api/profile/security', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    currentPassword: data.currentPassword,
+                    newPassword: data.newPassword,
+                }),
+            });
+
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error(error || 'Failed to update password');
+            }
+
+            toast.success('Password updated successfully');
+            form.reset();
+        } catch (error: any) {
+            console.error('Password update error:', error);
+            toast.error(error.message || 'Failed to update password');
+
+            // If the error is about the current password, set a form error
+            if (error.message.includes('current password')) {
+                form.setError('currentPassword', {
+                    type: 'manual',
+                    message: 'Incorrect current password'
+                });
+            }
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (

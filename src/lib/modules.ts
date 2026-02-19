@@ -319,11 +319,11 @@ export const AVAILABLE_MODULES: Module[] = [
   // Real Estate
   {
     id: 'properties',
-    name: 'Properties',
-    description: 'Property management',
+    name: 'Real Estate',
+    description: 'Property management, listings, and agent tracking',
     category: 'realestate',
     icon: 'Home',
-    route: '/properties',
+    route: '/real-estate',
     permissions: { view: true, create: true, edit: true, delete: true, export: true },
   },
   {
@@ -671,5 +671,33 @@ export function getEnabledModules(modulePermissions: Record<string, unknown>): M
     const permission = modulePermissions[module.id] as ModulePermissionValue | undefined;
     return permission && permission.enabled;
   });
+}
+
+/**
+ * Get all valid permission strings from modules
+ * @param enabledModuleIds Optional list of enabled module IDs to filter by
+ */
+export function getAllPermissions(enabledModuleIds?: string[]): string[] {
+  const permissions: string[] = [];
+
+  AVAILABLE_MODULES.forEach(module => {
+    // If enabledModuleIds is provided, skip modules that are not in the list
+    // Always include 'dashboard' and 'settings' as they are core
+    if (enabledModuleIds &&
+      !enabledModuleIds.includes(module.id) &&
+      !['dashboard', 'settings', 'users', 'audit'].includes(module.id)) {
+      return;
+    }
+
+    if (module.permissions.view) permissions.push(`${module.id}:view`);
+    if (module.permissions.create) permissions.push(`${module.id}:create`);
+    if (module.permissions.edit) permissions.push(`${module.id}:edit`);
+    if (module.permissions.delete) permissions.push(`${module.id}:delete`);
+    if (module.permissions.export) permissions.push(`${module.id}:export`);
+    if (module.permissions.import) permissions.push(`${module.id}:import`);
+    if (module.permissions.approve) permissions.push(`${module.id}:approve`);
+  });
+
+  return permissions;
 }
 
