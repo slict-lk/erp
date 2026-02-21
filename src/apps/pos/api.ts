@@ -89,16 +89,14 @@ export async function closePOSSession(
 }
 
 // POS Orders
-export async function getPOSOrders(tenantId: string, sessionId?: string) {
+export async function getPOSOrders(tenantId: string, _sessionId?: string) {
   return await client.pOSOrder.findMany({
     where: {
       tenantId,
-      ...(sessionId && { sessionId }),
     },
     include: {
-      session: true,
       customer: true,
-      lines: {
+      items: {
         include: {
           product: true,
         },
@@ -108,25 +106,38 @@ export async function getPOSOrders(tenantId: string, sessionId?: string) {
   });
 }
 
-export async function createPOSOrder(data: Partial<POSOrder> & { tenantId: string }) {
-  const total = data.total || 0;
-  
+export async function createPOSOrder(data: any & { tenantId: string }) {
+  const total = Number(data.total) || 0;
+
   return await client.pOSOrder.create({
     data: {
-      reference: data.reference || `POS-${Date.now()}`,
-      sessionId: data.sessionId!,
+      orderNumber: data.orderNumber || `POS-${Date.now()}`,
       customerId: data.customerId,
-      subtotal: data.subtotal || total,
-      tax: data.tax || 0,
-      discount: data.discount || 0,
+      subtotal: Number(data.subtotal) || total,
+      tax: Number(data.tax) || 0,
+      discount: Number(data.discount) || 0,
       total,
       paymentMethod: data.paymentMethod || 'CASH',
-      status: 'PAID',
+      status: data.status || 'PENDING',
+      notes: data.notes || '',
       tenantId: data.tenantId,
+      items: {
+        create: (data.items || []).map((item: any) => ({
+          productId: item.productId,
+          quantity: Math.round(Number(item.quantity)) || 1,
+          unitPrice: Number(item.unitPrice),
+          total: Number(item.total),
+          tenantId: data.tenantId,
+        })),
+      },
     },
     include: {
-      session: true,
       customer: true,
+      items: {
+        include: {
+          product: true
+        }
+      }
     },
   });
 }

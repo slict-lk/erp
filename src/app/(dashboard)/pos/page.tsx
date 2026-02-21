@@ -83,11 +83,10 @@ export default function POSPage() {
                           {new Date(session.startDate).toLocaleDateString()}
                         </p>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-xs ${
-                        session.status === 'OPEN' 
-                          ? 'bg-green-100 text-green-700' 
+                      <span className={`px-3 py-1 rounded-full text-xs ${session.status === 'OPEN'
+                          ? 'bg-green-100 text-green-700'
                           : 'bg-gray-100 text-gray-700'
-                      }`}>
+                        }`}>
                         {session.status}
                       </span>
                     </div>
@@ -115,7 +114,7 @@ export default function POSPage() {
                   <div key={order.id} className="p-4 bg-gray-50 rounded-lg">
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="font-medium">{order.reference}</p>
+                        <p className="font-medium">{order.orderNumber}</p>
                         <p className="text-sm text-gray-600">
                           {order.paymentMethod}
                         </p>

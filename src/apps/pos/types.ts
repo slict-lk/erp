@@ -24,25 +24,31 @@ export interface POSConfig {
 
 export interface POSOrder {
   id: string;
-  reference: string;
-  sessionId: string;
+  orderNumber: string;
   customerId?: string;
   subtotal: number;
   tax: number;
   discount: number;
   total: number;
-  paymentMethod: 'CASH' | 'CARD' | 'MOBILE';
-  lines: POSOrderLine[];
+  status: string;
+  paymentMethod?: string;
+  notes?: string;
+  items: POSOrderItem[];
+  tenantId: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface POSOrderLine {
+export interface POSOrderItem {
   id: string;
   orderId: string;
   productId: string;
   quantity: number;
   unitPrice: number;
-  discount: number;
-  subtotal: number;
+  total: number;
+  tenantId: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface POSPayment {

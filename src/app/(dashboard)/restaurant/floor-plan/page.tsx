@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Save, Plus, Armchair, Move, Trash2, Snowflake, Sun } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { useModulePermissions } from '@/hooks/useModulePermissions';
 
 type Table = {
     id: string;
@@ -21,41 +22,123 @@ type Table = {
 }
 
 export default function FloorPlanPage() {
-    const [tables, setTables] = useState<Table[]>([
-        { id: '1', name: 'T1', x: 20, y: 20, capacity: 4, shape: 'rect', zone: 'AC' },
-        { id: '2', name: 'T2', x: 200, y: 150, capacity: 2, shape: 'circle', zone: 'AC' },
-        { id: '3', name: 'O1', x: 400, y: 50, capacity: 6, shape: 'rect', zone: 'OUTDOOR' },
-    ]);
+    const { user } = useModulePermissions();
+    const tenantId = user?.tenantId || 'SLICT';
 
+    const [tables, setTables] = useState<Table[]>([]);
+    const [loading, setLoading] = useState(true);
     const [activeZone, setActiveZone] = useState('AC');
     const [selectedTable, setSelectedTable] = useState<string | null>(null);
 
-    const addTable = () => {
-        const newTable: Table = {
-            id: Math.random().toString(36).substr(2, 9),
-            name: `T${tables.length + 1}`,
-            x: 50,
-            y: 50,
-            capacity: 4,
-            shape: 'rect',
-            zone: activeZone as 'AC' | 'OUTDOOR'
+    useEffect(() => {
+        const fetchTables = async () => {
+            if (!tenantId) return;
+            try {
+                const res = await fetch(`/api/restaurant/tables?tenantId=${tenantId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    // Map raw Prisma tables to visual canvas representation if they don't have x/y yet
+                    const visualTables = data.map((t: any, idx: number) => ({
+                        id: t.id,
+                        name: `T${t.number}`,
+                        x: t.location?.includes(',') ? parseInt(t.location.split(',')[0]) : 50 + (idx * 100),
+                        y: t.location?.includes(',') ? parseInt(t.location.split(',')[1]) : 50,
+                        capacity: t.capacity,
+                        shape: t.shape || 'rect',
+                        zone: t.zone || 'AC'
+                    }));
+                    setTables(visualTables);
+                }
+            } catch (error) {
+                console.error("Failed to load tables:", error);
+            } finally {
+                setLoading(false);
+            }
         };
-        setTables([...tables, newTable]);
-        setSelectedTable(newTable.id);
+        fetchTables();
+    }, [tenantId]);
+
+    const addTable = async () => {
+        try {
+            if (!tenantId) return toast.error("Tenant ID required");
+            const payload = {
+                tenantId,
+                number: tables.length + 1,
+                capacity: 4,
+                location: `50,50`
+            };
+            const res = await fetch('/api/restaurant/tables', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                const newT = await res.json();
+                const newTable: Table = {
+                    id: newT.id,
+                    name: `T${newT.number}`,
+                    x: 50,
+                    y: 50,
+                    capacity: newT.capacity,
+                    shape: 'rect',
+                    zone: activeZone as 'AC' | 'OUTDOOR'
+                };
+                setTables([...tables, newTable]);
+                setSelectedTable(newTable.id);
+            }
+        } catch (error) {
+            toast.error("Failed to create live table");
+        }
     };
 
     const updateTable = (id: string, updates: Partial<Table>) => {
         setTables(tables.map(t => t.id === id ? { ...t, ...updates } : t));
     };
 
-    const deleteTable = (id: string) => {
-        setTables(tables.filter(t => t.id !== id));
-        setSelectedTable(null);
+    const deleteTable = async (id: string) => {
+        if (!tenantId) return;
+        try {
+            const res = await fetch(`/api/restaurant/tables?tenantId=${tenantId}&id=${id}`, {
+                method: 'DELETE',
+            });
+            if (res.ok) {
+                setTables(tables.filter(t => t.id !== id));
+                setSelectedTable(null);
+                toast.success('Table deleted successfully');
+            } else {
+                toast.error('Failed to delete table');
+            }
+        } catch (error) {
+            toast.error('An error occurred while deleting');
+        }
     };
 
-    const saveLayout = () => {
-        toast.success('Floor plan saved successfully!');
-        // Save to API here
+    const saveLayout = async () => {
+        if (!tenantId) return;
+        try {
+            const payload = {
+                tenantId,
+                tables: tables.map(t => ({
+                    id: t.id,
+                    capacity: t.capacity,
+                    location: `${Math.round(t.x)},${Math.round(t.y)}`,
+                    shape: t.shape,
+                    zone: t.zone
+                }))
+            };
+            const res = await fetch('/api/restaurant/tables', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                toast.success('Floor plan layout saved successfully!');
+            } else {
+                toast.error('Failed to save layout.');
+            }
+        } catch (error) {
+            toast.error('An error occurred while saving.');
+        }
     };
 
     // Simple drag simulation logic using classic mouse events would go here
@@ -105,15 +188,19 @@ export default function FloorPlanPage() {
                             </Button>
                         </div>
 
-                        {tables.filter(t => t.zone === activeZone).map(table => (
+                        {loading ? (
+                            <div className="absolute inset-0 flex items-center justify-center text-slate-500">Loading tables from server...</div>
+                        ) : tables.filter(t => t.zone === activeZone).map(table => (
                             <motion.div
                                 key={table.id}
                                 drag
                                 dragMomentum={false}
                                 dragConstraints={{ left: 0, top: 0, right: 900, bottom: 500 }}
                                 onDragEnd={(_, info) => {
-                                    // In a real app, calculate true new x/y relative to container
-                                    // This visual drag needs to be persisted ideally
+                                    updateTable(table.id, {
+                                        x: Math.max(0, table.x + info.offset.x),
+                                        y: Math.max(0, table.y + info.offset.y)
+                                    });
                                 }}
                                 onClick={() => setSelectedTable(table.id)}
                                 className={`absolute cursor-move flex items-center justify-center border-2 transition-colors
@@ -121,11 +208,11 @@ export default function FloorPlanPage() {
                             ${selectedTable === table.id ? 'border-blue-600 bg-blue-50 z-20 shadow-lg' : 'border-slate-300 bg-white hover:border-blue-300'}
                         `}
                                 style={{
-                                    left: table.x,
-                                    top: table.y,
                                     width: table.capacity > 4 ? 120 : 80,
                                     height: table.capacity > 4 ? 80 : 80
                                 }}
+                                initial={{ x: table.x, y: table.y }}
+                                animate={{ x: table.x, y: table.y }}
                             >
                                 <div className="text-center">
                                     <div className="font-bold text-slate-800">{table.name}</div>

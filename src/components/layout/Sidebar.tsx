@@ -391,7 +391,16 @@ const navigation: NavigationItem[] = [
     name: 'Restaurant',
     href: '/restaurant',
     icon: Utensils,
-    moduleId: 'restaurant'
+    children: [
+      { name: 'Dashboard', href: '/restaurant', moduleId: 'restaurant' },
+      { name: 'Point of Sale', href: '/restaurant/pos', moduleId: 'restaurant' },
+      { name: 'Kitchen Display', href: '/restaurant/kitchen', moduleId: 'restaurant' },
+      { name: 'Recent Orders', href: '/restaurant/orders', moduleId: 'restaurant' },
+      { name: 'Staff Management', href: '/restaurant/shifts', moduleId: 'restaurant' },
+      { name: 'Floor Plan', href: '/restaurant/floor-plan', moduleId: 'restaurant' },
+      { name: 'Menu Creator', href: '/restaurant/menu', moduleId: 'restaurant' },
+      { name: 'Settings', href: '/restaurant/setup', moduleId: 'restaurant' },
+    ],
   },
   {
     name: 'Hotel',

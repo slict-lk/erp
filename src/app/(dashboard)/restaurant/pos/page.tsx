@@ -1,27 +1,51 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, ShoppingCart, Trash2, Plus, Minus, ChefHat, Wifi, WifiOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Card } from '@/components/ui/card';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { MOCK_MENU, MENU_CATEGORIES, MenuItem } from './data';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-type CartItem = MenuItem & { quantity: number; notes?: string };
+type CartItem = { id: string; name: string; price: number; quantity: number; notes?: string; category: string; image?: string; spicyLevel?: number };
+type MenuItem = { id: string; name: string; salePrice: number; category: string; description: string; images: string[] };
 
 export default function POSPage() {
     const [activeCategory, setActiveCategory] = useState('All');
     const [cart, setCart] = useState<CartItem[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [isOnline, setIsOnline] = useState(true); // Simulate connection status
+    const [isOnline, setIsOnline] = useState(true);
 
-    const filteredMenu = MOCK_MENU.filter(item => {
+    // Live Data
+    const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+    const [categories, setCategories] = useState<string[]>(['All']);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchMenu = async () => {
+            try {
+                const res = await fetch('/api/restaurant/menu');
+                if (res.ok) {
+                    const data = await res.json();
+                    setMenuItems(data.items || []);
+
+                    const cats = new Set(data.items.map((item: MenuItem) => item.category));
+                    setCategories(['All', ...Array.from(cats)] as string[]);
+                }
+            } catch (error) {
+                console.error('Error fetching menu:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchMenu();
+    }, []);
+
+    const filteredMenu = menuItems.filter(item => {
         const matchesCategory = activeCategory === 'All' || item.category === activeCategory;
         const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesCategory && matchesSearch;
@@ -33,9 +57,15 @@ export default function POSPage() {
             if (existing) {
                 return prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
             }
-            return [...prev, { ...item, quantity: 1 }];
+            return [...prev, {
+                id: item.id,
+                name: item.name,
+                price: item.salePrice,
+                quantity: 1,
+                category: item.category,
+                image: item.images?.[0]
+            }];
         });
-        // Haptic feedback if available or simple vibe
         if (window.navigator && window.navigator.vibrate) {
             window.navigator.vibrate(50);
         }
@@ -60,13 +90,47 @@ export default function POSPage() {
     const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
-    const handleSendOrder = () => {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleSendOrder = async () => {
         if (cart.length === 0) return;
-        toast.success('Order sent to Kitchen!', {
-            description: 'Order #POS-8821 created',
-            duration: 3000,
-        });
-        setCart([]);
+        setIsSubmitting(true);
+        try {
+            const payload = {
+                items: cart.map(item => ({
+                    productId: item.id,
+                    quantity: item.quantity,
+                    unitPrice: item.price,
+                    total: item.price * item.quantity
+                })),
+                subtotal: cartTotal,
+                tax: cartTotal * 0.1,
+                total: cartTotal * 1.1,
+                status: 'PENDING',
+                orderNumber: `ORD-${Math.floor(Math.random() * 100000)}`
+            };
+
+            const res = await fetch('/api/pos/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                toast.success('Order sent to Kitchen!', {
+                    description: `Order #${data.orderNumber} created`,
+                    duration: 3000,
+                });
+                setCart([]);
+            } else {
+                toast.error('Failed to send order');
+            }
+        } catch (error) {
+            toast.error('Network error');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -152,7 +216,7 @@ export default function POSPage() {
                 <div className="bg-white border-b border-slate-100">
                     <ScrollArea className="w-full whitespace-nowrap">
                         <div className="flex p-2 gap-2">
-                            {MENU_CATEGORIES.map(cat => (
+                            {categories.map(cat => (
                                 <button
                                     key={cat}
                                     onClick={() => setActiveCategory(cat)}
@@ -171,9 +235,9 @@ export default function POSPage() {
                     </ScrollArea>
                 </div>
 
-                {/* Menu Grid */}
                 <ScrollArea className="flex-1 p-4 bg-slate-50">
                     <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
+                        {loading && <div className="col-span-full text-center py-10 text-slate-500">Loading live menu...</div>}
                         {filteredMenu.map(item => (
                             <motion.div
                                 key={item.id}
@@ -184,19 +248,18 @@ export default function POSPage() {
                                 onClick={() => addToCart(item)}
                                 className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow group"
                             >
-                                <div className="aspect-[4/3] bg-slate-200 relative overflow-hidden">
+                                <div className="aspect-[4/3] bg-slate-200 relative overflow-hidden flex items-center justify-center">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                                    {item.spicyLevel && (
-                                        <div className="absolute top-2 right-2 bg-red-500/90 text-white text-[10px] px-2 py-0.5 rounded-full font-bold uppercase backdrop-blur-sm">
-                                            {'🌶️'.repeat(item.spicyLevel)}
-                                        </div>
+                                    {item.images?.[0] ? (
+                                        <img src={item.images[0]} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                    ) : (
+                                        <ChefHat className="h-10 w-10 text-slate-400 opacity-50" />
                                     )}
                                 </div>
                                 <div className="p-3">
                                     <h3 className="font-semibold text-slate-800 line-clamp-1">{item.name}</h3>
                                     <div className="flex justify-between items-center mt-2">
-                                        <span className="text-blue-600 font-bold">Rs. {item.price}</span>
+                                        <span className="text-blue-600 font-bold">Rs. {item.salePrice}</span>
                                         <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                                             <Plus className="h-4 w-4" />
                                         </div>
@@ -284,9 +347,9 @@ export default function POSPage() {
                             size="lg"
                             className="w-full bg-slate-900 hover:bg-slate-800 text-white shadow-lg shadow-blue-900/20"
                             onClick={handleSendOrder}
-                            disabled={cart.length === 0}
+                            disabled={cart.length === 0 || isSubmitting}
                         >
-                            Send to Kitchen
+                            {isSubmitting ? 'Sending...' : 'Send to Kitchen'}
                         </Button>
                     </div>
                 </div>
