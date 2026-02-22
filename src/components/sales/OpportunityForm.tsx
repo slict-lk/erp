@@ -33,7 +33,8 @@ interface Customer {
 
 interface Lead {
   id: string;
-  title: string;
+  title?: string;
+  name?: string;
 }
 
 interface OpportunityFormProps {
@@ -52,6 +53,8 @@ const STAGES = [
   { value: 'CLOSED_WON', label: 'Closed Won', probability: 100 },
   { value: 'CLOSED_LOST', label: 'Closed Lost', probability: 0 },
 ];
+
+const NONE_LEAD_VALUE = '__NONE_LEAD__';
 
 export function OpportunityForm({
   initialData,
@@ -152,15 +155,18 @@ export function OpportunityForm({
 
             <div>
               <Label htmlFor="leadId">Related Lead</Label>
-              <Select value={watch('leadId')} onValueChange={(value) => setValue('leadId', value)}>
+              <Select
+                value={watch('leadId') || NONE_LEAD_VALUE}
+                onValueChange={(value) => setValue('leadId', value === NONE_LEAD_VALUE ? '' : value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select lead (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value={NONE_LEAD_VALUE}>None</SelectItem>
                   {leads.map((lead) => (
                     <SelectItem key={lead.id} value={lead.id}>
-                      {lead.title}
+                      {lead.title || lead.name || lead.id}
                     </SelectItem>
                   ))}
                 </SelectContent>

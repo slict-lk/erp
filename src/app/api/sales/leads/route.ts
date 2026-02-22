@@ -1,27 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
+import { requireTenantContext } from '@/lib/server/erp-context';
 
-
+const client = prisma as any;
 export const dynamic = 'force-dynamic';
-// GET /api/sales/leads - Get all leads
+
 export async function GET(request: NextRequest) {
   try {
-    const tenant = await getOrCreateDefaultTenant();
+    const { tenantId } = await requireTenantContext({ moduleId: 'sales', action: 'view' });
     const { searchParams } = new URL(request.url);
     const statusParam = searchParams.get('status');
     const priorityParam = searchParams.get('priority');
     const search = searchParams.get('search');
 
-    const leads = await prisma.lead.findMany({
+    const leads = await client.lead.findMany({
       where: {
-        tenantId: tenant.id,
-        ...(statusParam && { status: statusParam as 'NEW' | 'QUALIFIED' | 'PROPOSITION' | 'WON' | 'LOST' }),
-        ...(priorityParam && { priority: priorityParam as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' }),
+        tenantId,
+        ...(statusParam && { status: statusParam }),
+        ...(priorityParam && { priority: priorityParam }),
         ...(search && {
           OR: [
             { name: { contains: search, mode: 'insensitive' } },
             { email: { contains: search, mode: 'insensitive' } },
+            { phone: { contains: search } },
           ],
         }),
       },
@@ -31,37 +32,46 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json(leads);
-  } catch (error) {
+    return NextResponse.json(leads.map((lead: any) => ({
+      ...lead,
+      priority: lead.priority ?? 'MEDIUM',
+      expectedRevenue: lead.expectedRevenue ?? null,
+      probability: lead.probability ?? null,
+    })));
+  } catch (error: any) {
+    const status = error?.message?.includes('Forbidden') ? 403 : 500;
     console.error('Error fetching leads:', error);
-    return NextResponse.json({ error: 'Failed to fetch leads' }, { status: 500 });
+    return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to fetch leads' }, { status });
   }
 }
 
-// POST /api/sales/leads - Create new lead
 export async function POST(request: NextRequest) {
   try {
-    const tenant = await getOrCreateDefaultTenant();
+    const { tenantId } = await requireTenantContext({ moduleId: 'sales', action: 'create' });
     const body = await request.json();
 
-    const lead = await prisma.lead.create({
+    const lead = await client.lead.create({
       data: {
         name: body.name,
-        email: body.email,
-        phone: body.phone,
-        source: body.source,
+        email: body.email || '',
+        phone: body.phone ?? null,
+        source: body.source ?? null,
         status: body.status || 'NEW',
-        score: body.score || 0,
-        notes: body.notes,
-        customerId: body.customerId,
-        tenantId: tenant.id,
+        priority: body.priority || 'MEDIUM',
+        score: body.score ?? 0,
+        probability: body.probability ?? null,
+        expectedRevenue: body.expectedRevenue != null ? Number(body.expectedRevenue) : null,
+        notes: body.notes ?? null,
+        customerId: body.customerId ?? null,
+        tenantId,
       },
     });
 
     return NextResponse.json(lead, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
+    const status = error?.message?.includes('Forbidden') ? 403 : 500;
     console.error('Error creating lead:', error);
-    return NextResponse.json({ error: 'Failed to create lead' }, { status: 500 });
+    return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to create lead' }, { status });
   }
 }
 

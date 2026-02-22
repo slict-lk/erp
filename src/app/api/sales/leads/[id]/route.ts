@@ -1,106 +1,88 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
+import { requireTenantContext } from '@/lib/server/erp-context';
 
-// GET /api/sales/leads/[id]
+const client = prisma as any;
+export const dynamic = 'force-dynamic';
+
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { tenantId } = await requireTenantContext({ moduleId: 'sales', action: 'view' });
     const { id } = await params;
-    const tenant = await getOrCreateDefaultTenant();
-    
-    const lead = await prisma.lead.findFirst({
-      where: {
-        id,
-        tenantId: tenant.id,
-      },
-      include: {
-        customer: true,
-      },
+
+    const lead = await client.lead.findFirst({
+      where: { id, tenantId },
+      include: { customer: true },
     });
 
-    if (!lead) {
-      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
-    }
-
+    if (!lead) return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     return NextResponse.json(lead);
-  } catch (error) {
+  } catch (error: any) {
+    const status = error?.message?.includes('Forbidden') ? 403 : 500;
     console.error('Error fetching lead:', error);
-    return NextResponse.json({ error: 'Failed to fetch lead' }, { status: 500 });
+    return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to fetch lead' }, { status });
   }
 }
 
-// PUT /api/sales/leads/[id]
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { tenantId } = await requireTenantContext({ moduleId: 'sales', action: 'edit' });
     const { id } = await params;
-    const tenant = await getOrCreateDefaultTenant();
     const body = await request.json();
 
-    const existingLead = await prisma.lead.findFirst({
-      where: {
-        id,
-        tenantId: tenant.id,
-      },
-    });
+    const existingLead = await client.lead.findFirst({ where: { id, tenantId } });
+    if (!existingLead) return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
 
-    if (!existingLead) {
-      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
-    }
-
-    const lead = await prisma.lead.update({
+    const lead = await client.lead.update({
       where: { id },
       data: {
-        name: body.name,
-        email: body.email,
-        phone: body.phone,
-        source: body.source,
-        status: body.status,
-        score: body.score,
-        notes: body.notes,
-        customerId: body.customerId,
+        ...(body.name !== undefined && { name: body.name }),
+        ...(body.email !== undefined && { email: body.email || '' }),
+        ...(body.phone !== undefined && { phone: body.phone }),
+        ...(body.source !== undefined && { source: body.source }),
+        ...(body.status !== undefined && { status: body.status }),
+        ...(body.priority !== undefined && { priority: body.priority }),
+        ...(body.score !== undefined && { score: Number(body.score) || 0 }),
+        ...(body.probability !== undefined && {
+          probability: body.probability == null ? null : Number(body.probability),
+        }),
+        ...(body.expectedRevenue !== undefined && {
+          expectedRevenue: body.expectedRevenue == null ? null : Number(body.expectedRevenue),
+        }),
+        ...(body.notes !== undefined && { notes: body.notes }),
+        ...(body.customerId !== undefined && { customerId: body.customerId }),
       },
     });
 
     return NextResponse.json(lead);
-  } catch (error) {
+  } catch (error: any) {
+    const status = error?.message?.includes('Forbidden') ? 403 : 500;
     console.error('Error updating lead:', error);
-    return NextResponse.json({ error: 'Failed to update lead' }, { status: 500 });
+    return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to update lead' }, { status });
   }
 }
 
-// DELETE /api/sales/leads/[id]
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { tenantId } = await requireTenantContext({ moduleId: 'sales', action: 'delete' });
     const { id } = await params;
-    const tenant = await getOrCreateDefaultTenant();
-
-    const existingLead = await prisma.lead.findFirst({
-      where: {
-        id,
-        tenantId: tenant.id,
-      },
-    });
-
-    if (!existingLead) {
-      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
-    }
-
-    await prisma.lead.delete({
-      where: { id },
-    });
-
+    const existingLead = await client.lead.findFirst({ where: { id, tenantId } });
+    if (!existingLead) return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+    await client.lead.delete({ where: { id } });
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
+    const status = error?.message?.includes('Forbidden') ? 403 : 500;
     console.error('Error deleting lead:', error);
-    return NextResponse.json({ error: 'Failed to delete lead' }, { status: 500 });
+    return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to delete lead' }, { status });
   }
 }
+

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { ensureDefaultBranch } from '@/lib/sales-crm/bootstrap';
+import { ensurePartyForExportCustomerRecord } from '@/lib/sales-crm/party-sync';
 
 // GET /api/vehicle-export/customers - List all export customers
 export async function GET(request: NextRequest) {
@@ -78,6 +80,23 @@ export async function POST(request: NextRequest) {
             },
             include: { wallet: true }
         });
+
+        try {
+            const branch = await ensureDefaultBranch(tenantId);
+            await ensurePartyForExportCustomerRecord({
+                tenantId,
+                exportCustomerId: customer.id,
+                name: customer.name,
+                email: customer.email,
+                phone: customer.phone,
+                company: customer.company,
+                country: customer.country,
+                address: customer.address,
+                branchId: branch.id,
+            });
+        } catch (syncError) {
+            console.error('Export customer party sync failed (non-blocking):', syncError);
+        }
 
         return NextResponse.json({ customer }, { status: 201 });
     } catch (error) {

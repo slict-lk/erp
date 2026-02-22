@@ -104,6 +104,15 @@ export const AVAILABLE_MODULES: Module[] = [
 
   // Sales & CRM
   {
+    id: 'crm',
+    name: 'CRM',
+    description: 'Lead, opportunity, pipeline, and customer relationship management',
+    category: 'sales',
+    icon: 'Target',
+    route: '/sales',
+    permissions: { view: true, create: true, edit: true, delete: true, export: true, approve: true },
+  },
+  {
     id: 'sales',
     name: 'Sales',
     description: 'Sales orders and quotations',

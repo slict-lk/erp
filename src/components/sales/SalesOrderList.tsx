@@ -1,22 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import type { ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Edit, Trash2, ShoppingBag, DollarSign, TrendingUp } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Search, Edit, Trash2, ShoppingBag, DollarSign, TrendingUp, ArrowLeft, ArrowRight, Truck, PackageCheck, AlertTriangle } from 'lucide-react';
 
 interface SalesOrder {
   id: string;
   orderNumber: string;
   customerId: string;
-  customer?: {
-    id: string;
-    name: string;
-  };
+  customer?: { id: string; name: string };
   orderDate: Date;
   deliveryDate?: Date;
-  status: 'DRAFT' | 'CONFIRMED' | 'IN_PROGRESS' | 'DELIVERED' | 'CANCELLED';
+  status: string;
   total: number;
   lines: any[];
   createdAt: Date;
@@ -28,290 +27,210 @@ interface SalesOrderListProps {
   onEdit: (order: SalesOrder) => void;
   onDelete: (orderId: string) => void;
   onView: (order: SalesOrder) => void;
+  onStatusChange?: (order: SalesOrder, status: string) => Promise<void> | void;
 }
 
-const STATUS_COLORS = {
-  DRAFT: 'bg-gray-100 text-gray-800',
-  CONFIRMED: 'bg-blue-100 text-blue-800',
-  IN_PROGRESS: 'bg-yellow-100 text-yellow-800',
-  DELIVERED: 'bg-green-100 text-green-800',
-  CANCELLED: 'bg-red-100 text-red-800',
-};
+const STATUSES = ['DRAFT', 'CONFIRMED', 'IN_PROGRESS', 'DELIVERED', 'CANCELLED'] as const;
 
-export function SalesOrderList({
-  salesOrders,
-  onCreateNew,
-  onEdit,
-  onDelete,
-  onView,
-}: SalesOrderListProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('ALL');
+function money(v?: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(Number(v || 0));
+}
+function dateFmt(v?: Date | null) {
+  const d = v ? new Date(v) : null;
+  return !d || Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
+}
+function badgeVariant(status: string): 'default' | 'secondary' | 'outline' | 'destructive' {
+  const s = String(status || '').toUpperCase();
+  if (s === 'DELIVERED') return 'default';
+  if (s === 'CANCELLED') return 'destructive';
+  if (s === 'IN_PROGRESS') return 'secondary';
+  return 'outline';
+}
 
-  const filteredOrders = salesOrders.filter((order) => {
-    const matchesSearch =
-      order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customer?.name.toLowerCase().includes(searchTerm.toLowerCase());
+export function SalesOrderList({ salesOrders, onCreateNew, onEdit, onDelete, onView, onStatusChange }: SalesOrderListProps) {
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-    const matchesStatus = filterStatus === 'ALL' || order.status === filterStatus;
+  const filtered = useMemo(() => {
+    return salesOrders.filter((o) => {
+      const txt = `${o.orderNumber} ${o.customer?.name || ''}`.toLowerCase();
+      return (search ? txt.includes(search.toLowerCase()) : true) && (statusFilter === 'ALL' ? true : String(o.status).toUpperCase() === statusFilter);
+    });
+  }, [salesOrders, search, statusFilter]);
 
-    return matchesSearch && matchesStatus;
+  const selected = filtered.find((o) => o.id === selectedId) || filtered[0] || null;
+  const total = filtered.filter((o) => String(o.status).toUpperCase() !== 'CANCELLED').reduce((s, o) => s + Number(o.total || 0), 0);
+  const active = filtered.filter((o) => ['CONFIRMED', 'IN_PROGRESS'].includes(String(o.status).toUpperCase())).length;
+  const delivered = filtered.filter((o) => String(o.status).toUpperCase() === 'DELIVERED').reduce((s, o) => s + Number(o.total || 0), 0);
+  const overdueDelivery = filtered.filter((o) => {
+    const s = String(o.status).toUpperCase();
+    if (!o.deliveryDate || ['DELIVERED', 'CANCELLED'].includes(s)) return false;
+    return new Date(o.deliveryDate).getTime() < Date.now();
   });
 
-  const totalRevenue = filteredOrders
-    .filter((o) => o.status !== 'CANCELLED')
-    .reduce((sum, o) => sum + o.total, 0);
+  const columns = STATUSES.map((status) => {
+    const items = filtered.filter((o) => String(o.status).toUpperCase() === status);
+    return { status, items, total: items.reduce((s, o) => s + Number(o.total || 0), 0) };
+  });
 
-  const activeOrders = filteredOrders.filter(
-    (o) => o.status === 'CONFIRMED' || o.status === 'IN_PROGRESS'
-  ).length;
+  const idx = selected ? STATUSES.findIndex((s) => s === String(selected.status).toUpperCase()) : -1;
+  const prevStatus = idx > 0 ? STATUSES[idx - 1] : null;
+  const nextStatus = idx >= 0 && idx < STATUSES.length - 1 ? STATUSES[idx + 1] : null;
 
-  const deliveredValue = filteredOrders
-    .filter((o) => o.status === 'DELIVERED')
-    .reduce((sum, o) => sum + o.total, 0);
+  async function run(fn?: () => Promise<void> | void, id?: string) {
+    if (!fn) return;
+    try {
+      if (id) setBusyId(id);
+      await fn();
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Sales Orders</h2>
-          <p className="text-gray-600">{filteredOrders.length} orders</p>
+      <div className="rounded-2xl border border-gray-200 bg-gradient-to-r from-slate-900 via-emerald-900 to-teal-800 p-5 text-white">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold">Order Execution Desk</h2>
+            <p className="text-sm text-emerald-100">Monitor confirmations, fulfillment progress, delivery status, and execution risk.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <Tile label="Order Value" value={money(total)} />
+            <Tile label="Active Orders" value={String(active)} />
+            <Tile label="Delivered" value={money(delivered)} />
+            <Tile label="Overdue Delivery" value={String(overdueDelivery.length)} />
+          </div>
         </div>
-        <Button onClick={onCreateNew}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Sales Order
-        </Button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-600">Total Value</p>
-                <p className="text-2xl font-bold text-blue-600">${totalRevenue.toFixed(2)}</p>
-              </div>
-              <DollarSign className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-600">Active Orders</p>
-                <p className="text-2xl font-bold text-orange-600">{activeOrders}</p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-600">Delivered</p>
-                <p className="text-2xl font-bold text-green-600">${deliveredValue.toFixed(2)}</p>
-              </div>
-              <ShoppingBag className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Metric title="Total Value" value={money(total)} icon={<DollarSign className="h-5 w-5 text-blue-600" />} />
+        <Metric title="Active Orders" value={String(active)} icon={<TrendingUp className="h-5 w-5 text-amber-600" />} />
+        <Metric title="Delivered Value" value={money(delivered)} icon={<PackageCheck className="h-5 w-5 text-emerald-600" />} />
       </div>
 
-      {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search sales orders..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              <Button
-                variant={filterStatus === 'ALL' ? 'default' : 'outline'}
-                onClick={() => setFilterStatus('ALL')}
-                size="sm"
-              >
-                All
+        <CardContent className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative w-full lg:max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Input className="pl-10" placeholder="Search order or customer..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {['ALL', ...STATUSES].map((s) => (
+              <Button key={s} size="sm" variant={statusFilter === s ? 'default' : 'outline'} onClick={() => setStatusFilter(s)}>
+                {s === 'ALL' ? 'All' : s}
               </Button>
-              <Button
-                variant={filterStatus === 'DRAFT' ? 'default' : 'outline'}
-                onClick={() => setFilterStatus('DRAFT')}
-                size="sm"
-              >
-                Draft
-              </Button>
-              <Button
-                variant={filterStatus === 'CONFIRMED' ? 'default' : 'outline'}
-                onClick={() => setFilterStatus('CONFIRMED')}
-                size="sm"
-              >
-                Confirmed
-              </Button>
-              <Button
-                variant={filterStatus === 'IN_PROGRESS' ? 'default' : 'outline'}
-                onClick={() => setFilterStatus('IN_PROGRESS')}
-                size="sm"
-              >
-                In Progress
-              </Button>
-              <Button
-                variant={filterStatus === 'DELIVERED' ? 'default' : 'outline'}
-                onClick={() => setFilterStatus('DELIVERED')}
-                size="sm"
-              >
-                Delivered
-              </Button>
-            </div>
+            ))}
+            <Button onClick={onCreateNew}><Plus className="mr-2 h-4 w-4" />New Sales Order</Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Order List */}
-      {filteredOrders.length === 0 ? (
+      <div className="grid gap-6 xl:grid-cols-[1.45fr_0.85fr]">
         <Card>
-          <CardContent className="py-12">
-            <div className="text-center">
-              <ShoppingBag className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No sales orders found</h3>
-              <p className="text-gray-600 mb-4">
-                {searchTerm || filterStatus !== 'ALL'
-                  ? 'Try adjusting your search or filters'
-                  : 'Get started by creating your first sales order'}
-              </p>
-              {!searchTerm && filterStatus === 'ALL' && (
-                <Button onClick={onCreateNew}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Sales Order
-                </Button>
+          <CardHeader className="pb-3"><CardTitle className="text-base">Execution Board</CardTitle></CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto pb-2">
+              <div className="flex min-w-[980px] gap-4">
+                {columns.map((col) => (
+                  <div key={col.status} className="w-[280px] rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                    <div className="mb-3 rounded-xl bg-white p-3">
+                      <div className="flex items-center justify-between"><p className="font-semibold">{col.status}</p><Badge variant={badgeVariant(col.status)}>{col.items.length}</Badge></div>
+                      <p className="mt-1 text-xs text-gray-500">{money(col.total)}</p>
+                    </div>
+                    <div className="space-y-3">
+                      {col.items.length === 0 ? <div className="rounded-lg border border-dashed bg-white p-4 text-center text-xs text-gray-500">No orders</div> : col.items.map((o) => (
+                        <button key={o.id} type="button" onClick={() => setSelectedId(o.id)} className={`w-full rounded-xl border bg-white p-3 text-left shadow-sm ${selected?.id === o.id ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-200'}`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div><p className="font-medium">{o.orderNumber}</p><p className="text-xs text-gray-500">{o.customer?.name || 'No customer'}</p></div>
+                            <Badge variant={badgeVariant(o.status)}>{String(o.status).toUpperCase()}</Badge>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                            <span>{(o.lines || []).length} items</span>
+                            <span className="font-medium text-gray-900">{money(o.total)}</span>
+                          </div>
+                          <div className="mt-1 text-xs text-gray-500">Delivery {dateFmt(o.deliveryDate)}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="pb-3"><CardTitle className="text-base">Order Inspector</CardTitle></CardHeader>
+            <CardContent>
+              {!selected ? (
+                <div className="rounded-lg border border-dashed p-6 text-sm text-gray-500">Select an order to inspect and move status.</div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div><p className="text-lg font-semibold">{selected.orderNumber}</p><p className="text-sm text-gray-500">{selected.customer?.name || 'No customer linked'}</p></div>
+                    <Badge variant={badgeVariant(selected.status)}>{String(selected.status).toUpperCase()}</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <Box label="Total" value={money(selected.total)} />
+                    <Box label="Items" value={String((selected.lines || []).length)} />
+                    <Box label="Order Date" value={dateFmt(selected.orderDate)} />
+                    <Box label="Delivery Date" value={dateFmt(selected.deliveryDate)} />
+                  </div>
+                  <div className="rounded-xl border p-3">
+                    <p className="mb-2 text-xs uppercase text-gray-500">Execution Controls</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" disabled={!prevStatus || !onStatusChange || !!busyId} onClick={() => run(() => onStatusChange?.(selected, prevStatus!), selected.id)}>
+                        <ArrowLeft className="mr-1 h-3.5 w-3.5" />Back
+                      </Button>
+                      <Button size="sm" disabled={!nextStatus || !onStatusChange || !!busyId} onClick={() => run(() => onStatusChange?.(selected, nextStatus!), selected.id)}>
+                        <ArrowRight className="mr-1 h-3.5 w-3.5" />{busyId === selected.id ? 'Updating...' : 'Advance'}
+                      </Button>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-500">Next status: {nextStatus || 'None'}</div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={() => onEdit(selected)}><Edit className="mr-2 h-4 w-4" />Edit</Button>
+                    <Button variant="outline" onClick={() => onView(selected)}>Open Form</Button>
+                    <Button variant="outline" onClick={() => { if (confirm(`Delete order ${selected.orderNumber}?`)) onDelete(selected.id); }}>
+                      <Trash2 className="mr-2 h-4 w-4 text-red-500" />Delete
+                    </Button>
+                  </div>
+                </div>
               )}
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Order Number
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Customer
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Order Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Delivery Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredOrders.map((order) => (
-                    <tr
-                      key={order.id}
-                      className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => onView(order)}
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <ShoppingBag className="h-5 w-5 text-blue-600" />
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {order.orderNumber}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {order.lines.length} item{order.lines.length !== 1 ? 's' : ''}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{order.customer?.name || '-'}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">
-                          {new Date(order.orderDate).toLocaleDateString()}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">
-                          {order.deliveryDate
-                            ? new Date(order.deliveryDate).toLocaleDateString()
-                            : '-'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            STATUS_COLORS[order.status]
-                          }`}
-                        >
-                          {order.status.replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="text-sm font-medium text-gray-900">
-                          ${order.total.toFixed(2)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right text-sm font-medium">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEdit(order);
-                            }}
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (confirm(`Delete order ${order.orderNumber}?`))
-                                onDelete(order.id);
-                            }}
-                          >
-                            <Trash2 className="h-3 w-3 text-red-500" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-4 w-4 text-amber-500" />Delivery Risk</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              {overdueDelivery.length === 0 ? <div className="rounded-lg border border-dashed p-6 text-sm text-gray-500">No overdue deliveries.</div> : overdueDelivery.slice(0, 6).map((o) => (
+                <button key={o.id} type="button" onClick={() => setSelectedId(o.id)} className={`w-full rounded-lg border p-3 text-left ${selected?.id === o.id ? 'border-blue-300 bg-blue-50/50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div><p className="font-medium">{o.orderNumber}</p><p className="text-xs text-gray-500">{o.customer?.name || 'No customer'} · {String(o.status).toUpperCase()}</p></div>
+                    <Truck className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div className="mt-1 flex justify-between text-xs text-gray-500"><span>Delivery {dateFmt(o.deliveryDate)}</span><span className="font-medium text-gray-900">{money(o.total)}</span></div>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
+}
+
+function Tile({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-lg border border-white/15 bg-white/10 px-3 py-2"><div className="text-xs text-emerald-100">{label}</div><div className="font-semibold">{value}</div></div>;
+}
+function Metric({ title, value, icon }: { title: string; value: string; icon: ReactNode }) {
+  return <Card><CardContent className="flex items-center justify-between p-4"><div><p className="text-xs text-gray-500">{title}</p><p className="text-lg font-semibold">{value}</p></div><div className="rounded-lg bg-gray-50 p-2">{icon}</div></CardContent></Card>;
+}
+function Box({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-lg border bg-gray-50 p-3"><div className="text-xs text-gray-500">{label}</div><div className="font-medium">{value}</div></div>;
 }

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
+import { requireTenantContext } from '@/lib/server/erp-context';
+import { ensureDefaultBranch } from '@/lib/sales-crm/bootstrap';
+import { ensurePartyForCustomerRecord } from '@/lib/sales-crm/party-sync';
 
 // GET /api/sales/customers/[id] - Get single customer
 export async function GET(
@@ -9,12 +11,12 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const tenant = await getOrCreateDefaultTenant();
+    const { tenantId } = await requireTenantContext({ moduleId: 'sales', action: 'view' });
     
     const customer = await prisma.customer.findFirst({
       where: {
         id,
-        tenantId: tenant.id,
+        tenantId,
       },
       include: {
         leads: {
@@ -50,14 +52,14 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const tenant = await getOrCreateDefaultTenant();
+    const { tenantId } = await requireTenantContext({ moduleId: 'sales', action: 'edit' });
     const body = await request.json();
 
     // Verify customer belongs to tenant
     const existingCustomer = await prisma.customer.findFirst({
       where: {
         id,
-        tenantId: tenant.id,
+        tenantId,
       },
     });
 
@@ -80,6 +82,28 @@ export async function PUT(
       },
     });
 
+    try {
+      const branch = await ensureDefaultBranch(tenantId);
+      await ensurePartyForCustomerRecord({
+        tenantId,
+        customerId: customer.id,
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        type: customer.type,
+        address: {
+          line1: customer.address,
+          city: customer.city,
+          state: customer.state,
+          postalCode: customer.zipCode,
+          country: customer.country,
+        },
+        branchId: branch.id,
+      });
+    } catch (syncError) {
+      console.error('Customer party sync failed (non-blocking):', syncError);
+    }
+
     return NextResponse.json(customer);
   } catch (error) {
     console.error('Error updating customer:', error);
@@ -94,13 +118,13 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const tenant = await getOrCreateDefaultTenant();
+    const { tenantId } = await requireTenantContext({ moduleId: 'sales', action: 'delete' });
 
     // Verify customer belongs to tenant
     const existingCustomer = await prisma.customer.findFirst({
       where: {
         id,
-        tenantId: tenant.id,
+        tenantId,
       },
     });
 

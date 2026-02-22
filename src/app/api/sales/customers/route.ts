@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
 import { handleApiError, formatSuccessResponse, formatPaginatedResponse } from '@/lib/error-handler';
 import { tryCatch } from '@/lib/error-handler';
+import { requireTenantContext } from '@/lib/server/erp-context';
+import { ensureDefaultBranch } from '@/lib/sales-crm/bootstrap';
+import { ensurePartyForCustomerRecord } from '@/lib/sales-crm/party-sync';
 
 
 export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   return tryCatch(async () => {
-    const tenant = await getOrCreateDefaultTenant();
+    const { tenantId } = await requireTenantContext({ moduleId: 'sales', action: 'view' });
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
@@ -18,7 +20,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     const where: any = {
-      tenantId: tenant.id,
+      tenantId,
     };
 
     if (search) {
@@ -85,7 +87,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   return tryCatch(async () => {
-    const tenant = await getOrCreateDefaultTenant();
+    const { tenantId } = await requireTenantContext({ moduleId: 'sales', action: 'create' });
     const body = await request.json();
 
     // Validate required fields
@@ -100,7 +102,7 @@ export async function POST(request: NextRequest) {
     const existingCustomer = await prisma.customer.findFirst({
       where: {
         email: body.email,
-        tenantId: tenant.id,
+        tenantId,
       },
     });
 
@@ -122,7 +124,7 @@ export async function POST(request: NextRequest) {
         state: body.state,
         zipCode: body.zipCode,
         country: body.country || 'US',
-        tenantId: tenant.id,
+        tenantId,
       },
       include: {
         leads: true,
@@ -137,6 +139,29 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    // Best-effort dual-write to Party/CustomerAccount foundation (do not fail customer creation on sync issues)
+    try {
+      const branch = await ensureDefaultBranch(tenantId);
+      await ensurePartyForCustomerRecord({
+        tenantId,
+        customerId: customer.id,
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        type: customer.type,
+        address: {
+          line1: customer.address,
+          city: customer.city,
+          state: customer.state,
+          postalCode: customer.zipCode,
+          country: customer.country,
+        },
+        branchId: branch.id,
+      });
+    } catch (syncError) {
+      console.error('Customer party sync failed (non-blocking):', syncError);
+    }
 
     return NextResponse.json(
       formatSuccessResponse(customer, 'Customer created successfully'),

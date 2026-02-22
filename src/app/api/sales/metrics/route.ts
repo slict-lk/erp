@@ -1,18 +1,18 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
+import { requireTenantContext } from '@/lib/server/erp-context';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
     try {
-        const tenant = await getOrCreateDefaultTenant();
+        const { tenantId } = await requireTenantContext({ moduleId: 'sales', action: 'view' });
 
         // 1. Lead Count (Qualified)
         const leadCount = await prisma.lead.count({
             where: {
-                tenantId: tenant.id,
+                tenantId,
                 status: { not: 'LOST' } // Assuming active leads
             }
         });
@@ -20,8 +20,8 @@ export async function GET(request: NextRequest) {
         // 2. Active Opportunities & Pipeline Value
         const activeOpportunities = await prisma.opportunity.findMany({
             where: {
-                tenantId: tenant.id,
-                stage: { notIn: ['CLOSED_WON', 'CLOSED_LOST'] }
+                tenantId,
+                stage: { notIn: ['CLOSED_WON', 'CLOSED_LOST', 'WON', 'LOST'] }
             },
             select: {
                 amount: true
@@ -34,15 +34,15 @@ export async function GET(request: NextRequest) {
         // 3. Win Rate
         const wonCount = await prisma.opportunity.count({
             where: {
-                tenantId: tenant.id,
-                stage: 'CLOSED_WON'
+                tenantId,
+                stage: { in: ['CLOSED_WON', 'WON'] }
             }
         });
 
         const lostCount = await prisma.opportunity.count({
             where: {
-                tenantId: tenant.id,
-                stage: 'CLOSED_LOST'
+                tenantId,
+                stage: { in: ['CLOSED_LOST', 'LOST'] }
             }
         });
 
@@ -51,11 +51,11 @@ export async function GET(request: NextRequest) {
 
         // 4. Quote to Order Ratio
         const quoteCount = await prisma.quotation.count({
-            where: { tenantId: tenant.id }
+            where: { tenantId }
         });
 
         const orderCount = await prisma.salesOrder.count({
-            where: { tenantId: tenant.id }
+            where: { tenantId }
         });
 
         const quoteToOrder = quoteCount > 0 ? Math.round((orderCount / quoteCount) * 100) : 0;
