@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * React Hook for Module Permissions
  * Use this hook in your components to check module permissions

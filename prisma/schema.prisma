@@ -4964,3 +4964,62 @@ enum RequestPriority {
   MEDIUM
   HIGH
 }
+
+// ---------------------------------------------------------------------------
+// Commercial Rules (Pricing and Tax)
+// ---------------------------------------------------------------------------
+
+model PriceList {
+  id              String   @id @default(cuid())
+  tenantId        String
+  branchId        String?
+  code            String
+  name            String
+  currency        String   @default("USD")
+  isActive        Boolean  @default(true)
+  metadata        Json?
+  
+  items           PriceListItem[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([branchId])
+}
+
+model PriceListItem {
+  id              String   @id @default(cuid())
+  tenantId        String
+  priceListId     String
+  priceList       PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  productId       String
+  unitPrice       Float
+  discountPercent Float?   @default(0)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([priceListId, productId])
+  @@index([tenantId])
+  @@index([productId])
+}
+
+model TaxProfile {
+  id              String   @id @default(cuid())
+  tenantId        String
+  branchId        String?
+  name            String
+  code            String?  @default("DEFAULT")
+  rate            Float
+  isDefault       Boolean  @default(false)
+  taxRegion       String?
+  metadata        Json?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([branchId])
+}

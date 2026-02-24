@@ -1,75 +1,79 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireTenantContext } from "@/lib/server/erp-context";
+import prisma from "@/lib/prisma";
+import { z } from "zod";
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { requireTenantContext } from '@/lib/server/erp-context';
+export const dynamic = "force-dynamic";
 
-export const dynamic = 'force-dynamic';
+const querySchema = z.object({
+    branchId: z.string().optional(),
+});
 
 export async function GET(request: NextRequest) {
     try {
-        const { tenantId } = await requireTenantContext({ moduleId: 'sales', action: 'view' });
+        const { tenantId } = await requireTenantContext({ moduleId: "sales", action: "view" });
+        const { searchParams } = new URL(request.url);
 
-        // 1. Lead Count (Qualified)
-        const leadCount = await prisma.lead.count({
-            where: {
-                tenantId,
-                status: { not: 'LOST' } // Assuming active leads
-            }
+        const validated = querySchema.parse({
+            branchId: searchParams.get("branchId") || undefined,
         });
+        const branchId = validated.branchId;
 
-        // 2. Active Opportunities & Pipeline Value
-        const activeOpportunities = await prisma.opportunity.findMany({
+        // Aggregate Opportunities (CRM Pipeline)
+        const pipelineData = await (prisma as any).crmOpportunity.aggregate({
+            where: { tenantId, branchId, status: "OPEN" },
+            _sum: { amount: true },
+            _count: { id: true },
+        }).catch(() => null);
+
+        // Aggregate Quotes (Sales Pipeline)
+        const quoteData = await (prisma as any).salesQuote.aggregate({
+            where: { tenantId, branchId, status: "SENT" },
+            _sum: { grandTotal: true },
+            _count: { id: true },
+        }).catch(() => null);
+
+        // Aggregate Orders awaiting fulfillment/approval
+        const pendingOrders = await (prisma as any).salesOrderV2.count({
             where: {
                 tenantId,
-                stage: { notIn: ['CLOSED_WON', 'CLOSED_LOST', 'WON', 'LOST'] }
+                branchId,
+                OR: [
+                    { approvalStatus: "PENDING" },
+                    { fulfillmentStatus: "REQUESTED" },
+                ],
             },
-            select: {
-                amount: true
-            }
-        });
+        }).catch(() => 0);
 
-        const activeOppCount = activeOpportunities.length;
-        const pipelineValue = activeOpportunities.reduce((sum, opp) => sum + (opp.amount || 0), 0);
-
-        // 3. Win Rate
-        const wonCount = await prisma.opportunity.count({
-            where: {
-                tenantId,
-                stage: { in: ['CLOSED_WON', 'WON'] }
-            }
-        });
-
-        const lostCount = await prisma.opportunity.count({
-            where: {
-                tenantId,
-                stage: { in: ['CLOSED_LOST', 'LOST'] }
-            }
-        });
-
-        const totalClosed = wonCount + lostCount;
-        const winRate = totalClosed > 0 ? Math.round((wonCount / totalClosed) * 100) : 0;
-
-        // 4. Quote to Order Ratio
-        const quoteCount = await prisma.quotation.count({
-            where: { tenantId }
-        });
-
-        const orderCount = await prisma.salesOrder.count({
-            where: { tenantId }
-        });
-
-        const quoteToOrder = quoteCount > 0 ? Math.round((orderCount / quoteCount) * 100) : 0;
+        // Count active leads
+        const activeLeadsCount = await (prisma as any).crmLead.count({
+            where: { tenantId, status: { in: ["NEW", "CONTACTED"] } }
+        }).catch(() => 0);
 
         return NextResponse.json({
-            leadCount,
-            activeOpportunities: activeOppCount,
-            pipelineValue,
-            winRate,
-            quoteToOrder
+            data: {
+                pipelineValue: pipelineData?._sum?.amount || 0,
+                activeOpportunities: pipelineData?._count?.id || 0,
+                leadCount: activeLeadsCount,
+                pipeline: {
+                    totalOpportunities: pipelineData?._count?.id || 0,
+                    expectedValue: pipelineData?._sum?.amount || 0,
+                },
+                quotes: {
+                    activeSentQuotes: quoteData?._count?.id || 0,
+                    quotePipelineValue: quoteData?._sum?.grandTotal || 0,
+                },
+                orders: {
+                    pendingActionCount: pendingOrders || 0,
+                },
+                timestamp: new Date().toISOString()
+            }
         });
-
-    } catch (error) {
-        console.error('Error fetching sales metrics:', error);
-        return NextResponse.json({ error: 'Failed to fetch metrics' }, { status: 500 });
+    } catch (error: any) {
+        if (error instanceof z.ZodError) {
+            return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+        }
+        const status = error?.message?.includes("Forbidden") ? 403 : 500;
+        return NextResponse.json({ error: status === 403 ? "Forbidden" : "Failed to load sales metrics" }, { status });
     }
 }

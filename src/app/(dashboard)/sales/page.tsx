@@ -142,23 +142,22 @@ export default function SalesPage() {
       if (!ordersRes.ok) throw new Error('Failed to load orders');
       if (!quotesRes.ok) throw new Error('Failed to load quotations');
 
-      const statsData = await statsRes.json();
-      setStats(statsData);
+      const statsPayload = await statsRes.json();
+      setStats(statsPayload.data || statsPayload);
 
-      const leadsData = await leadsRes.json();
-      setLeads(Array.isArray(leadsData) ? leadsData : []);
+      const leadsPayload = await leadsRes.json();
+      setLeads(leadsPayload.items || leadsPayload.data || (Array.isArray(leadsPayload) ? leadsPayload : []));
 
-      const oppData = await oppRes.json();
-      setOpportunities(Array.isArray(oppData) ? oppData : []);
+      const oppPayload = await oppRes.json();
+      setOpportunities(oppPayload.items || oppPayload.data || (Array.isArray(oppPayload) ? oppPayload : []));
 
-      const ordersData = await ordersRes.json();
-      setOrders(Array.isArray(ordersData) ? ordersData : []);
+      const ordersPayload = await ordersRes.json();
+      setOrders(ordersPayload.items || ordersPayload.data || (Array.isArray(ordersPayload) ? ordersPayload : []));
 
-      const quotesData = await quotesRes.json();
-      setQuotations(Array.isArray(quotesData) ? quotesData : []);
+      const quotesPayload = await quotesRes.json();
+      setQuotations(quotesPayload.items || quotesPayload.data || (Array.isArray(quotesPayload) ? quotesPayload : []));
     } catch (error) {
       console.error(error);
-      // Ensure arrays on error
       setLeads([]);
       setOpportunities([]);
       setOrders([]);
@@ -708,15 +707,15 @@ export default function SalesPage() {
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Stage" />
                 </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">All Stages</SelectItem>
+                <SelectContent>
+                  <SelectItem value="ALL">All Stages</SelectItem>
                   <SelectItem value="PROSPECTING">Prospecting</SelectItem>
                   <SelectItem value="QUALIFICATION">Qualification</SelectItem>
                   <SelectItem value="PROPOSAL">Proposal</SelectItem>
                   <SelectItem value="NEGOTIATION">Negotiation</SelectItem>
                   <SelectItem value="WON">Won</SelectItem>
                   <SelectItem value="LOST">Lost</SelectItem>
-                  </SelectContent>
+                </SelectContent>
               </Select>
             </CardHeader>
             <CardContent className="space-y-6">

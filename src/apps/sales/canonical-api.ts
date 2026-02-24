@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { evaluateSalesOrderApprovalRules } from './approval-rules';
+import { resolveApplicablePrice, resolveTaxProfile } from './commercial-engine';
 
 const client = prisma as any;
 
@@ -8,34 +9,67 @@ function toNum(v: unknown, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function normalizeLine(line: any, idx: number) {
-  const quantity = toNum(line.quantity ?? line.quantityOrdered, 0);
-  const unitPrice = toNum(line.unitPrice, 0);
-  const discountPercent = toNum(line.discountPercent ?? line.discount, 0);
-  const taxPercent = toNum(line.taxPercent ?? line.tax, 0);
-  const lineSubtotal = quantity * unitPrice;
-  const discountAmount = lineSubtotal * (discountPercent / 100);
-  const taxable = lineSubtotal - discountAmount;
-  const taxAmount = taxable * (taxPercent / 100);
-  const lineTotal = taxable + taxAmount;
-  return {
-    lineNo: idx + 1,
-    productId: line.productId ?? null,
-    description: line.description ?? line.productName ?? 'Item',
-    quantity,
-    quantityOrdered: quantity,
-    unitPrice,
-    discountPercent,
-    discountAmount,
-    taxPercent,
-    taxAmount,
-    lineSubtotal,
-    lineTotal,
-    metadata: line.metadata ?? null,
-  };
+async function resolveAndNormalizeLines(
+  tenantId: string,
+  branchId: string | null,
+  customerAccountId: string | null,
+  currency: string,
+  rawLines: any[]
+) {
+  const taxProfile = await resolveTaxProfile({ tenantId, branchId });
+
+  return Promise.all(
+    rawLines.map(async (line, idx) => {
+      const quantity = toNum(line.quantity ?? line.quantityOrdered, 0);
+      let unitPrice = toNum(line.unitPrice, 0);
+      let discountPercent = toNum(line.discountPercent ?? line.discount, 0);
+      let taxPercent = toNum(line.taxPercent ?? line.tax, 0);
+
+      if (line.productId && (line.unitPrice == null || line.recalculatePrice)) {
+        const pricing = await resolveApplicablePrice({
+          tenantId,
+          productId: line.productId,
+          branchId,
+          customerAccountId,
+          currency,
+          fallbackPrice: unitPrice,
+        });
+        unitPrice = pricing.unitPrice;
+        if (line.discountPercent == null) {
+          discountPercent = pricing.discountPercent;
+        }
+      }
+
+      if (line.taxPercent == null || line.recalculateTax) {
+        taxPercent = taxProfile.taxPercent;
+      }
+
+      const lineSubtotal = quantity * unitPrice;
+      const discountAmount = lineSubtotal * (discountPercent / 100);
+      const taxable = lineSubtotal - discountAmount;
+      const taxAmount = taxable * (taxPercent / 100);
+      const lineTotal = taxable + taxAmount;
+
+      return {
+        lineNo: idx + 1,
+        productId: line.productId ?? null,
+        description: line.description ?? line.productName ?? 'Item',
+        quantity,
+        quantityOrdered: quantity,
+        unitPrice,
+        discountPercent,
+        discountAmount,
+        taxPercent,
+        taxAmount,
+        lineSubtotal,
+        lineTotal,
+        metadata: line.metadata ?? null,
+      };
+    })
+  );
 }
 
-function summarize(lines: ReturnType<typeof normalizeLine>[]) {
+function summarize(lines: any[]) {
   const subtotal = lines.reduce((sum, l) => sum + l.lineSubtotal, 0);
   const discountTotal = lines.reduce((sum, l) => sum + l.discountAmount, 0);
   const taxTotal = lines.reduce((sum, l) => sum + l.taxAmount, 0);
@@ -62,7 +96,13 @@ export async function getSalesQuoteById(tenantId: string, id: string) {
 }
 
 export async function createSalesQuote(tenantId: string, userId: string | undefined, data: any) {
-  const lines = (Array.isArray(data.lines) ? data.lines : []).map(normalizeLine);
+  const lines = await resolveAndNormalizeLines(
+    tenantId,
+    data.branchId ?? null,
+    data.customerAccountId ?? null,
+    data.currency ?? 'USD',
+    Array.isArray(data.lines) ? data.lines : []
+  );
   const totals = summarize(lines);
 
   const quote = await client.salesQuote.create({
@@ -132,7 +172,13 @@ export async function updateSalesQuote(tenantId: string, id: string, userId: str
   let revisionIncrement = 0;
 
   if (Array.isArray(data.lines)) {
-    const lines = data.lines.map(normalizeLine);
+    const lines = await resolveAndNormalizeLines(
+      tenantId,
+      data.branchId ?? existing.branchId ?? null,
+      data.customerAccountId ?? existing.customerAccountId ?? null,
+      data.currency ?? existing.currency ?? 'USD',
+      data.lines
+    );
     totals = summarize(lines);
     revisionIncrement = 1;
     await client.salesQuoteLine.deleteMany({ where: { quoteId: id, tenantId } });
@@ -154,6 +200,7 @@ export async function updateSalesQuote(tenantId: string, id: string, userId: str
         metadata: line.metadata,
       })),
     };
+    data._normalizedLinesForSnapshot = lines;
   }
 
   const updated = await client.salesQuote.update({
@@ -178,15 +225,15 @@ export async function updateSalesQuote(tenantId: string, id: string, userId: str
       ...(lineOps ? { lines: lineOps } : {}),
       ...(revisionIncrement > 0
         ? {
-            revisions: {
-              create: {
-                tenantId,
-                revisionNo: existing.revisionNo + 1,
-                snapshot: { header: data, lines: data.lines, totals },
-                createdByUserId: userId ?? null,
-              },
+          revisions: {
+            create: {
+              tenantId,
+              revisionNo: existing.revisionNo + 1,
+              snapshot: { header: data, lines: data._normalizedLinesForSnapshot, totals },
+              createdByUserId: userId ?? null,
             },
-          }
+          },
+        }
         : {}),
     },
     include: { lines: true, revisions: true },
@@ -215,14 +262,14 @@ export async function convertSalesQuoteToOrderV2(
 
   const rawLines = Array.isArray(quote.lines)
     ? quote.lines.map((line: any) => ({
-        productId: line.productId ?? null,
-        description: line.description ?? 'Item',
-        quantity: line.quantity ?? 0,
-        unitPrice: line.unitPrice ?? 0,
-        discountPercent: line.discountPercent ?? 0,
-        taxPercent: line.taxPercent ?? 0,
-        metadata: line.metadata ?? null,
-      }))
+      productId: line.productId ?? null,
+      description: line.description ?? 'Item',
+      quantity: line.quantity ?? 0,
+      unitPrice: line.unitPrice ?? 0,
+      discountPercent: line.discountPercent ?? 0,
+      taxPercent: line.taxPercent ?? 0,
+      metadata: line.metadata ?? null,
+    }))
     : [];
 
   const orderPayload = {
@@ -311,7 +358,13 @@ export async function getSalesOrderV2ById(tenantId: string, id: string) {
 }
 
 export async function createSalesOrderV2(tenantId: string, userId: string | undefined, data: any) {
-  const lines = (Array.isArray(data.lines) ? data.lines : []).map(normalizeLine);
+  const lines = await resolveAndNormalizeLines(
+    tenantId,
+    data.branchId ?? null,
+    data.customerAccountId ?? null,
+    data.currency ?? 'USD',
+    Array.isArray(data.lines) ? data.lines : []
+  );
   const totals = summarize(lines);
   const approvalDecision = await evaluateSalesOrderApprovalRules({
     tenantId,
@@ -330,24 +383,24 @@ export async function createSalesOrderV2(tenantId: string, userId: string | unde
   const approvalReason = data.approvalReason ?? approvalDecision.summary ?? null;
   const approvalRows = approvalRequired
     ? approvalDecision.triggers.map((trigger) => ({
-        tenantId,
-        status: 'PENDING',
-        ruleCode: trigger.code,
-        reason: trigger.reason,
-        requestedByUserId: userId ?? null,
-        metadata: trigger.metadata ?? null,
-      }))
+      tenantId,
+      status: 'PENDING',
+      ruleCode: trigger.code,
+      reason: trigger.reason,
+      requestedByUserId: userId ?? null,
+      metadata: trigger.metadata ?? null,
+    }))
     : data.approvalStatus === 'PENDING'
       ? [
-          {
-            tenantId,
-            status: 'PENDING',
-            ruleCode: data.ruleCode ?? 'MANUAL',
-            reason: data.approvalReason ?? 'Approval requested',
-            requestedByUserId: userId ?? null,
-            metadata: data.metadata?.approvalRequestMeta ?? null,
-          },
-        ]
+        {
+          tenantId,
+          status: 'PENDING',
+          ruleCode: data.ruleCode ?? 'MANUAL',
+          reason: data.approvalReason ?? 'Approval requested',
+          requestedByUserId: userId ?? null,
+          metadata: data.metadata?.approvalRequestMeta ?? null,
+        },
+      ]
       : [];
 
   const order = await client.salesOrderV2.create({
@@ -376,9 +429,9 @@ export async function createSalesOrderV2(tenantId: string, userId: string | unde
         ...(data.metadata || {}),
         approvalEvaluation: approvalRequired
           ? {
-              evaluatedAt: new Date().toISOString(),
-              triggers: approvalDecision.triggers,
-            }
+            evaluatedAt: new Date().toISOString(),
+            triggers: approvalDecision.triggers,
+          }
           : undefined,
       },
       createdByUserId: userId ?? null,
@@ -401,8 +454,8 @@ export async function createSalesOrderV2(tenantId: string, userId: string | unde
       },
       approvals: approvalRows.length
         ? {
-            create: approvalRows,
-          }
+          create: approvalRows,
+        }
         : undefined,
     },
     include: { lines: true, approvals: true, fulfillmentRequests: true },
@@ -422,7 +475,13 @@ export async function updateSalesOrderV2(
 
   let totals: any = {};
   if (Array.isArray(data.lines)) {
-    const lines = data.lines.map(normalizeLine);
+    const lines = await resolveAndNormalizeLines(
+      tenantId,
+      data.branchId ?? existing.branchId ?? null,
+      data.customerAccountId ?? existing.customerAccountId ?? null,
+      data.currency ?? existing.currency ?? 'USD',
+      data.lines
+    );
     totals = summarize(lines);
     await client.salesOrderLine.deleteMany({ where: { salesOrderId: id, tenantId } });
     data._normalizedLines = lines;
@@ -443,11 +502,11 @@ export async function updateSalesOrderV2(
     const evaluationTotals = Array.isArray(data._normalizedLines)
       ? totals
       : {
-          subtotal: existing.subtotal,
-          discountTotal: existing.discountTotal,
-          taxTotal: existing.taxTotal,
-          grandTotal: existing.grandTotal,
-        };
+        subtotal: existing.subtotal,
+        discountTotal: existing.discountTotal,
+        taxTotal: existing.taxTotal,
+        grandTotal: existing.grandTotal,
+      };
 
     approvalDecision = await evaluateSalesOrderApprovalRules({
       tenantId,
@@ -509,24 +568,24 @@ export async function updateSalesOrderV2(
       ...approvalPatch,
       ...(Array.isArray(data._normalizedLines)
         ? {
-            lines: {
-              create: data._normalizedLines.map((line: any) => ({
-                tenantId,
-                lineNo: line.lineNo,
-                productId: line.productId,
-                description: line.description,
-                quantityOrdered: line.quantity,
-                unitPrice: line.unitPrice,
-                discountPercent: line.discountPercent,
-                discountAmount: line.discountAmount,
-                taxPercent: line.taxPercent,
-                taxAmount: line.taxAmount,
-                lineSubtotal: line.lineSubtotal,
-                lineTotal: line.lineTotal,
-                metadata: line.metadata,
-              })),
-            },
-          }
+          lines: {
+            create: data._normalizedLines.map((line: any) => ({
+              tenantId,
+              lineNo: line.lineNo,
+              productId: line.productId,
+              description: line.description,
+              quantityOrdered: line.quantity,
+              unitPrice: line.unitPrice,
+              discountPercent: line.discountPercent,
+              discountAmount: line.discountAmount,
+              taxPercent: line.taxPercent,
+              taxAmount: line.taxAmount,
+              lineSubtotal: line.lineSubtotal,
+              lineTotal: line.lineTotal,
+              metadata: line.metadata,
+            })),
+          },
+        }
         : {}),
     },
     include: { lines: true, approvals: true, fulfillmentRequests: true },
@@ -542,6 +601,7 @@ export async function updateSalesOrderV2(
         reason: trigger.reason,
         requestedByUserId: userId ?? null,
         metadata: trigger.metadata ?? null,
+        decidedAt: null,
       })),
     }).catch((error: any) => {
       console.error('Failed to persist sales approval triggers on update:', error);

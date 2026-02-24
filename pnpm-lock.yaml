@@ -124,7 +124,7 @@ dependencies:
     specifier: ^1.9.4
     version: 1.9.4
   class-variance-authority:
-    specifier: ^0.7.0
+    specifier: ^0.7.1
     version: 0.7.1
   cloudinary:
     specifier: ^2.9.0
@@ -237,6 +237,9 @@ dependencies:
   tailwindcss:
     specifier: ^3.4.0
     version: 3.4.18(tsx@4.21.0)
+  tailwindcss-animate:
+    specifier: ^1.0.7
+    version: 1.0.7(tailwindcss@3.4.18)
   typescript:
     specifier: ^5.9.3
     version: 5.9.3
@@ -9237,6 +9240,14 @@ packages:
 
   /tailwind-merge@2.6.0:
     resolution: {integrity: sha512-P+Vu1qXfzediirmHOC3xKGAYeZtPcV9g76X+xg2FD4tYgR71ewMA35Y3sCz3zhiN/dwefRpJX0yBcgwi1fXNQA==}
+    dev: false
+
+  /tailwindcss-animate@1.0.7(tailwindcss@3.4.18):
+    resolution: {integrity: sha512-bl6mpH3T7I3UFxuvDEXLxy/VuFxBk5bbzplh7tXI68mwMokNYd1t9qPBHlnyTwfa4JGC4zP516I1hYYtQ/vspA==}
+    peerDependencies:
+      tailwindcss: '>=3.0.0 || insiders'
+    dependencies:
+      tailwindcss: 3.4.18(tsx@4.21.0)
     dev: false
 
   /tailwindcss@3.4.18(tsx@4.21.0):

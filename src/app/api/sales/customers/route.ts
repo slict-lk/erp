@@ -5,17 +5,47 @@ import { tryCatch } from '@/lib/error-handler';
 import { requireTenantContext } from '@/lib/server/erp-context';
 import { ensureDefaultBranch } from '@/lib/sales-crm/bootstrap';
 import { ensurePartyForCustomerRecord } from '@/lib/sales-crm/party-sync';
+import { z } from 'zod';
 
 
 export const dynamic = 'force-dynamic';
+
+const customerCreateSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Invalid email address'),
+  phone: z.string().optional().nullable(),
+  type: z.enum(['INDIVIDUAL', 'COMPANY']).optional(),
+  street: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  state: z.string().optional().nullable(),
+  zipCode: z.string().optional().nullable(),
+  country: z.string().optional().nullable(),
+}).passthrough();
+
+const listQuerySchema = z.object({
+  page: z.string().transform(Number).default('1'),
+  limit: z.string().transform(Number).default('10'),
+  search: z.string().optional().nullable(),
+  type: z.string().optional().nullable(),
+});
+
 export async function GET(request: NextRequest) {
   return tryCatch(async () => {
     const { tenantId } = await requireTenantContext({ moduleId: 'sales', action: 'view' });
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const search = searchParams.get('search');
-    const typeParam = searchParams.get('type');
+
+    const validated = listQuerySchema.parse({
+      page: searchParams.get('page') || undefined,
+      limit: searchParams.get('limit') || undefined,
+      search: searchParams.get('search'),
+      type: searchParams.get('type'),
+    });
+
+    const page = validated.page;
+    const limit = validated.limit;
+    const search = validated.search;
+    const typeParam = validated.type;
 
     const skip = (page - 1) * limit;
 
@@ -86,22 +116,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  return tryCatch(async () => {
+  try {
     const { tenantId } = await requireTenantContext({ moduleId: 'sales', action: 'create' });
     const body = await request.json();
+    const parsedData = customerCreateSchema.parse(body);
 
-    // Validate required fields
-    if (!body.name || !body.email) {
-      return NextResponse.json(
-        { error: 'Name and email are required' },
-        { status: 400 }
-      );
-    }
-
-    // Check if customer with this email already exists
     const existingCustomer = await prisma.customer.findFirst({
       where: {
-        email: body.email,
+        email: parsedData.email,
         tenantId,
       },
     });
@@ -115,15 +137,15 @@ export async function POST(request: NextRequest) {
 
     const customer = await prisma.customer.create({
       data: {
-        name: body.name,
-        email: body.email,
-        phone: body.phone,
-        type: body.type || 'INDIVIDUAL',
-        address: body.street ?? body.address,
-        city: body.city,
-        state: body.state,
-        zipCode: body.zipCode,
-        country: body.country || 'US',
+        name: parsedData.name,
+        email: parsedData.email,
+        phone: parsedData.phone,
+        type: parsedData.type || 'INDIVIDUAL',
+        address: parsedData.street ?? parsedData.address,
+        city: parsedData.city,
+        state: parsedData.state,
+        zipCode: parsedData.zipCode,
+        country: parsedData.country || 'US',
         tenantId,
       },
       include: {
@@ -140,7 +162,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Best-effort dual-write to Party/CustomerAccount foundation (do not fail customer creation on sync issues)
+    // Best-effort dual-write to Party/CustomerAccount foundation
     try {
       const branch = await ensureDefaultBranch(tenantId);
       await ensurePartyForCustomerRecord({
@@ -167,6 +189,11 @@ export async function POST(request: NextRequest) {
       formatSuccessResponse(customer, 'Customer created successfully'),
       { status: 201 }
     );
-  }, 'Failed to create customer');
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+    }
+    console.error('Failed to create customer:', error);
+    return NextResponse.json({ error: 'Failed to create customer' }, { status: 500 });
+  }
 }
-

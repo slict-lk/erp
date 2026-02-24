@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createOpportunity, listOpportunities } from '@/apps/crm/api';
 import { requireTenantContext } from '@/lib/server/erp-context';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
+
+const oppCreateSchema = z.object({
+  name: z.string().min(1, 'name is required'),
+  pipelineId: z.string().optional(),
+  stageId: z.string().optional(),
+  amount: z.number().min(0).optional(),
+  probability: z.number().min(0).max(100).optional(),
+  currency: z.string().length(3).optional(),
+}).passthrough();
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,7 +24,8 @@ export async function GET(request: NextRequest) {
       stageId: searchParams.get('stageId') || undefined,
       search: searchParams.get('search') || undefined,
     });
-    return NextResponse.json(data);
+
+    return NextResponse.json({ data, metadata: { count: data.length } });
   } catch (error: any) {
     const status = error?.message?.includes('Forbidden') ? 403 : 500;
     return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to fetch opportunities' }, { status });
@@ -25,10 +36,14 @@ export async function POST(request: NextRequest) {
   try {
     const { tenantId, user } = await requireTenantContext({ moduleId: 'crm', action: 'create' });
     const body = await request.json();
-    if (!body.name) return NextResponse.json({ error: 'name is required' }, { status: 400 });
-    const opportunity = await createOpportunity(tenantId, user.id, body);
-    return NextResponse.json(opportunity, { status: 201 });
+    const parsedData = oppCreateSchema.parse(body);
+
+    const opportunity = await createOpportunity(tenantId, user.id, parsedData);
+    return NextResponse.json({ data: opportunity }, { status: 201 });
   } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+    }
     const message = String(error?.message || '');
     const status = message.includes('Forbidden')
       ? 403

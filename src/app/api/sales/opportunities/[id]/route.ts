@@ -1,9 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireTenantContext } from '@/lib/server/erp-context';
+import { z } from 'zod';
 
 const client = prisma as any;
 export const dynamic = 'force-dynamic';
+
+const opportunitySchema = z.object({
+  name: z.string().optional(),
+  description: z.string().optional(),
+  amount: z.number().optional(),
+  expectedRevenue: z.number().optional(),
+  probability: z.number().optional(),
+  stage: z.string().optional(),
+  expectedCloseDate: z.string().optional(),
+  customerId: z.string().optional(),
+  leadId: z.string().optional(),
+  ownerUserId: z.string().optional(),
+  branchId: z.string().optional(),
+});
 
 function normalizeOpportunity(opportunity: any) {
   return {
@@ -18,15 +33,15 @@ async function attachRelations(item: any) {
   const [customer, lead] = await Promise.all([
     item.customerId
       ? client.customer.findFirst({
-          where: { id: item.customerId },
-          select: { id: true, name: true, email: true, phone: true },
-        })
+        where: { id: item.customerId },
+        select: { id: true, name: true, email: true, phone: true },
+      })
       : Promise.resolve(null),
     item.leadId
       ? client.lead.findFirst({
-          where: { id: item.leadId },
-          select: { id: true, name: true, email: true, status: true },
-        })
+        where: { id: item.leadId },
+        select: { id: true, name: true, email: true, status: true },
+      })
       : Promise.resolve(null),
   ]);
 
@@ -44,7 +59,8 @@ export async function GET(
       where: { id, tenantId },
     });
     if (!item) return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 });
-    return NextResponse.json(normalizeOpportunity(await attachRelations(item)));
+    const data = normalizeOpportunity(await attachRelations(item));
+    return NextResponse.json({ data });
   } catch (error: any) {
     const status = error?.message?.includes('Forbidden') ? 403 : 500;
     return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to fetch opportunity' }, { status });
@@ -59,34 +75,40 @@ export async function PUT(
     const { tenantId } = await requireTenantContext({ moduleId: 'sales', action: 'edit' });
     const { id } = await params;
     const body = await request.json();
+
+    const validatedBody = opportunitySchema.parse(body);
     const existing = await client.opportunity.findFirst({ where: { id, tenantId } });
     if (!existing) return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 });
 
     const item = await client.opportunity.update({
       where: { id },
       data: {
-        ...(body.name !== undefined && { name: body.name }),
-        ...(body.description !== undefined && { description: body.description }),
-        ...(body.amount !== undefined && { amount: Number(body.amount) }),
-        ...(body.expectedRevenue !== undefined && {
-          amount: Number(body.expectedRevenue),
-          expectedRevenue: Number(body.expectedRevenue),
+        ...(validatedBody.name !== undefined && { name: validatedBody.name }),
+        ...(validatedBody.description !== undefined && { description: validatedBody.description }),
+        ...(validatedBody.amount !== undefined && { amount: Number(validatedBody.amount) }),
+        ...(validatedBody.expectedRevenue !== undefined && {
+          amount: Number(validatedBody.expectedRevenue),
+          expectedRevenue: Number(validatedBody.expectedRevenue),
         }),
-        ...(body.probability !== undefined && { probability: Number(body.probability) }),
-        ...(body.stage !== undefined && { stage: String(body.stage).toUpperCase() }),
-        ...(body.expectedCloseDate !== undefined && {
-          expectedCloseDate: body.expectedCloseDate ? new Date(body.expectedCloseDate) : null,
-          closeDate: body.expectedCloseDate ? new Date(body.expectedCloseDate) : null,
+        ...(validatedBody.probability !== undefined && { probability: Number(validatedBody.probability) }),
+        ...(validatedBody.stage !== undefined && { stage: String(validatedBody.stage).toUpperCase() }),
+        ...(validatedBody.expectedCloseDate !== undefined && {
+          expectedCloseDate: validatedBody.expectedCloseDate ? new Date(validatedBody.expectedCloseDate) : null,
+          closeDate: validatedBody.expectedCloseDate ? new Date(validatedBody.expectedCloseDate) : null,
         }),
-        ...(body.customerId !== undefined && { customerId: body.customerId }),
-        ...(body.leadId !== undefined && { leadId: body.leadId }),
-        ...(body.ownerUserId !== undefined && { ownerUserId: body.ownerUserId }),
-        ...(body.branchId !== undefined && { branchId: body.branchId }),
+        ...(validatedBody.customerId !== undefined && { customerId: validatedBody.customerId }),
+        ...(validatedBody.leadId !== undefined && { leadId: validatedBody.leadId }),
+        ...(validatedBody.ownerUserId !== undefined && { ownerUserId: validatedBody.ownerUserId }),
+        ...(validatedBody.branchId !== undefined && { branchId: validatedBody.branchId }),
       },
     });
 
-    return NextResponse.json(normalizeOpportunity(await attachRelations(item)));
+    const data = normalizeOpportunity(await attachRelations(item));
+    return NextResponse.json({ data });
   } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+    }
     const status = error?.message?.includes('Forbidden') ? 403 : 500;
     return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to update opportunity' }, { status });
   }
@@ -102,7 +124,7 @@ export async function DELETE(
     const existing = await client.opportunity.findFirst({ where: { id, tenantId } });
     if (!existing) return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 });
     await client.opportunity.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ data: { success: true } });
   } catch (error: any) {
     const status = error?.message?.includes('Forbidden') ? 403 : 500;
     return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to delete opportunity' }, { status });

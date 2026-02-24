@@ -2,9 +2,44 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { deleteSalesOrderV2, getSalesOrderV2ById, updateSalesOrderV2 } from '@/apps/sales/canonical-api';
 import { requireTenantContext } from '@/lib/server/erp-context';
+import { z } from 'zod';
 
 const client = prisma as any;
 export const dynamic = 'force-dynamic';
+
+const updateOrderSchema = z.object({
+  mode: z.string().optional(),
+  branchId: z.string().optional(),
+  customerAccountId: z.string().optional(),
+  opportunityId: z.string().optional(),
+  sourceQuoteId: z.string().optional(),
+  status: z.string().optional(),
+  approvalStatus: z.string().optional(),
+  fulfillmentStatus: z.string().optional(),
+  invoiceStatus: z.string().optional(),
+  currency: z.string().optional(),
+  exchangeRate: z.number().optional(),
+  orderDate: z.string().optional(),
+  expectedDeliveryDate: z.string().optional(),
+  incoterms: z.string().optional(),
+  deliveryTerms: z.string().optional(),
+  paymentTermsDays: z.number().optional(),
+  notes: z.string().optional(),
+  metadata: z.record(z.any()).optional(),
+  recalculatePrice: z.boolean().optional(),
+  recalculateTax: z.boolean().optional(),
+  recalculateApproval: z.boolean().optional(),
+  requestApprovalBypass: z.boolean().optional(),
+  lines: z.array(z.object({
+    productId: z.string().optional(),
+    description: z.string().optional(),
+    quantity: z.number(),
+    unitPrice: z.number().optional(),
+    discountPercent: z.number().optional(),
+    taxPercent: z.number().optional(),
+    metadata: z.record(z.any()).optional(),
+  })).optional(),
+});
 
 function calcLine(line: any) {
   const quantity = Number(line.quantity || 0);
@@ -56,7 +91,7 @@ export async function GET(
     if (useV2) {
       const order = await getSalesOrderV2ById(tenantId, id);
       if (!order) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-      return NextResponse.json(order);
+      return NextResponse.json({ data: order });
     }
 
     const order = await client.salesOrder.findFirst({
@@ -64,7 +99,7 @@ export async function GET(
       include: { customer: true, invoices: true, lines: true },
     });
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
-    return NextResponse.json(mapLegacyOrder(order));
+    return NextResponse.json({ data: mapLegacyOrder(order) });
   } catch (error: any) {
     const status = error?.message?.includes('Forbidden') ? 403 : 500;
     return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to fetch order' }, { status });
@@ -79,13 +114,18 @@ export async function PUT(
     const { tenantId, user } = await requireTenantContext({ moduleId: 'sales', action: 'edit' });
     const { id } = await params;
     const body = await request.json();
-    const useV2 = body?.mode === 'v2' || !!body?.customerAccountId || !!body?.sourceQuoteId;
+
+    // Check if it's a V2 update. If it's a raw legacy update, we might skip full Zod strictly for now but better to apply it.
+    // For V2, we strictly validate.
+    const validatedBody = updateOrderSchema.parse(body);
+    const useV2 = validatedBody.mode === 'v2' || !!validatedBody.customerAccountId || !!validatedBody.sourceQuoteId;
 
     if (useV2) {
-      const order = await updateSalesOrderV2(tenantId, id, body, user.id);
-      return NextResponse.json(order);
+      const order = await updateSalesOrderV2(tenantId, id, validatedBody, user.id);
+      return NextResponse.json({ data: order });
     }
 
+    // Legacy update logic fallback
     const existing = await client.salesOrder.findFirst({ where: { id, tenantId } });
     if (!existing) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
 
@@ -95,9 +135,9 @@ export async function PUT(
     if (Array.isArray(body.lines)) {
       lines = body.lines.map(calcLine);
       hasLines = true;
-      totals.subtotal = lines.reduce((s, l) => s + l.quantity * l.unitPrice, 0);
-      totals.discount = lines.reduce((s, l) => s + ((l.quantity * l.unitPrice) * (l.discount || 0)) / 100, 0);
-      totals.tax = lines.reduce((s, l) => {
+      totals.subtotal = lines.reduce((s: number, l: any) => s + l.quantity * l.unitPrice, 0);
+      totals.discount = lines.reduce((s: number, l: any) => s + ((l.quantity * l.unitPrice) * (l.discount || 0)) / 100, 0);
+      totals.tax = lines.reduce((s: number, l: any) => {
         const lineSubtotal = l.quantity * l.unitPrice;
         const afterDiscount = lineSubtotal - (lineSubtotal * (l.discount || 0)) / 100;
         return s + (afterDiscount * (l.tax || 0)) / 100;
@@ -121,26 +161,29 @@ export async function PUT(
         ...(hasLines ? totals : {}),
         ...(hasLines
           ? {
-              lines: {
-                create: lines.map((l: any) => ({
-                  tenantId,
-                  productId: l.productId,
-                  description: l.description,
-                  quantity: l.quantity,
-                  unitPrice: l.unitPrice,
-                  discount: l.discount,
-                  tax: l.tax,
-                  lineTotal: l.lineTotal,
-                })),
-              },
-            }
+            lines: {
+              create: lines.map((l: any) => ({
+                tenantId,
+                productId: l.productId,
+                description: l.description,
+                quantity: l.quantity,
+                unitPrice: l.unitPrice,
+                discount: l.discount,
+                tax: l.tax,
+                lineTotal: l.lineTotal,
+              })),
+            },
+          }
           : {}),
       },
       include: { customer: true, invoices: true, lines: true },
     });
 
-    return NextResponse.json(mapLegacyOrder(order));
+    return NextResponse.json({ data: mapLegacyOrder(order) });
   } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+    }
     const message = String(error?.message || '');
     const status = message.includes('Forbidden')
       ? 403
@@ -172,13 +215,13 @@ export async function DELETE(
 
     if (useV2) {
       const result = await deleteSalesOrderV2(tenantId, id);
-      return NextResponse.json(result);
+      return NextResponse.json({ data: result });
     }
 
     const existing = await client.salesOrder.findFirst({ where: { id, tenantId } });
     if (!existing) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     await client.salesOrder.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ data: { success: true } });
   } catch (error: any) {
     const status = error?.message?.includes('Forbidden') ? 403 : 500;
     return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to delete order' }, { status });

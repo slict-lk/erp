@@ -1,9 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireTenantContext } from '@/lib/server/erp-context';
+import { z } from 'zod';
 
 const client = prisma as any;
 export const dynamic = 'force-dynamic';
+
+const quotationLineUpdateSchema = z.object({
+  productId: z.string().optional().nullable(),
+  description: z.string().optional(),
+  quantity: z.number().optional(),
+  unitPrice: z.number().optional(),
+  discount: z.number().optional(),
+  tax: z.number().optional(),
+  lineTotal: z.number().optional(),
+}).passthrough();
+
+const quotationUpdateSchema = z.object({
+  quoteNumber: z.string().optional(),
+  status: z.string().optional(),
+  validUntil: z.string().optional().nullable(),
+  customerId: z.string().optional().nullable(),
+  grandTotal: z.number().optional(),
+  notes: z.string().optional().nullable(),
+  termsAndConditions: z.string().optional().nullable(),
+  branchId: z.string().optional().nullable(),
+  currency: z.string().optional(),
+  lines: z.array(quotationLineUpdateSchema).optional(),
+}).passthrough();
 
 function calcLine(line: any) {
   const quantity = Number(line.quantity || 0);
@@ -55,7 +79,7 @@ export async function GET(
       include: { customer: true, lines: true },
     });
     if (!q) return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
-    return NextResponse.json(mapQuotation(q));
+    return NextResponse.json({ data: mapQuotation(q) });
   } catch (error: any) {
     const status = error?.message?.includes('Forbidden') ? 403 : 500;
     return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to fetch quotation' }, { status });
@@ -70,61 +94,66 @@ export async function PUT(
     const { tenantId } = await requireTenantContext({ moduleId: 'sales', action: 'edit' });
     const { id } = await params;
     const body = await request.json();
+    const parsed = quotationUpdateSchema.parse(body);
+
     const existing = await client.quotation.findFirst({ where: { id, tenantId } });
     if (!existing) return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
 
     let totals: any = {};
     let lines: any[] = [];
     let hasLines = false;
-    if (Array.isArray(body.lines)) {
-      lines = body.lines.map(calcLine);
+    if (Array.isArray(parsed.lines)) {
+      lines = parsed.lines.map(calcLine);
       hasLines = true;
-      totals.subtotal = lines.reduce((s, l) => s + l.quantity * l.unitPrice, 0);
-      totals.discount = lines.reduce((s, l) => s + ((l.quantity * l.unitPrice) * (l.discount || 0)) / 100, 0);
-      totals.tax = lines.reduce((s, l) => {
+      totals.subtotal = lines.reduce((s: number, l: any) => s + l.quantity * l.unitPrice, 0);
+      totals.discount = lines.reduce((s: number, l: any) => s + ((l.quantity * l.unitPrice) * (l.discount || 0)) / 100, 0);
+      totals.tax = lines.reduce((s: number, l: any) => {
         const lineSubtotal = l.quantity * l.unitPrice;
         const afterDiscount = lineSubtotal - (lineSubtotal * (l.discount || 0)) / 100;
         return s + (afterDiscount * (l.tax || 0)) / 100;
       }, 0);
       totals.total = totals.subtotal - totals.discount + totals.tax;
-      totals.grandTotal = body.grandTotal ?? totals.total;
+      totals.grandTotal = parsed.grandTotal ?? totals.total;
       await client.legacyQuotationLine.deleteMany({ where: { quotationId: id, tenantId } });
     }
 
     const q = await client.quotation.update({
       where: { id },
       data: {
-        ...(body.status !== undefined && { status: body.status }),
-        ...(body.customerId !== undefined && { customerId: body.customerId }),
-        ...(body.validUntil !== undefined && { validUntil: body.validUntil ? new Date(body.validUntil) : null }),
-        ...(body.notes !== undefined && { notes: body.notes }),
-        ...(body.termsAndConditions !== undefined && { termsAndConditions: body.termsAndConditions }),
-        ...(body.branchId !== undefined && { branchId: body.branchId }),
-        ...(body.currency !== undefined && { currency: body.currency }),
-        ...(body.quoteNumber !== undefined && { number: body.quoteNumber }),
+        ...(parsed.status !== undefined && { status: parsed.status }),
+        ...(parsed.customerId !== undefined && { customerId: parsed.customerId }),
+        ...(parsed.validUntil !== undefined && { validUntil: parsed.validUntil ? new Date(parsed.validUntil) : null }),
+        ...(parsed.notes !== undefined && { notes: parsed.notes }),
+        ...(parsed.termsAndConditions !== undefined && { termsAndConditions: parsed.termsAndConditions }),
+        ...(parsed.branchId !== undefined && { branchId: parsed.branchId }),
+        ...(parsed.currency !== undefined && { currency: parsed.currency }),
+        ...(parsed.quoteNumber !== undefined && { number: parsed.quoteNumber }),
         ...(hasLines ? totals : {}),
         ...(hasLines
           ? {
-              lines: {
-                create: lines.map((l: any) => ({
-                  tenantId,
-                  productId: l.productId,
-                  description: l.description,
-                  quantity: l.quantity,
-                  unitPrice: l.unitPrice,
-                  discount: l.discount,
-                  tax: l.tax,
-                  lineTotal: l.lineTotal,
-                })),
-              },
-            }
+            lines: {
+              create: lines.map((l: any) => ({
+                tenantId,
+                productId: l.productId,
+                description: l.description,
+                quantity: l.quantity,
+                unitPrice: l.unitPrice,
+                discount: l.discount,
+                tax: l.tax,
+                lineTotal: l.lineTotal,
+              })),
+            },
+          }
           : {}),
       },
       include: { customer: true, lines: true },
     });
 
-    return NextResponse.json(mapQuotation(q));
+    return NextResponse.json({ data: mapQuotation(q) });
   } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+    }
     const status = error?.message?.includes('Forbidden') ? 403 : 500;
     return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to update quotation' }, { status });
   }
@@ -140,7 +169,7 @@ export async function DELETE(
     const existing = await client.quotation.findFirst({ where: { id, tenantId } });
     if (!existing) return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
     await client.quotation.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ data: { success: true } });
   } catch (error: any) {
     const status = error?.message?.includes('Forbidden') ? 403 : 500;
     return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to delete quotation' }, { status });

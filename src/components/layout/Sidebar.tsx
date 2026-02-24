@@ -55,7 +55,13 @@ import {
   Building2,
   Palmtree,
   ConciergeBell,
-  Sparkles
+  Sparkles,
+  Workflow,
+  Target,
+  UserPlus,
+  Activity,
+  TrendingUp,
+  Briefcase
 } from 'lucide-react';
 import { useModulePermissions } from '@/hooks/useModulePermissions';
 import type { LucideIcon } from 'lucide-react';
@@ -89,16 +95,16 @@ const navigation: NavigationItem[] = [
 
   // Core Business
   {
-    name: 'Sales & CRM',
-    href: '/sales',
-    icon: ShoppingCart,
+    name: 'CRM Workspace',
+    href: '/crm',
+    icon: Sparkles,
     children: [
-      { name: 'Overview', href: '/sales', moduleId: 'sales' },
-      { name: 'Customers', href: '/sales/customers', moduleId: 'contacts' },
-      { name: 'Leads', href: '/sales/leads', moduleId: 'sales' },
-      { name: 'Opportunities', href: '/sales/opportunities', moduleId: 'sales' },
-      { name: 'Orders', href: '/sales/orders', moduleId: 'sales' },
-      { name: 'Quotations', href: '/sales/quotations', moduleId: 'sales' },
+      { name: 'Executive Overview', href: '/crm', icon: LayoutDashboard, moduleId: 'sales' },
+      { name: 'Strategy Pipelines', href: '/crm/pipelines', icon: Workflow, moduleId: 'sales' },
+      { name: 'Leads & Prospects', href: '/crm/leads', icon: UserPlus, moduleId: 'sales' },
+      { name: 'Accounts 360', href: '/crm/accounts', icon: Building2, moduleId: 'sales' },
+      { name: 'Sales Orders', href: '/sales/orders', icon: ShoppingCart, moduleId: 'sales' },
+      { name: 'Quotations', href: '/sales/quotations', icon: FileText, moduleId: 'sales' },
     ],
   },
   {

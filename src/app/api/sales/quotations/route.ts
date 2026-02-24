@@ -1,9 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireTenantContext } from '@/lib/server/erp-context';
+import { z } from 'zod';
 
 const client = prisma as any;
 export const dynamic = 'force-dynamic';
+
+const quotationLineSchema = z.object({
+  productId: z.string().optional().nullable(),
+  description: z.string().optional(),
+  quantity: z.number().optional(),
+  unitPrice: z.number().optional(),
+  discount: z.number().optional(),
+  tax: z.number().optional(),
+  lineTotal: z.number().optional(),
+}).passthrough();
+
+const quotationCreateSchema = z.object({
+  quoteNumber: z.string().optional(),
+  quotationNumber: z.string().optional(),
+  status: z.string().optional(),
+  validUntil: z.string().optional().nullable(),
+  customerId: z.string().optional().nullable(),
+  grandTotal: z.number().optional(),
+  notes: z.string().optional().nullable(),
+  termsAndConditions: z.string().optional().nullable(),
+  branchId: z.string().optional().nullable(),
+  currency: z.string().optional(),
+  lines: z.array(quotationLineSchema).optional(),
+}).passthrough();
 
 function calcLine(line: any) {
   const quantity = Number(line.quantity || 0);
@@ -63,7 +88,8 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json(quotations.map(mapQuotation));
+    const items = quotations.map(mapQuotation);
+    return NextResponse.json({ items, metadata: { count: items.length } });
   } catch (error: any) {
     const status = error?.message?.includes('Forbidden') ? 403 : 500;
     console.error('Error fetching quotations:', error);
@@ -75,7 +101,9 @@ export async function POST(request: NextRequest) {
   try {
     const { tenantId } = await requireTenantContext({ moduleId: 'sales', action: 'create' });
     const body = await request.json();
-    const lines = (Array.isArray(body.lines) ? body.lines : []).map(calcLine);
+    const parsed = quotationCreateSchema.parse(body);
+
+    const lines = (Array.isArray(parsed.lines) ? parsed.lines : []).map(calcLine);
     const subtotal = lines.reduce((s: number, l: any) => s + (l.quantity * l.unitPrice), 0);
     const discount = lines.reduce((s: number, l: any) => s + ((l.quantity * l.unitPrice) * (l.discount || 0)) / 100, 0);
     const tax = lines.reduce((s: number, l: any) => {
@@ -87,35 +115,35 @@ export async function POST(request: NextRequest) {
 
     const quotation = await client.quotation.create({
       data: {
-        number: body.quoteNumber || body.quotationNumber || `QT-${Date.now()}`,
-        status: body.status || 'DRAFT',
-        validUntil: body.validUntil ? new Date(body.validUntil) : new Date(Date.now() + 30 * 86400000),
-        customerId: body.customerId ?? null,
+        number: parsed.quoteNumber || parsed.quotationNumber || `QT-${Date.now()}`,
+        status: parsed.status || 'DRAFT',
+        validUntil: parsed.validUntil ? new Date(parsed.validUntil) : new Date(Date.now() + 30 * 86400000),
+        customerId: parsed.customerId ?? null,
         subtotal,
         tax,
         discount,
         total,
-        grandTotal: body.grandTotal ?? total,
-        notes: body.notes ?? null,
-        termsAndConditions: body.termsAndConditions ?? null,
-        branchId: body.branchId ?? null,
-        currency: body.currency ?? 'USD',
+        grandTotal: parsed.grandTotal ?? total,
+        notes: parsed.notes ?? null,
+        termsAndConditions: parsed.termsAndConditions ?? null,
+        branchId: parsed.branchId ?? null,
+        currency: parsed.currency ?? 'USD',
         tenantId,
         ...(lines.length > 0
           ? {
-              lines: {
-                create: lines.map((l: any) => ({
-                  tenantId,
-                  productId: l.productId,
-                  description: l.description,
-                  quantity: l.quantity,
-                  unitPrice: l.unitPrice,
-                  discount: l.discount,
-                  tax: l.tax,
-                  lineTotal: l.lineTotal,
-                })),
-              },
-            }
+            lines: {
+              create: lines.map((l: any) => ({
+                tenantId,
+                productId: l.productId,
+                description: l.description,
+                quantity: l.quantity,
+                unitPrice: l.unitPrice,
+                discount: l.discount,
+                tax: l.tax,
+                lineTotal: l.lineTotal,
+              })),
+            },
+          }
           : {}),
       },
       include: {
@@ -124,8 +152,11 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(mapQuotation(quotation), { status: 201 });
+    return NextResponse.json({ data: mapQuotation(quotation) }, { status: 201 });
   } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+    }
     const status = error?.message?.includes('Forbidden') ? 403 : 500;
     console.error('Error creating quotation:', error);
     return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to create quotation' }, { status });
