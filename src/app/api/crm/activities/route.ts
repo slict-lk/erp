@@ -10,6 +10,7 @@ const listQuerySchema = z.object({
   opportunityId: z.string().optional(),
   accountId: z.string().optional(),
   status: z.string().optional(),
+  limit: z.string().optional(),
 });
 
 const activityCreateSchema = z.object({
@@ -33,6 +34,7 @@ export async function GET(request: NextRequest) {
       opportunityId: searchParams.get('opportunityId') || undefined,
       accountId: searchParams.get('accountId') || undefined,
       status: searchParams.get('status') || undefined,
+      limit: searchParams.get('limit') || undefined,
     });
 
     const items = await listActivities(tenantId, validated);

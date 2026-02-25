@@ -45,7 +45,9 @@ async function resolvePipelineAndStageDefaults(
   const stage = stageId
     ? await client.crmStage.findFirst({ where: { id: stageId, tenantId, pipelineId: pipeline.id } })
     : await client.crmStage.findFirst({
-        where: { tenantId, pipelineId: pipeline.id, active: true },
+        // CrmStage has no active/isActive flag in the current schema.
+        // Default to the first non-closed stage in sequence order.
+        where: { tenantId, pipelineId: pipeline.id, isClosed: false },
         orderBy: { sequence: 'asc' },
       });
 
@@ -316,7 +318,14 @@ export async function listOpportunities(tenantId: string, filters?: any) {
       { description: { contains: filters.search, mode: 'insensitive' } },
     ];
   }
-  return client.crmOpportunity.findMany({ where, orderBy: { updatedAt: 'desc' } });
+  const rows = await client.crmOpportunity.findMany({ where, orderBy: { updatedAt: 'desc' } });
+  // Alias fields for UI compatibility: stage <- stageId, probability <- probabilityPercent,
+  // expectedCloseDate kept as-is, amount kept as-is
+  return rows.map((opp: any) => ({
+    ...opp,
+    stage: opp.stageId ?? opp.stage ?? null,
+    probability: opp.probabilityPercent ?? opp.probability ?? 0,
+  }));
 }
 
 export async function createOpportunity(tenantId: string, userId: string | undefined, data: any) {
@@ -505,7 +514,17 @@ export async function listActivities(tenantId: string, filters?: any) {
   if (filters?.opportunityId) where.opportunityId = filters.opportunityId;
   if (filters?.accountId) where.accountId = filters.accountId;
   if (filters?.status) where.status = filters.status;
-  return client.crmActivity.findMany({ where, orderBy: { createdAt: 'desc' } });
+  const limit = filters?.limit ? parseInt(String(filters.limit), 10) : undefined;
+  const rows = await client.crmActivity.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    ...(limit ? { take: limit } : {}),
+  });
+  // Alias dueAt -> scheduledAt so UI pages that read scheduledAt work correctly
+  return rows.map((a: any) => ({
+    ...a,
+    scheduledAt: a.scheduledAt ?? a.dueAt ?? null,
+  }));
 }
 
 export async function createActivity(tenantId: string, userId: string | undefined, data: any) {
@@ -568,7 +587,24 @@ export async function listAccounts(tenantId: string, search?: string) {
       { customerType: { contains: search, mode: 'insensitive' } },
     ];
   }
-  return client.customerAccount.findMany({ where, orderBy: { createdAt: 'desc' } });
+  const accounts = await client.customerAccount.findMany({ where, orderBy: { createdAt: 'desc' } });
+
+  // Manual join: fetch Party records for all accounts
+  const partyIds = accounts.map((a: any) => a.partyId).filter(Boolean);
+  const parties: any[] = partyIds.length
+    ? await (client as any).party.findMany({ where: { id: { in: partyIds } } })
+    : [];
+  const partyMap = new Map(parties.map((p: any) => [p.id, p]));
+
+  return accounts.map((a: any) => {
+    const p = partyMap.get(a.partyId);
+    return {
+      ...a,
+      party: p
+        ? { name: p.displayName, email: p.primaryEmail, phone: p.primaryPhone }
+        : null,
+    };
+  });
 }
 
 export async function createAccount(tenantId: string, data: any) {

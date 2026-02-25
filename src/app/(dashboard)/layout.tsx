@@ -22,7 +22,7 @@ export default function DashboardLayout({
   }, []);
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen min-h-screen bg-gray-50 overflow-hidden">
       <Sidebar
         isMobileMenuOpen={isMobileMenuOpen}
         onClose={handleMenuClose}

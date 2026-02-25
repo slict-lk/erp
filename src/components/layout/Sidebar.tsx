@@ -103,8 +103,19 @@ const navigation: NavigationItem[] = [
       { name: 'Strategy Pipelines', href: '/crm/pipelines', icon: Workflow, moduleId: 'sales' },
       { name: 'Leads & Prospects', href: '/crm/leads', icon: UserPlus, moduleId: 'sales' },
       { name: 'Accounts 360', href: '/crm/accounts', icon: Building2, moduleId: 'sales' },
+      { name: 'Activities', href: '/crm/activities', icon: Activity, moduleId: 'sales' },
+    ],
+  },
+  {
+    name: 'Commercial Operations',
+    href: '/sales/orders',
+    icon: Briefcase,
+    children: [
       { name: 'Sales Orders', href: '/sales/orders', icon: ShoppingCart, moduleId: 'sales' },
       { name: 'Quotations', href: '/sales/quotations', icon: FileText, moduleId: 'sales' },
+      { name: 'Customers', href: '/sales/customers', icon: Users, moduleId: 'sales' },
+      { name: 'Leads', href: '/sales/leads', icon: Target, moduleId: 'sales' },
+      { name: 'Opportunities', href: '/sales/opportunities', icon: TrendingUp, moduleId: 'sales' },
     ],
   },
   {
@@ -602,7 +613,7 @@ export function Sidebar({
       {/* Sidebar */}
       <div
         className={`
-          fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 text-slate-100 flex flex-col
+          fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 text-slate-100 flex flex-col h-full
           transform transition-transform duration-300 ease-in-out shadow-2xl
           lg:relative lg:translate-x-0 border-r border-slate-800
           ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}

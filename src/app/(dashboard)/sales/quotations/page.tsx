@@ -4,9 +4,14 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, CheckCircle2, XCircle, ArrowRightLeft, FileText, CalendarClock } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, CheckCircle2, XCircle, ArrowRightLeft, FileText, CalendarClock, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface SalesQuoteV2 {
   id: string;
@@ -31,6 +36,12 @@ export default function SalesQuotesPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'ALL' | 'DRAFT' | 'SENT' | 'CONVERTIBLE' | 'CONVERTED'>('ALL');
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [newQuoteForm, setNewQuoteForm] = useState({
+    description: "", quantity: "1", unitPrice: "", currency: "USD", notes: "", validUntil: "",
+  });
 
   useEffect(() => {
     loadQuotes();
@@ -83,10 +94,7 @@ export default function SalesQuotesPage() {
       const response = await fetch(`/api/sales/quotes/${quote.id}/convert`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: "DRAFT",
-          markQuoteStatus: "CONVERTED",
-        }),
+        body: JSON.stringify({ status: "DRAFT", markQuoteStatus: "CONVERTED" }),
       });
       if (response.ok) {
         await loadQuotes();
@@ -95,6 +103,36 @@ export default function SalesQuotesPage() {
     } catch (error) {
       console.error("Error converting quote:", error);
     }
+  };
+
+  const handleCreateQuote = async () => {
+    if (!newQuoteForm.description.trim() || !newQuoteForm.unitPrice) {
+      setFormError("Description and unit price are required.");
+      return;
+    }
+    try {
+      setSubmitting(true); setFormError(null);
+      const res = await fetch("/api/sales/quotes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currency: newQuoteForm.currency,
+          validUntil: newQuoteForm.validUntil || undefined,
+          notes: newQuoteForm.notes.trim() || undefined,
+          lines: [{
+            description: newQuoteForm.description.trim(),
+            quantity: Number(newQuoteForm.quantity) || 1,
+            unitPrice: Number(newQuoteForm.unitPrice),
+          }],
+        }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error || "Failed to create quote"); }
+      setShowAdd(false);
+      setNewQuoteForm({ description: "", quantity: "1", unitPrice: "", currency: "USD", notes: "", validUntil: "" });
+      await loadQuotes();
+      setActionNotice("New quote created successfully");
+    } catch (err: any) { setFormError(err?.message || "Failed to create quote."); }
+    finally { setSubmitting(false); }
   };
 
   const filteredQuotes = quotes.filter((quote) => {
@@ -120,7 +158,7 @@ export default function SalesQuotesPage() {
             Create, revise, and convert quotations into sales orders.
           </p>
         </div>
-        <Button>
+        <Button onClick={() => { setShowAdd(true); setFormError(null); }}>
           <Plus className="mr-2 h-4 w-4" />
           New Quote
         </Button>
@@ -230,6 +268,66 @@ export default function SalesQuotesPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* New Quote Dialog */}
+      <Dialog open={showAdd} onOpenChange={(open) => { setShowAdd(open); if (!open) setFormError(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>New Quote</DialogTitle>
+            <DialogDescription>Create a new quotation with at least one line item.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {formError && <Alert variant="destructive"><AlertDescription>{formError}</AlertDescription></Alert>}
+            <div className="space-y-1.5">
+              <Label htmlFor="q-desc">Line Item Description *</Label>
+              <Input id="q-desc" placeholder="Professional services — Q1 2026" value={newQuoteForm.description}
+                onChange={e => setNewQuoteForm(f => ({ ...f, description: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="q-qty">Quantity</Label>
+                <Input id="q-qty" type="number" min="0.01" step="0.01" placeholder="1" value={newQuoteForm.quantity}
+                  onChange={e => setNewQuoteForm(f => ({ ...f, quantity: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="q-price">Unit Price *</Label>
+                <Input id="q-price" type="number" min="0" placeholder="5000" value={newQuoteForm.unitPrice}
+                  onChange={e => setNewQuoteForm(f => ({ ...f, unitPrice: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Currency</Label>
+                <Select value={newQuoteForm.currency} onValueChange={v => setNewQuoteForm(f => ({ ...f, currency: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="LKR">LKR</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                    <SelectItem value="GBP">GBP</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="q-valid">Valid Until</Label>
+                <Input id="q-valid" type="date" value={newQuoteForm.validUntil}
+                  onChange={e => setNewQuoteForm(f => ({ ...f, validUntil: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="q-notes">Notes</Label>
+              <Input id="q-notes" placeholder="Optional terms or remarks" value={newQuoteForm.notes}
+                onChange={e => setNewQuoteForm(f => ({ ...f, notes: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
+            <Button onClick={handleCreateQuote} disabled={submitting}>
+              {submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…</> : "Create Quote"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -137,13 +137,14 @@ export function OpportunityList({ opportunities, onCreateNew, onEdit, onDelete, 
 
   return (
     <div className="space-y-6">
+      {/* Hero banner with KPIs */}
       <div className="rounded-2xl border border-gray-200 bg-gradient-to-r from-slate-900 via-blue-900 to-cyan-800 p-5 text-white">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-2xl font-semibold">Opportunity Workspace</h2>
             <p className="text-sm text-blue-100">Pipeline board, deal inspector, and stage controls for real-time execution.</p>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
             <div className="rounded-lg border border-white/15 bg-white/10 px-3 py-2"><div className="text-blue-100 text-xs">Open Pipeline</div><div className="font-semibold">{money(total)}</div></div>
             <div className="rounded-lg border border-white/15 bg-white/10 px-3 py-2"><div className="text-blue-100 text-xs">Weighted</div><div className="font-semibold">{money(weighted)}</div></div>
             <div className="rounded-lg border border-white/15 bg-white/10 px-3 py-2"><div className="text-blue-100 text-xs">Won</div><div className="font-semibold">{money(won)}</div></div>
@@ -152,13 +153,7 @@ export function OpportunityList({ opportunities, onCreateNew, onEdit, onDelete, 
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <Card><CardContent className="flex items-center justify-between p-4"><div><p className="text-xs text-gray-500">Pipeline</p><p className="text-lg font-semibold">{money(total)}</p></div><TrendingUp className="h-5 w-5 text-blue-600" /></CardContent></Card>
-        <Card><CardContent className="flex items-center justify-between p-4"><div><p className="text-xs text-gray-500">Weighted</p><p className="text-lg font-semibold">{money(weighted)}</p></div><DollarSign className="h-5 w-5 text-violet-600" /></CardContent></Card>
-        <Card><CardContent className="flex items-center justify-between p-4"><div><p className="text-xs text-gray-500">Won Revenue</p><p className="text-lg font-semibold">{money(won)}</p></div><DollarSign className="h-5 w-5 text-emerald-600" /></CardContent></Card>
-        <Card><CardContent className="flex items-center justify-between p-4"><div><p className="text-xs text-gray-500">Deals</p><p className="text-lg font-semibold">{filtered.length}</p></div><FileText className="h-5 w-5 text-slate-600" /></CardContent></Card>
-      </div>
-
+      {/* Toolbar: search, view toggle, filter, create */}
       <Card>
         <CardContent className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full lg:max-w-md">
@@ -179,131 +174,127 @@ export function OpportunityList({ opportunities, onCreateNew, onEdit, onDelete, 
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[1.45fr_0.85fr]">
-        <div>
-          {view === 'board' ? (
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-base">Pipeline Board</CardTitle></CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto pb-2">
-                  <div className="flex min-w-[1120px] gap-4">
-                    {columns.map((col) => (
-                      <div key={col.value} className={`w-[300px] rounded-2xl border p-3 ${col.tone}`}>
-                        <div className="mb-3 rounded-xl bg-white/80 p-3">
-                          <div className="flex items-center justify-between"><p className="font-semibold">{col.label}</p><Badge variant="outline">{col.items.length}</Badge></div>
-                          <p className="mt-1 text-xs text-gray-500">{money(col.total)}</p>
+      {/* Deal Inspector + Attention Queue — side by side above the board */}
+      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <Card>
+          <CardHeader className="pb-3"><CardTitle className="text-base">Deal Inspector</CardTitle></CardHeader>
+          <CardContent>
+            {!selected ? (
+              <div className="rounded-lg border border-dashed p-6 text-sm text-gray-500">Select a deal to inspect and move stages.</div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div><p className="text-lg font-semibold">{selected.name}</p><p className="text-sm text-gray-500">{selected.customer?.name || 'No customer linked'}</p></div>
+                  <Badge variant={stageBadge(selected.stage)}>{stageLabel(selected.stage)}</Badge>
+                </div>
+                {selected.description ? <p className="text-sm text-gray-600">{selected.description}</p> : null}
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-lg border bg-gray-50 p-3"><div className="text-xs text-gray-500">Expected</div><div className="font-semibold">{money(selected.expectedRevenue)}</div></div>
+                  <div className="rounded-lg border bg-gray-50 p-3"><div className="text-xs text-gray-500">Probability</div><div className="font-semibold">{selected.probability}%</div></div>
+                  <div className="rounded-lg border bg-gray-50 p-3"><div className="text-xs text-gray-500">Weighted</div><div className="font-semibold">{money((selected.expectedRevenue * selected.probability) / 100)}</div></div>
+                  <div className="rounded-lg border bg-gray-50 p-3"><div className="text-xs text-gray-500">Close Date</div><div className="font-semibold">{dateFmt(selected.expectedCloseDate)}</div></div>
+                </div>
+                <div className="rounded-xl border p-3">
+                  <p className="mb-2 text-xs uppercase text-gray-500">Stage Controls</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" disabled={!prevStage || !onStageChange || !!busyId} onClick={() => prevStage && moveStage(prevStage)}><ArrowLeft className="mr-1 h-3.5 w-3.5" />Back</Button>
+                    <Button size="sm" disabled={!nextStage || !onStageChange || !!busyId} onClick={() => nextStage && moveStage(nextStage)}><ArrowRight className="mr-1 h-3.5 w-3.5" />{busyId === selected.id ? 'Moving...' : 'Advance'}</Button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={() => onEdit(selected)}><Edit className="mr-2 h-4 w-4" />Edit</Button>
+                  <Button variant="outline" onClick={() => onView(selected)}>Open Form</Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-4 w-4 text-amber-500" />Attention Queue</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {queue.length === 0 ? <div className="rounded-lg border border-dashed p-6 text-sm text-gray-500">No active deals need attention.</div> : queue.map((o) => (
+              <button key={o.id} type="button" onClick={() => setSelectedId(o.id)} className={`w-full rounded-lg border p-3 text-left ${selected?.id === o.id ? 'border-blue-300 bg-blue-50/50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div><p className="font-medium line-clamp-1">{o.name}</p><p className="text-xs text-gray-500">{o.customer?.name || 'No customer'} · {stageLabel(o.stage)}</p></div>
+                  <span className="text-xs font-medium">{o.probability}%</span>
+                </div>
+                <div className="mt-1 flex justify-between text-xs text-gray-500"><span>{dateFmt(o.expectedCloseDate)}</span><span className="font-medium text-gray-900">{money(o.expectedRevenue)}</span></div>
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Pipeline Board / List View — full width, responsive grid */}
+      {view === 'board' ? (
+        <Card>
+          <CardHeader className="pb-3"><CardTitle className="text-base">Pipeline Board</CardTitle></CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {columns.map((col) => (
+                <div key={col.value} className={`rounded-2xl border p-3 ${col.tone}`}>
+                  <div className="mb-3 rounded-xl bg-white/80 p-3">
+                    <div className="flex items-center justify-between"><p className="font-semibold text-sm">{col.label}</p><Badge variant="outline">{col.items.length}</Badge></div>
+                    <p className="mt-1 text-xs text-gray-500">{money(col.total)}</p>
+                  </div>
+                  <div className="space-y-3">
+                    {col.items.length === 0 ? <div className="rounded-lg border border-dashed bg-white p-4 text-center text-xs text-gray-500">No deals</div> : col.items.map((o) => (
+                      <button key={o.id} type="button" onClick={() => setSelectedId(o.id)} className={`w-full rounded-xl border bg-white p-3 text-left shadow-sm transition-all ${selected?.id === o.id ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-200 hover:shadow-md'}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0"><p className="font-medium text-sm line-clamp-1">{o.name}</p><p className="text-xs text-gray-500 truncate">{o.customer?.name || 'No customer'}</p></div>
+                          <Badge variant={stageBadge(o.stage)} className="shrink-0">{o.probability}%</Badge>
                         </div>
-                        <div className="space-y-3">
-                          {col.items.length === 0 ? <div className="rounded-lg border border-dashed bg-white p-4 text-center text-xs text-gray-500">No deals</div> : col.items.map((o) => (
-                            <button key={o.id} type="button" onClick={() => setSelectedId(o.id)} className={`w-full rounded-xl border bg-white p-3 text-left shadow-sm ${selected?.id === o.id ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-200'}`}>
-                              <div className="flex items-start justify-between gap-2">
-                                <div><p className="font-medium line-clamp-1">{o.name}</p><p className="text-xs text-gray-500">{o.customer?.name || 'No customer'}</p></div>
-                                <Badge variant={stageBadge(o.stage)}>{o.probability}%</Badge>
-                              </div>
-                              <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                                <div className="rounded bg-gray-50 p-2"><div className="text-gray-500">Value</div><div className="font-medium">{money(o.expectedRevenue)}</div></div>
-                                <div className="rounded bg-gray-50 p-2"><div className="text-gray-500">Close</div><div className="font-medium">{dateFmt(o.expectedCloseDate)}</div></div>
-                              </div>
-                              <div className="mt-2 flex justify-end gap-1">
-                                <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); onEdit(o); }}><Edit className="h-3 w-3" /></Button>
-                                <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete opportunity "${o.name}"?`)) onDelete(o.id); }}><Trash2 className="h-3 w-3 text-red-500" /></Button>
-                              </div>
-                            </button>
-                          ))}
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                          <div className="rounded bg-gray-50 p-2"><div className="text-gray-500">Value</div><div className="font-medium">{money(o.expectedRevenue)}</div></div>
+                          <div className="rounded bg-gray-50 p-2"><div className="text-gray-500">Close</div><div className="font-medium">{dateFmt(o.expectedCloseDate)}</div></div>
                         </div>
-                      </div>
+                        <div className="mt-2 flex justify-end gap-1">
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); onEdit(o); }}><Edit className="h-3 w-3" /></Button>
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete opportunity "${o.name}"?`)) onDelete(o.id); }}><Trash2 className="h-3 w-3 text-red-500" /></Button>
+                        </div>
+                      </button>
                     ))}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-base">List View</CardTitle></CardHeader>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs uppercase text-gray-500">Opportunity</th>
-                        <th className="px-4 py-3 text-left text-xs uppercase text-gray-500">Customer</th>
-                        <th className="px-4 py-3 text-left text-xs uppercase text-gray-500">Stage</th>
-                        <th className="px-4 py-3 text-left text-xs uppercase text-gray-500">Close</th>
-                        <th className="px-4 py-3 text-right text-xs uppercase text-gray-500">Value</th>
-                        <th className="px-4 py-3 text-right text-xs uppercase text-gray-500">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {filtered.map((o) => (
-                        <tr key={o.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedId(o.id)}>
-                          <td className="px-4 py-3"><div className="font-medium">{o.name}</div><div className="text-xs text-gray-500">{o.description || 'No description'}</div></td>
-                          <td className="px-4 py-3 text-sm">{o.customer?.name || 'Unassigned'}</td>
-                          <td className="px-4 py-3"><Badge variant={stageBadge(o.stage)}>{stageLabel(o.stage)}</Badge></td>
-                          <td className="px-4 py-3 text-sm">{dateFmt(o.expectedCloseDate)}</td>
-                          <td className="px-4 py-3 text-right font-medium">{money(o.expectedRevenue)}</td>
-                          <td className="px-4 py-3"><div className="flex justify-end gap-1"><Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); onEdit(o); }}><Edit className="h-3 w-3" /></Button><Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete opportunity "${o.name}"?`)) onDelete(o.id); }}><Trash2 className="h-3 w-3 text-red-500" /></Button></div></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {filtered.length === 0 ? <div className="p-6 text-center text-sm text-gray-500">No opportunities found.</div> : null}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        <div className="space-y-6">
-          <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base">Deal Inspector</CardTitle></CardHeader>
-            <CardContent>
-              {!selected ? (
-                <div className="rounded-lg border border-dashed p-6 text-sm text-gray-500">Select a deal to inspect and move stages.</div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div><p className="text-lg font-semibold">{selected.name}</p><p className="text-sm text-gray-500">{selected.customer?.name || 'No customer linked'}</p></div>
-                    <Badge variant={stageBadge(selected.stage)}>{stageLabel(selected.stage)}</Badge>
-                  </div>
-                  {selected.description ? <p className="text-sm text-gray-600">{selected.description}</p> : null}
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-lg border bg-gray-50 p-3"><div className="text-xs text-gray-500">Expected</div><div className="font-semibold">{money(selected.expectedRevenue)}</div></div>
-                    <div className="rounded-lg border bg-gray-50 p-3"><div className="text-xs text-gray-500">Probability</div><div className="font-semibold">{selected.probability}%</div></div>
-                    <div className="rounded-lg border bg-gray-50 p-3"><div className="text-xs text-gray-500">Weighted</div><div className="font-semibold">{money((selected.expectedRevenue * selected.probability) / 100)}</div></div>
-                    <div className="rounded-lg border bg-gray-50 p-3"><div className="text-xs text-gray-500">Close Date</div><div className="font-semibold">{dateFmt(selected.expectedCloseDate)}</div></div>
-                  </div>
-                  <div className="rounded-xl border p-3">
-                    <p className="mb-2 text-xs uppercase text-gray-500">Stage Controls</p>
-                    <div className="flex flex-wrap gap-2">
-                      <Button size="sm" variant="outline" disabled={!prevStage || !onStageChange || !!busyId} onClick={() => prevStage && moveStage(prevStage)}><ArrowLeft className="mr-1 h-3.5 w-3.5" />Back</Button>
-                      <Button size="sm" disabled={!nextStage || !onStageChange || !!busyId} onClick={() => nextStage && moveStage(nextStage)}><ArrowRight className="mr-1 h-3.5 w-3.5" />{busyId === selected.id ? 'Moving...' : 'Advance'}</Button>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={() => onEdit(selected)}><Edit className="mr-2 h-4 w-4" />Edit</Button>
-                    <Button variant="outline" onClick={() => onView(selected)}>Open Form</Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-4 w-4 text-amber-500" />Attention Queue</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              {queue.length === 0 ? <div className="rounded-lg border border-dashed p-6 text-sm text-gray-500">No active deals need attention.</div> : queue.map((o) => (
-                <button key={o.id} type="button" onClick={() => setSelectedId(o.id)} className={`w-full rounded-lg border p-3 text-left ${selected?.id === o.id ? 'border-blue-300 bg-blue-50/50' : 'border-gray-200 hover:bg-gray-50'}`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div><p className="font-medium line-clamp-1">{o.name}</p><p className="text-xs text-gray-500">{o.customer?.name || 'No customer'} · {stageLabel(o.stage)}</p></div>
-                    <span className="text-xs font-medium">{o.probability}%</span>
-                  </div>
-                  <div className="mt-1 flex justify-between text-xs text-gray-500"><span>{dateFmt(o.expectedCloseDate)}</span><span className="font-medium text-gray-900">{money(o.expectedRevenue)}</span></div>
-                </button>
               ))}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader className="pb-3"><CardTitle className="text-base">List View</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs uppercase text-gray-500">Opportunity</th>
+                    <th className="px-4 py-3 text-left text-xs uppercase text-gray-500">Customer</th>
+                    <th className="px-4 py-3 text-left text-xs uppercase text-gray-500">Stage</th>
+                    <th className="px-4 py-3 text-left text-xs uppercase text-gray-500">Close</th>
+                    <th className="px-4 py-3 text-right text-xs uppercase text-gray-500">Value</th>
+                    <th className="px-4 py-3 text-right text-xs uppercase text-gray-500">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {filtered.map((o) => (
+                    <tr key={o.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedId(o.id)}>
+                      <td className="px-4 py-3"><div className="font-medium">{o.name}</div><div className="text-xs text-gray-500">{o.description || 'No description'}</div></td>
+                      <td className="px-4 py-3 text-sm">{o.customer?.name || 'Unassigned'}</td>
+                      <td className="px-4 py-3"><Badge variant={stageBadge(o.stage)}>{stageLabel(o.stage)}</Badge></td>
+                      <td className="px-4 py-3 text-sm">{dateFmt(o.expectedCloseDate)}</td>
+                      <td className="px-4 py-3 text-right font-medium">{money(o.expectedRevenue)}</td>
+                      <td className="px-4 py-3"><div className="flex justify-end gap-1"><Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); onEdit(o); }}><Edit className="h-3 w-3" /></Button><Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete opportunity "${o.name}"?`)) onDelete(o.id); }}><Trash2 className="h-3 w-3 text-red-500" /></Button></div></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {filtered.length === 0 ? <div className="p-6 text-center text-sm text-gray-500">No opportunities found.</div> : null}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -210,7 +210,6 @@ export default function SalesPage() {
 
     const map = new Map<string, Opportunity[]>();
     for (const stage of stages) map.set(stage.key, []);
-    map.set('PROPOSPECTING', []);
     const others: Opportunity[] = [];
 
     for (const opp of filteredOpportunities) {
@@ -223,10 +222,7 @@ export default function SalesPage() {
     }
 
     const columns = stages.map((stage) => {
-      const variants =
-        stage.key === 'PROSPECTING'
-          ? [...(map.get('PROSPECTING') || []), ...(map.get('PROPOSPECTING') || [])]
-          : (map.get(stage.key) || []);
+      const variants = map.get(stage.key) || [];
       const amount = variants.reduce((sum, o) => sum + Number(o.amount || 0), 0);
       const weighted = variants.reduce((sum, o) => sum + (Number(o.amount || 0) * Number(o.probability || 0)) / 100, 0);
       return { ...stage, items: variants, amount, weighted };

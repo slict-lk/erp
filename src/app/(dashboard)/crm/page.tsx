@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Activity, Users, DollarSign, Target, CalendarClock, Phone, Mail, FileText, CheckCircle2 } from "lucide-react";
@@ -33,19 +34,29 @@ interface CrmOpportunity {
     expectedCloseDate?: string;
 }
 
+interface CrmStage {
+    id: string;
+    name: string;
+    sequence: number;
+    probabilityPercent: number;
+}
+
 export default function CRMOverview() {
+    const router = useRouter();
     const [metrics, setMetrics] = useState<CrmMetrics | null>(null);
     const [activities, setActivities] = useState<CrmActivity[]>([]);
     const [opportunities, setOpportunities] = useState<CrmOpportunity[]>([]);
+    const [pipelineStages, setPipelineStages] = useState<CrmStage[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchData = useCallback(async () => {
         try {
             setIsLoading(true);
-            const [metricsRes, activitiesRes, oppsRes] = await Promise.all([
+            const [metricsRes, activitiesRes, oppsRes, pipeRes] = await Promise.all([
                 fetch("/api/sales/metrics"),
                 fetch("/api/crm/activities?limit=10"),
                 fetch("/api/crm/opportunities?status=OPEN"),
+                fetch("/api/crm/pipelines"),
             ]);
 
             if (metricsRes.ok) {
@@ -60,6 +71,12 @@ export default function CRMOverview() {
                 const payload = await oppsRes.json();
                 setOpportunities(payload.items || payload.data || (Array.isArray(payload) ? payload : []));
             }
+            if (pipeRes.ok) {
+                const payload = await pipeRes.json();
+                const pipes = payload.items || payload.data || (Array.isArray(payload) ? payload : []);
+                const firstPipeline = pipes[0];
+                setPipelineStages(firstPipeline?.stages || []);
+            }
         } catch (error) {
             console.error("Failed to load CRM data:", error);
         } finally {
@@ -72,19 +89,23 @@ export default function CRMOverview() {
     }, [fetchData]);
 
     // Derived states
-    const upcomingActivities = activities.filter(a => a.status === "PENDING" || a.status === "SCHEDULED");
+    const upcomingActivities = activities.filter(a => a.status === "PENDING" || a.status === "SCHEDULED" || a.status === "OPEN");
     const overdueActivities = upcomingActivities.filter(a => a.scheduledAt && new Date(a.scheduledAt).getTime() < Date.now());
 
-    // Calculate pipeline by stage
-    const stages = ["PROSPECTING", "QUALIFICATION", "PROPOSAL", "NEGOTIATION", "WON", "LOST"];
-    const pipelineByStage = stages.map(stage => {
-        const stageOpps = opportunities.filter(o => o.stage === stage);
-        return {
-            stage,
-            count: stageOpps.length,
-            value: stageOpps.reduce((sum, o) => sum + (Number(o.amount) || 0), 0)
-        };
-    }).filter(s => s.count > 0 || ["PROPOSAL", "NEGOTIATION"].includes(s.stage)); // keep some default stages visible
+    // Build pipeline chart from actual stages (UUID-keyed) or fall back to static names
+    const staticStages = ["PROSPECTING", "QUALIFICATION", "PROPOSAL", "NEGOTIATION", "WON", "LOST"];
+    const pipelineByStage = pipelineStages.length > 0
+        ? pipelineStages
+            .sort((a, b) => a.sequence - b.sequence)
+            .map(s => {
+                const stageOpps = opportunities.filter(o => (o.stage || "") === s.id);
+                return { stage: s.name, count: stageOpps.length, value: stageOpps.reduce((sum, o) => sum + (Number(o.amount) || 0), 0) };
+            })
+            .filter(s => s.count > 0 || ["Proposal", "Negotiation"].includes(s.stage))
+        : staticStages.map(stage => {
+            const stageOpps = opportunities.filter(o => (o.stage || "") === stage);
+            return { stage, count: stageOpps.length, value: stageOpps.reduce((sum, o) => sum + (Number(o.amount) || 0), 0) };
+        }).filter(s => s.count > 0 || ["PROPOSAL", "NEGOTIATION"].includes(s.stage));
 
     const maxPipelineValue = Math.max(...pipelineByStage.map(s => s.value), 1);
 
@@ -207,7 +228,7 @@ export default function CRMOverview() {
                             <div className="h-[350px] flex flex-col items-center justify-center border-dashed border-2 rounded-2xl bg-muted/10">
                                 <Target className="h-12 w-12 text-muted-foreground/30 mb-4" />
                                 <p className="text-muted-foreground">No active opportunities found</p>
-                                <Button variant="link" className="mt-2 text-primary">Start new deal</Button>
+                                <Button variant="link" className="mt-2 text-primary" onClick={() => router.push('/crm/pipelines')}>Start new deal</Button>
                             </div>
                         ) : (
                             <div className="space-y-8 py-4">
@@ -295,7 +316,7 @@ export default function CRMOverview() {
                                         </div>
                                     </div>
                                 ))}
-                                <Button variant="ghost" className="w-full text-xs text-muted-foreground hover:text-primary mt-2">
+                                <Button variant="ghost" className="w-full text-xs text-muted-foreground hover:text-primary mt-2" onClick={() => router.push('/crm/activities')}>
                                     View full activity timeline →
                                 </Button>
                             </div>
