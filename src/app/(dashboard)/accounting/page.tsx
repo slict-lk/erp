@@ -1,93 +1,157 @@
 "use client";
 
-import { formatCurrency } from '@/lib/utils';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
-  DollarSign,
-  FileText,
   TrendingUp,
+  TrendingDown,
+  Wallet,
+  Building2,
+  Receipt,
   CreditCard,
   RefreshCw,
-  CheckCircle,
+  Plus,
+  ArrowRight,
+  BookOpen,
+  Landmark,
+  FileText,
+  ArrowRightLeft,
+  BarChart3,
   Clock,
-  AlertCircle,
-  Receipt,
-} from 'lucide-react';
+  Settings
+} from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { format } from "date-fns";
 
+// --- Types ---
 interface Invoice {
   id: string;
-  invoiceNumber: string;
-  status: string;
+  number: string;
   type: string;
+  status: string;
   total: number;
-  amountPaid: number;
   amountDue: number;
+  currencyCode?: string;
   issueDate: string;
   dueDate: string;
-  customer: { name: string } | null;
+  customer?: { name: string };
+  vendor?: { name: string };
 }
 
 interface Payment {
   id: string;
-  paymentNumber: string;
   amount: number;
-  paymentDate: string;
+  status?: string;
   method: string;
-  reference: string | null;
-  invoice: {
-    invoiceNumber: string;
-    customer: { name: string } | null;
-  } | null;
+  currencyCode?: string;
+  paymentDate: string;
+  reference?: string;
+  invoice?: {
+    number: string;
+    customer?: { name: string };
+    vendor?: { name: string };
+  };
 }
 
-interface Expense {
-  id: string;
-  reference: string;
-  amount: number;
-  category: string;
-  description: string | null;
-  date: string;
+// --- Components ---
+const StatusBadge = ({ status }: { status: string }) => {
+  const styles: Record<string, string> = {
+    OPEN: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 border-yellow-300/30",
+    PAID: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-300/30",
+    OVERDUE: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-300/30",
+    DRAFT: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 border-gray-300/30",
+    CLEARED: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-300/30",
+    RECONCILED: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 border-indigo-300/30",
+    CREDIT_NOTE: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border-purple-300/30",
+  };
+
+  return (
+    <Badge variant="outline" className={`${styles[status] || styles.DRAFT} text-[10px] font-semibold tracking-wider uppercase`}>
+      {status.replace('_', ' ')}
+    </Badge>
+  );
+};
+
+function StatCard({ title, value, subtitle, icon: Icon, variant }: {
+  title: string;
+  value: string;
+  subtitle: string;
+  icon: any;
+  variant: 'green' | 'blue' | 'orange' | 'purple';
+}) {
+  const colors = {
+    green: 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400',
+    blue: 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400',
+    orange: 'bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-400',
+    purple: 'bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-400',
+  };
+
+  return (
+    <Card>
+      <CardContent className="flex items-center justify-between p-4 sm:p-6">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
+          <p className="mt-1 text-xl sm:text-2xl font-bold text-gray-900 dark:text-white truncate">{value}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{subtitle}</p>
+        </div>
+        <div className={`rounded-xl p-2 sm:p-3 flex-shrink-0 ${colors[variant]}`}>
+          <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
-
-
-function formatDate(date: string) {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(new Date(date));
+function QuickAction({ href, icon: Icon, label, color }: {
+  href: string;
+  icon: any;
+  label: string;
+  color: string;
+}) {
+  return (
+    <Link href={href}>
+      <Card className="hover:shadow-md transition-shadow cursor-pointer">
+        <CardContent className="flex flex-col items-center justify-center p-3 sm:p-4 text-center min-h-[100px] sm:min-h-[120px]">
+          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl ${color} flex items-center justify-center mb-2`}>
+            <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+          </div>
+          <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 leading-tight">{label}</span>
+        </CardContent>
+      </Card>
+    </Link>
+  );
 }
 
-export default function AccountingPage() {
+export default function AccountingDashboard() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
       setRefreshing(true);
-      const [invoicesRes, paymentsRes, expensesRes] = await Promise.all([
-        fetch('/api/accounting/invoices'),
-        fetch('/api/accounting/payments'),
-        fetch('/api/accounting/expenses'),
+      const [invRes, payRes] = await Promise.all([
+        fetch('/api/accounting/invoices?limit=10'),
+        fetch('/api/accounting/payments?limit=10')
       ]);
 
-      if (!invoicesRes.ok) throw new Error('Failed to load invoices');
-      if (!paymentsRes.ok) throw new Error('Failed to load payments');
-      if (!expensesRes.ok) throw new Error('Failed to load expenses');
-
-      setInvoices((await invoicesRes.json()) ?? []);
-      setPayments((await paymentsRes.json()) ?? []);
-      setExpenses((await expensesRes.json()) ?? []);
-    } catch (error) {
-      console.error(error);
+      if (invRes.ok) setInvoices(await invRes.json());
+      if (payRes.ok) setPayments(await payRes.json());
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -98,283 +162,178 @@ export default function AccountingPage() {
     fetchData();
   }, [fetchData]);
 
-  const totalRevenue = useMemo(() => {
-    return invoices
-      .filter((inv) => inv.type === 'SALES' && inv.status === 'PAID')
-      .reduce((sum, inv) => sum + inv.total, 0);
-  }, [invoices]);
-
-  const outstanding = useMemo(() => {
-    return invoices
-      .filter((inv) => inv.status === 'OPEN' || inv.status === 'OVERDUE')
-      .reduce((sum, inv) => sum + inv.amountDue, 0);
-  }, [invoices]);
-
-  const totalExpenses = useMemo(() => {
-    return expenses.reduce((sum, exp) => sum + exp.amount, 0);
-  }, [expenses]);
-
-  const profit = totalRevenue - totalExpenses;
+  // Derived metrics
+  const totalReceivables = invoices.filter(i => i.type === 'SALES' && ['OPEN', 'OVERDUE'].includes(i.status)).reduce((acc, i) => acc + i.amountDue, 0);
+  const totalPayables = invoices.filter(i => i.type === 'PURCHASE' && ['OPEN', 'OVERDUE'].includes(i.status)).reduce((acc, i) => acc + i.amountDue, 0);
+  const overdueCount = invoices.filter(i => i.status === 'OVERDUE').length;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-[1600px] mx-auto">
+      {/* Header */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Accounting & Finance</h1>
-          <p className="text-gray-600">
-            Manage invoicing, payments, expenses, and monitor financial performance.
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2 sm:gap-3 tracking-tight">
+            <span className="p-2 rounded-xl bg-blue-600 shadow-lg shadow-blue-600/20 text-white">
+              <Building2 className="h-5 w-5 sm:h-6 sm:w-6" />
+            </span>
+            Accounting
+          </h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
+            Financial overview, ledger management, and real-time reporting.
           </p>
         </div>
-        <Button variant="outline" onClick={fetchData} disabled={refreshing}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={fetchData} disabled={refreshing} className="w-full sm:w-auto">
+            <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Link href="/accounting/journal-entries">
+            <Button className="w-full sm:w-auto">
+              <Plus className="mr-2 h-4 w-4" />
+              New Entry
+            </Button>
+          </Link>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Total Revenue"
-          value={formatCurrency(totalRevenue)}
-          subtitle="Paid invoices"
-          icon={DollarSign}
-          variant="emerald"
-        />
-        <StatCard
-          title="Outstanding"
-          value={formatCurrency(outstanding)}
-          subtitle="Unpaid invoices"
-          icon={FileText}
-          variant="amber"
-        />
-        <StatCard
-          title="Net Profit"
-          value={formatCurrency(profit)}
-          subtitle="Revenue minus expenses"
+          title="Total Receivables"
+          value={formatCurrency(totalReceivables, 'LKR')}
+          subtitle={`${invoices.filter(i => i.type === 'SALES' && i.status === 'OPEN').length} open invoices`}
           icon={TrendingUp}
-          variant={profit >= 0 ? 'teal' : 'red'}
+          variant="green"
         />
         <StatCard
-          title="Expenses"
-          value={formatCurrency(totalExpenses)}
-          subtitle="Total costs"
-          icon={CreditCard}
-          variant="rose"
+          title="Total Payables"
+          value={formatCurrency(totalPayables, 'LKR')}
+          subtitle={`${invoices.filter(i => i.type === 'PURCHASE' && i.status === 'OPEN').length} open bills`}
+          icon={TrendingDown}
+          variant="orange"
+        />
+        <StatCard
+          title="Payments Received"
+          value={formatCurrency(payments.reduce((a, p) => a + p.amount, 0), 'LKR')}
+          subtitle={`${payments.length} transactions`}
+          icon={Wallet}
+          variant="blue"
+        />
+        <StatCard
+          title="Overdue Items"
+          value={overdueCount.toString()}
+          subtitle="Need attention"
+          icon={Clock}
+          variant="purple"
         />
       </div>
 
-      <Tabs defaultValue="invoices" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 lg:w-auto">
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="expenses">Expenses</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="invoices" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Invoice Management</CardTitle>
-              <CardDescription>Track billing and receivables status.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <LoadingState message="Loading invoices..." />
-              ) : invoices.length === 0 ? (
-                <EmptyState message="No invoices created yet." />
-              ) : (
-                <div className="space-y-3">
-                  {invoices.slice(0, 15).map((invoice) => (
-                    <InvoiceRow key={invoice.id} invoice={invoice} />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="payments" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment History</CardTitle>
-              <CardDescription>Track all incoming payments and transactions.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <LoadingState message="Loading payments..." />
-              ) : payments.length === 0 ? (
-                <EmptyState message="No payments recorded." />
-              ) : (
-                <div className="space-y-3">
-                  {payments.slice(0, 15).map((payment) => (
-                    <PaymentRow key={payment.id} payment={payment} />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="expenses" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Expense Tracking</CardTitle>
-              <CardDescription>Monitor operational costs and spending patterns.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <LoadingState message="Loading expenses..." />
-              ) : expenses.length === 0 ? (
-                <EmptyState message="No expenses logged." />
-              ) : (
-                <div className="space-y-3">
-                  {expenses.slice(0, 15).map((expense) => (
-                    <ExpenseRow key={expense.id} expense={expense} />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
-
-function StatCard({
-  title,
-  subtitle,
-  value,
-  icon: Icon,
-  variant,
-}: {
-  title: string;
-  subtitle: string;
-  value: string;
-  icon: typeof DollarSign;
-  variant: 'emerald' | 'amber' | 'teal' | 'rose' | 'red';
-}) {
-  const accentMap = {
-    emerald: 'bg-emerald-100 text-emerald-600',
-    amber: 'bg-amber-100 text-amber-600',
-    teal: 'bg-teal-100 text-teal-600',
-    rose: 'bg-rose-100 text-rose-600',
-    red: 'bg-red-100 text-red-600',
-  } as const;
-
-  return (
-    <Card className="border border-gray-200">
-      <CardContent className="flex items-center justify-between p-6">
-        <div>
-          <p className="text-sm font-medium text-gray-500">{title}</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
-          <p className="text-xs text-gray-500">{subtitle}</p>
-        </div>
-        <div className={`rounded-xl p-3 ${accentMap[variant]}`}>
-          <Icon className="h-6 w-6" />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function LoadingState({ message }: { message: string }) {
-  return (
-    <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-200 py-12 text-gray-500">
-      {message}
-    </div>
-  );
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 py-12 text-sm text-gray-500">
-      {message}
-    </div>
-  );
-}
-
-function InvoiceRow({ invoice }: { invoice: Invoice }) {
-  const statusIcons = {
-    PAID: <CheckCircle className="h-4 w-4" />,
-    OPEN: <Clock className="h-4 w-4" />,
-    OVERDUE: <AlertCircle className="h-4 w-4" />,
-    DRAFT: <FileText className="h-4 w-4" />,
-    CANCELLED: <FileText className="h-4 w-4" />,
-  };
-
-  const statusVariants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-    PAID: 'default',
-    OPEN: 'secondary',
-    OVERDUE: 'destructive',
-    DRAFT: 'outline',
-    CANCELLED: 'secondary',
-  };
-
-  return (
-    <div className="flex items-center justify-between rounded-lg border border-gray-100 p-3 hover:bg-gray-50">
-      <div className="flex items-center gap-3">
-        <div className="rounded-lg bg-green-100 p-2">
-          <Receipt className="h-4 w-4 text-green-600" />
-        </div>
-        <div>
-          <p className="font-semibold text-gray-900">{invoice.invoiceNumber}</p>
-          <p className="text-xs text-gray-500">
-            {invoice.customer?.name ?? 'Unknown'} · Due {formatDate(invoice.dueDate)}
-          </p>
-        </div>
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
+        <QuickAction href="/accounting/invoices" icon={Receipt} label="Invoices" color="bg-blue-500" />
+        <QuickAction href="/accounting/payments" icon={CreditCard} label="Payments" color="bg-green-500" />
+        <QuickAction href="/accounting/chart-of-accounts" icon={Landmark} label="Chart of Accounts" color="bg-indigo-500" />
+        <QuickAction href="/accounting/journal-entries" icon={BookOpen} label="Journal Entries" color="bg-purple-500" />
+        <QuickAction href="/accounting/bank-reconciliation" icon={ArrowRightLeft} label="Bank Rec" color="bg-teal-500" />
+        <QuickAction href="/accounting/reports" icon={BarChart3} label="Reports" color="bg-orange-500" />
+        <QuickAction href="/accounting/settings" icon={Settings} label="Settings" color="bg-gray-500" />
       </div>
-      <div className="text-right">
-        <p className="text-sm font-semibold text-gray-900">{formatCurrency(invoice.total)}</p>
-        <Badge variant={statusVariants[invoice.status] || 'outline'}>
-          <div className="flex items-center gap-1">
-            {statusIcons[invoice.status as keyof typeof statusIcons]}
-            {invoice.status}
-          </div>
-        </Badge>
-      </div>
-    </div>
-  );
-}
 
-function PaymentRow({ payment }: { payment: Payment }) {
-  return (
-    <div className="flex items-center justify-between rounded-lg border border-gray-100 p-3 hover:bg-gray-50">
-      <div className="flex items-center gap-3">
-        <div className="rounded-lg bg-teal-100 p-2">
-          <CheckCircle className="h-4 w-4 text-teal-600" />
-        </div>
-        <div>
-          <p className="font-semibold text-gray-900">{payment.paymentNumber}</p>
-          <p className="text-xs text-gray-500">
-            {payment.invoice?.customer?.name ?? 'Direct payment'} · {payment.method}
-            {payment.reference && ` · Ref: ${payment.reference}`}
-          </p>
-        </div>
-      </div>
-      <div className="text-right">
-        <p className="text-sm font-semibold text-gray-900">{formatCurrency(payment.amount)}</p>
-        <p className="text-xs text-gray-500">{formatDate(payment.paymentDate)}</p>
-      </div>
-    </div>
-  );
-}
+      {/* Main Content: Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Invoices */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Recent Invoices</CardTitle>
+              <CardDescription>Latest billing activity</CardDescription>
+            </div>
+            <Link href="/accounting/invoices">
+              <Button variant="ghost" size="sm">
+                View All <ArrowRight className="ml-1 h-4 w-4" />
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center py-8 text-gray-500">Loading...</div>
+            ) : invoices.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+                <Receipt className="h-12 w-12 mb-2 opacity-20" />
+                <p>No recent invoices</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {invoices.slice(0, 5).map((inv) => (
+                  <div key={inv.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
+                        <Receipt className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{inv.number}</p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {inv.type === 'SALES' ? inv.customer?.name : inv.vendor?.name} • {format(new Date(inv.issueDate), 'MMM dd')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0 ml-3">
+                      <p className="font-semibold text-gray-900 dark:text-white text-sm">{formatCurrency(inv.total, inv.currencyCode || 'LKR')}</p>
+                      <StatusBadge status={inv.status} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-function ExpenseRow({ expense }: { expense: Expense }) {
-  return (
-    <div className="flex items-center justify-between rounded-lg border border-gray-100 p-3 hover:bg-gray-50">
-      <div className="flex items-center gap-3">
-        <div className="rounded-lg bg-rose-100 p-2">
-          <CreditCard className="h-4 w-4 text-rose-600" />
-        </div>
-        <div>
-          <p className="font-semibold text-gray-900">{expense.reference}</p>
-          <p className="text-xs text-gray-500">
-            {expense.category} · {expense.description || 'No description'}
-          </p>
-        </div>
-      </div>
-      <div className="text-right">
-        <p className="text-sm font-semibold text-rose-600">-{formatCurrency(expense.amount)}</p>
-        <p className="text-xs text-gray-500">{formatDate(expense.date)}</p>
+        {/* Recent Payments */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Recent Payments</CardTitle>
+              <CardDescription>Latest payment activity</CardDescription>
+            </div>
+            <Link href="/accounting/payments">
+              <Button variant="ghost" size="sm">
+                View All <ArrowRight className="ml-1 h-4 w-4" />
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center py-8 text-gray-500">Loading...</div>
+            ) : payments.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+                <CreditCard className="h-12 w-12 mb-2 opacity-20" />
+                <p>No recent payments</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {payments.slice(0, 5).map((pay) => (
+                  <div key={pay.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center flex-shrink-0">
+                        <CreditCard className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{pay.reference || pay.invoice?.number || 'Payment'}</p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {pay.method} • {format(new Date(pay.paymentDate), 'MMM dd')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0 ml-3">
+                      <p className="font-semibold text-gray-900 dark:text-white text-sm">{formatCurrency(pay.amount, pay.currencyCode || 'LKR')}</p>
+                      {pay.status && <StatusBadge status={pay.status} />}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

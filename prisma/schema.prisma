@@ -21,6 +21,9 @@ model Tenant {
   companyName          String
   subscriptionEnd      DateTime?
   trialEnd             DateTime?
+  taxRegistrationNumber String?
+  baseCurrency          String                @default("LKR")
+  fiscalYearStart       Int                   @default(1)
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   enabledModules       String[]              @default([])
@@ -379,6 +382,7 @@ model Customer {
   status         String               @default("ACTIVE")
   notes          String?
   partyId        String?
+  taxRegistrationNumber String?
   tenantId       String
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
@@ -697,10 +701,12 @@ model Vendor {
   contactEmail   String?
   notes          String?
   isActive       Boolean         @default(true)
+  taxRegistrationNumber String?
   tenantId       String
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   purchaseOrders PurchaseOrder[]
+  invoices       Invoice[]
 
   @@index([tenantId])
   @@index([email])
@@ -752,13 +758,18 @@ model Account {
   name      String
   type      AccountType
   currency  String      @default("USD")
-  balance   Float       @default(0)
+  normalBalance String  @default("DEBIT")
+  description   String?
+  isSystemAccount Boolean @default(false)
   parentId  String?
   tenantId  String
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   parent    Account?    @relation("AccountHierarchy", fields: [parentId], references: [id])
   children  Account[]   @relation("AccountHierarchy")
+  journalLines  JournalLine[]
+  bankAccount   BankAccount?
+  budgetLines   BudgetLine[]
 
   @@unique([code, tenantId])
   @@index([type])
@@ -771,7 +782,13 @@ model Invoice {
   type         InvoiceType   @default(SALES)
   status       InvoiceStatus @default(DRAFT)
   customerId   String
+  vendorId     String?
   salesOrderId String?
+  periodId     String?
+  journalEntryId String?     @unique
+  currencyCode String        @default("LKR")
+  exchangeRate Float         @default(1)
+  baseCurrencyTotal Float?
   issueDate    DateTime      @default(now())
   dueDate      DateTime
   subtotal     Float
@@ -787,10 +804,15 @@ model Invoice {
   updatedAt    DateTime      @updatedAt
   customer     Customer      @relation(fields: [customerId], references: [id])
   salesOrder   SalesOrder?   @relation(fields: [salesOrderId], references: [id])
+  vendor       Vendor?       @relation(fields: [vendorId], references: [id])
   lines        InvoiceLine[]
   payments     Payment[]
+  journalEntry JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  period       AccountingPeriod? @relation(fields: [periodId], references: [id])
 
   @@index([number])
+  @@index([vendorId])
+  @@index([periodId])
   @@index([customerId])
   @@index([status])
   @@index([dueDate])
@@ -809,6 +831,7 @@ model InvoiceLine {
   total       Float
   invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   product     Product? @relation(fields: [productId], references: [id])
+  taxes       InvoiceLineTax[]
 
   @@index([invoiceId])
   @@index([productId])
@@ -818,13 +841,19 @@ model Payment {
   id          String        @id @default(cuid())
   invoiceId   String
   amount      Float
+  status      PaymentStatus @default(PENDING)
   method      PaymentMethod @default(CASH)
+  currencyCode String       @default("LKR")
+  exchangeRate Float        @default(1)
   reference   String?
   notes       String?
   paymentDate DateTime      @default(now())
+  journalEntryId String?    @unique
   tenantId    String
   createdAt   DateTime      @default(now())
   invoice     Invoice       @relation(fields: [invoiceId], references: [id])
+  journalEntry JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  statementLine BankStatementLine?
 
   @@index([invoiceId])
   @@index([paymentDate])
@@ -4497,17 +4526,49 @@ enum AccountType {
   EXPENSE
 }
 
+enum JournalEntryStatus {
+  POSTED
+  VOIDED
+}
+
+enum PeriodStatus {
+  OPEN
+  CLOSED
+}
+
+enum ReconciliationStatus {
+  UNRECONCILED
+  RECONCILED
+}
+
+enum PaymentStatus {
+  PENDING
+  CLEARED
+  RECONCILED
+}
+
+enum TaxType {
+  STANDARD
+  ZERO_RATED
+  EXEMPT
+  REVERSE_CHARGE
+}
+
 enum InvoiceStatus {
   DRAFT
   OPEN
   PAID
   OVERDUE
   CANCELLED
+  VOIDED
 }
 
 enum InvoiceType {
   SALES
   PURCHASE
+  CREDIT_NOTE
+  DEBIT_NOTE
+  PROFORMA
 }
 
 enum ExpenseStatus {
@@ -5022,4 +5083,166 @@ model TaxProfile {
 
   @@index([tenantId])
   @@index([branchId])
+}
+
+model AccountingPeriod {
+  id        String        @id @default(cuid())
+  tenantId  String
+  name      String        
+  year      Int
+  month     Int           
+  startDate DateTime
+  endDate   DateTime
+  status    PeriodStatus  @default(OPEN)
+  closedBy  String?
+  closedAt  DateTime?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  journalEntries JournalEntry[]
+  invoices       Invoice[]
+
+  @@unique([tenantId, year, month])
+  @@index([tenantId])
+}
+
+model JournalEntry {
+  id          String             @id @default(cuid())
+  tenantId    String
+  periodId    String
+  reference   String             
+  description String
+  entryDate   DateTime
+  status      JournalEntryStatus @default(POSTED)
+  postedBy    String?
+  voidedBy    String?
+  voidedAt    DateTime?
+  createdAt   DateTime           @default(now())
+  period      AccountingPeriod   @relation(fields: [periodId], references: [id])
+  lines       JournalLine[]
+  invoice     Invoice?
+  payment     Payment?
+
+  @@index([tenantId])
+  @@index([periodId])
+  @@index([reference])
+}
+
+model JournalLine {
+  id             String       @id @default(cuid())
+  journalEntryId String
+  accountId      String
+  description    String?
+  debit          Float        @default(0)
+  credit         Float        @default(0)
+  currencyCode   String       @default("LKR")
+  exchangeRate   Float        @default(1)
+  baseCurrency   Float        
+  costCenterId   String?
+  projectId      String?
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account        Account      @relation(fields: [accountId], references: [id])
+
+  @@index([journalEntryId])
+  @@index([accountId])
+}
+
+model TaxRate {
+  id                String   @id @default(cuid())
+  tenantId          String
+  code              String   
+  name              String
+  rate              Float    
+  type              TaxType  @default(STANDARD)
+  isCompound        Boolean  @default(false) 
+  sequenceOrder     Int      @default(0)     
+  liabilityAccountId String  
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  invoiceLineTaxes  InvoiceLineTax[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model InvoiceLineTax {
+  id            String      @id @default(cuid())
+  invoiceLineId String
+  taxRateId     String
+  taxableBase   Float
+  taxAmount     Float
+  invoiceLine   InvoiceLine @relation(fields: [invoiceLineId], references: [id], onDelete: Cascade)
+  taxRate       TaxRate     @relation(fields: [taxRateId], references: [id])
+
+  @@index([invoiceLineId])
+  @@index([taxRateId])
+}
+
+model BankAccount {
+  id             String          @id @default(cuid())
+  tenantId       String
+  name           String
+  bankName       String
+  accountNumber  String
+  currency       String          @default("LKR")
+  glAccountId    String          @unique
+  glAccount      Account         @relation(fields: [glAccountId], references: [id])
+  statements     BankStatement[]
+
+  @@index([tenantId])
+}
+
+model BankStatement {
+  id            String             @id @default(cuid())
+  bankAccountId String
+  tenantId      String
+  periodStart   DateTime
+  periodEnd     DateTime
+  openingBalance Float
+  closingBalance Float
+  uploadedAt    DateTime           @default(now())
+  bankAccount   BankAccount        @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  lines         BankStatementLine[]
+
+  @@index([bankAccountId])
+  @@index([tenantId])
+}
+
+model BankStatementLine {
+  id            String                @id @default(cuid())
+  statementId   String
+  date          DateTime
+  description   String
+  amount        Float
+  balance       Float
+  reference     String?
+  status        ReconciliationStatus  @default(UNRECONCILED)
+  paymentId     String?               @unique
+  statement     BankStatement         @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  payment       Payment?              @relation(fields: [paymentId], references: [id])
+
+  @@index([statementId])
+  @@index([status])
+}
+
+model Budget {
+  id       String       @id @default(cuid())
+  tenantId String
+  name     String
+  year     Int
+  lines    BudgetLine[]
+
+  @@index([tenantId])
+}
+
+model BudgetLine {
+  id        String  @id @default(cuid())
+  budgetId  String
+  accountId String
+  month     Int
+  amount    Float
+  budget    Budget  @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  account   Account @relation(fields: [accountId], references: [id])
+
+  @@index([budgetId])
+  @@index([accountId])
 }

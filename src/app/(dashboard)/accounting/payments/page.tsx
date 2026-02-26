@@ -71,7 +71,7 @@ export default function PaymentsPage() {
       const response = await fetch('/api/accounting/payments');
       if (response.ok) {
         const data = await response.json();
-        setPayments(data);
+        setPayments(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error('Failed to load payments:', error);
@@ -85,7 +85,7 @@ export default function PaymentsPage() {
       const response = await fetch('/api/sales/customers');
       if (response.ok) {
         const data = await response.json();
-        setCustomers(data);
+        setCustomers(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error('Failed to load customers:', error);
@@ -97,7 +97,7 @@ export default function PaymentsPage() {
       const response = await fetch('/api/purchasing/vendors');
       if (response.ok) {
         const data = await response.json();
-        setVendors(data);
+        setVendors(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error('Failed to load vendors:', error);
@@ -109,7 +109,7 @@ export default function PaymentsPage() {
       const response = await fetch('/api/accounting/invoices?status=OPEN');
       if (response.ok) {
         const data = await response.json();
-        setInvoices(data);
+        setInvoices(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error('Failed to load invoices:', error);
@@ -210,7 +210,7 @@ export default function PaymentsPage() {
           <PaymentForm
             initialData={selectedPayment ? {
               ...selectedPayment,
-              paymentDate: selectedPayment.paymentDate.toISOString().split('T')[0]
+              paymentDate: new Date(selectedPayment.paymentDate).toISOString().split('T')[0]
             } : undefined}
             customers={customers}
             vendors={vendors}

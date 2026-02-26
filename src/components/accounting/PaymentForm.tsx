@@ -202,8 +202,8 @@ export function PaymentForm({
                       <SelectValue placeholder="Select customer" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
-                      {customers.map((customer) => (
+                      <SelectItem value="none">None</SelectItem>
+                      {Array.isArray(customers) && customers.map((customer) => (
                         <SelectItem key={customer.id} value={customer.id}>
                           {customer.name}
                         </SelectItem>
@@ -222,8 +222,8 @@ export function PaymentForm({
                       <SelectValue placeholder="Select invoice" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
-                      {invoices.map((invoice) => (
+                      <SelectItem value="none">None</SelectItem>
+                      {Array.isArray(invoices) && invoices.map((invoice) => (
                         <SelectItem key={invoice.id} value={invoice.id}>
                           {invoice.invoiceNumber} - ${invoice.total.toFixed(2)}
                         </SelectItem>
@@ -243,8 +243,8 @@ export function PaymentForm({
                     <SelectValue placeholder="Select vendor" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
-                    {vendors.map((vendor) => (
+                    <SelectItem value="none">None</SelectItem>
+                    {Array.isArray(vendors) && vendors.map((vendor) => (
                       <SelectItem key={vendor.id} value={vendor.id}>
                         {vendor.name}
                       </SelectItem>

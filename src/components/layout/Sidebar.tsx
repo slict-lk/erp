@@ -126,8 +126,11 @@ const navigation: NavigationItem[] = [
       { name: 'Overview', href: '/accounting', moduleId: 'accounting' },
       { name: 'Invoices', href: '/accounting/invoices', moduleId: 'accounting' },
       { name: 'Payments', href: '/accounting/payments', moduleId: 'accounting' },
-      { name: 'Accounts', href: '/accounting/accounts', moduleId: 'accounting' },
-      { name: 'Expenses', href: '/accounting/expenses', moduleId: 'accounting' },
+      { name: 'Chart of Accounts', href: '/accounting/chart-of-accounts', moduleId: 'accounting' },
+      { name: 'Journal Entries', href: '/accounting/journal-entries', moduleId: 'accounting' },
+      { name: 'Bank Rec.', href: '/accounting/bank-reconciliation', moduleId: 'accounting' },
+      { name: 'Periods', href: '/accounting/periods', moduleId: 'accounting' },
+      { name: 'Reports', href: '/accounting/reports', moduleId: 'accounting' },
     ],
   },
   {
