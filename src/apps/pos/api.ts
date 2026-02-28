@@ -1,5 +1,6 @@
 // Point of Sale Module API Functions
 import { prisma } from '@/lib/prisma';
+import { postToGL, resolveAccountCodes } from '@/lib/accounting/gl-bridge';
 import type { POSSession, POSOrder, POSConfig } from './types';
 
 const client = prisma as any;
@@ -13,13 +14,18 @@ export async function getPOSConfigs(tenantId: string) {
 }
 
 export async function createPOSConfig(data: Partial<POSConfig> & { tenantId: string }) {
-  return {
-    id: `pos_config_${Date.now()}`,
-    name: data.name!,
-    warehouseId: data.warehouseId!,
-    allowDiscount: data.allowDiscount !== false,
-    maxDiscount: data.maxDiscount,
-  };
+  if (!data.name || !data.warehouseId) {
+    throw new Error('Name and warehouseId are required to create a POS config');
+  }
+  return await client.pOSConfig.create({
+    data: {
+      tenantId: data.tenantId,
+      name: data.name,
+      warehouseId: data.warehouseId,
+      allowDiscount: data.allowDiscount !== false,
+      maxDiscount: data.maxDiscount || 0,
+    }
+  });
 }
 
 // POS Sessions
@@ -78,14 +84,53 @@ export async function closePOSSession(
   closingCash: number,
   tenantId: string
 ) {
-  return {
-    sessionId,
-    closingCash,
-    expectedCash: 0,
-    difference: 0,
-    totalSales: 0,
-    orderCount: 0,
-  };
+  return await prisma.$transaction(async (tx: any) => {
+    const session = await tx.pOSSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        orders: {
+          include: { payments: true }
+        }
+      }
+    });
+
+    if (!session || session.tenantId !== tenantId) {
+      throw new Error('Session not found or access denied');
+    }
+
+    let totalSales = 0;
+    let expectedCash = Number(session.openingCash) || 0;
+    const orderCount = session.orders.length;
+
+    for (const order of session.orders) {
+      totalSales += Number(order.totalAmount) || 0;
+      for (const pay of order.payments) {
+        if (pay.method === 'CASH') {
+          expectedCash += Number(pay.amount) || 0;
+        }
+      }
+    }
+
+    const difference = closingCash - expectedCash;
+
+    await tx.pOSSession.update({
+      where: { id: sessionId },
+      data: {
+        closingCash,
+        status: 'CLOSED',
+        endDate: new Date()
+      }
+    });
+
+    return {
+      sessionId,
+      closingCash,
+      expectedCash,
+      difference,
+      totalSales,
+      orderCount,
+    };
+  });
 }
 
 // POS Orders
@@ -109,7 +154,7 @@ export async function getPOSOrders(tenantId: string, _sessionId?: string) {
 export async function createPOSOrder(data: any & { tenantId: string }) {
   const total = Number(data.total) || 0;
 
-  return await client.pOSOrder.create({
+  const resultOrder = await client.pOSOrder.create({
     data: {
       orderNumber: data.orderNumber || `POS-${Date.now()}`,
       customerId: data.customerId,
@@ -140,6 +185,37 @@ export async function createPOSOrder(data: any & { tenantId: string }) {
       }
     },
   });
+
+  // --- GL POSTING ---
+  try {
+    const isCard = data.paymentMethod?.toUpperCase().includes('CARD');
+    const eventType = isCard ? 'SALE_CARD' : 'SALE_CASH';
+    const accounts = await resolveAccountCodes(data.tenantId, 'pos', eventType);
+
+    const isCompletedOrPaid = resultOrder.status === 'COMPLETED' || resultOrder.status === 'PAID';
+
+    // We assume completed POS orders are instantly paid and posted.
+    if (accounts && resultOrder.total > 0 && isCompletedOrPaid) {
+      await postToGL({
+        tenantId: data.tenantId,
+        sourceModule: 'pos',
+        sourceDocumentId: resultOrder.id,
+        sourceDocumentType: 'POSOrder',
+        eventType,
+        reference: `POS-SALE-${resultOrder.orderNumber}`,
+        description: `POS Checkout - ${resultOrder.orderNumber}`,
+        date: new Date(),
+        lines: [
+          { accountCode: accounts.debitCode, debit: resultOrder.total, credit: 0, description: `POS Receipt (${data.paymentMethod || 'CASH'})` },
+          { accountCode: accounts.creditCode, debit: 0, credit: resultOrder.total, description: 'POS Sales Revenue' }
+        ]
+      });
+    }
+  } catch (error) {
+    console.error('GL Bridge error (pos sale):', error);
+  }
+
+  return resultOrder;
 }
 
 // Cash Register

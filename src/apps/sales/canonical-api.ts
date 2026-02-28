@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { evaluateSalesOrderApprovalRules } from './approval-rules';
 import { resolveApplicablePrice, resolveTaxProfile } from './commercial-engine';
+import { postToGL, resolveAccountCodes } from '@/lib/accounting/gl-bridge';
 
 const client = prisma as any;
 
@@ -644,6 +645,31 @@ export async function approveSalesOrderV2(tenantId: string, id: string, userId: 
           : (data.markOrderStatus ?? 'PENDING_APPROVAL'),
     },
   });
+
+  // --- GL POSTING ---
+  try {
+    if (order.status === 'CONFIRMED' && order.grandTotal > 0) {
+      const accounts = await resolveAccountCodes(tenantId, 'sales', 'SALE_INVOICED');
+      if (accounts) {
+        await postToGL({
+          tenantId,
+          sourceModule: 'sales',
+          sourceDocumentId: order.id,
+          sourceDocumentType: 'SalesOrderV2',
+          eventType: 'SALE_INVOICED',
+          reference: `SO-${order.orderNumber}`,
+          description: `Sales Order Confirmed - ${order.orderNumber}`,
+          date: new Date(),
+          lines: [
+            { accountCode: accounts.debitCode, debit: order.grandTotal, credit: 0, description: 'Accounts Receivable' },
+            { accountCode: accounts.creditCode, debit: 0, credit: order.grandTotal, description: 'Sales Revenue' }
+          ]
+        });
+      }
+    }
+  } catch (error) {
+    console.error('GL Bridge error (sales order confirmed):', error);
+  }
 
   return { approval, order };
 }

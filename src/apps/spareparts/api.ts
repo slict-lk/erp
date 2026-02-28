@@ -1,7 +1,7 @@
 // Spare Parts Shop Module API Functions
 // Following Healthcare module pattern
-
 import { prisma } from '@/lib/prisma';
+import { postToGL, reverseGLEntry, resolveAccountCodes } from '@/lib/accounting/gl-bridge';
 import type {
     CreateCustomerInput,
     CreateInvoiceInput,
@@ -22,43 +22,22 @@ import type {
 export async function generateCustomerNumber(tenantId: string): Promise<string> {
     const today = new Date();
     const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-
-    const count = await prisma.shopCustomer.count({
-        where: {
-            tenantId,
-            customerNumber: { startsWith: `CUST-${dateStr}` }
-        }
-    });
-
-    return `CUST-${dateStr}-${String(count + 1).padStart(3, '0')}`;
+    const suffix = crypto.randomUUID().slice(0, 6).toUpperCase();
+    return `CUST-${dateStr}-${suffix}`;
 }
 
 export async function generateInvoiceNumber(tenantId: string): Promise<string> {
     const today = new Date();
     const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-
-    const count = await prisma.shopInvoice.count({
-        where: {
-            tenantId,
-            invoiceNumber: { startsWith: `INV-${dateStr}` }
-        }
-    });
-
-    return `INV-${dateStr}-${String(count + 1).padStart(3, '0')}`;
+    const suffix = crypto.randomUUID().slice(0, 6).toUpperCase();
+    return `INV-${dateStr}-${suffix}`;
 }
 
 export async function generatePONumber(tenantId: string): Promise<string> {
     const today = new Date();
     const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-
-    const count = await prisma.shopPurchaseOrder.count({
-        where: {
-            tenantId,
-            orderNumber: { startsWith: `PO-${dateStr}` }
-        }
-    });
-
-    return `PO-${dateStr}-${String(count + 1).padStart(3, '0')}`;
+    const suffix = crypto.randomUUID().slice(0, 6).toUpperCase();
+    return `PO-${dateStr}-${suffix}`;
 }
 
 // ============================================================================
@@ -144,6 +123,9 @@ export async function createCustomer(data: CreateCustomerInput & { tenantId: str
 }
 
 export async function updateCustomer(id: string, data: Partial<CreateCustomerInput>, tenantId: string) {
+    const existing = await prisma.shopCustomer.findFirst({ where: { id, tenantId } });
+    if (!existing) throw new Error('Customer not found or unauthorized');
+
     return prisma.shopCustomer.update({
         where: { id },
         data: {
@@ -408,54 +390,83 @@ export async function confirmInvoice(id: string, tenantId: string, appliedPromot
     if (!invoice) throw new Error('Invoice not found');
     if (invoice.status !== 'DRAFT') throw new Error('Invoice is not in draft status');
 
-    // Deduct stock for each item
-    for (const item of invoice.items) {
-        await (prisma as any).sparePart.update({
-            where: { id: item.productId },
-            data: {
-                stockQty: { decrement: Number(item.quantity) }
+    const updatedInvoice = await prisma.$transaction(async (tx: any) => {
+        // Deduct stock for each item
+        for (const item of invoice.items) {
+            const currentPart = await tx.sparePart.findUnique({
+                where: { id: item.productId }
+            });
+
+            if (!currentPart || currentPart.stockQty < Number(item.quantity)) {
+                throw new Error(`Insufficient stock for product id ${item.productId}`);
             }
-        });
 
-        // Note: StockMovement is not created for SpareParts because StockMovement.productId
-        // has a foreign key to the Product table, not SparePart table.
-        // Stock quantity is still properly decremented above.
-        // TODO: Consider creating a separate SparePartMovement table if movement tracking is needed
-    }
-
-    // Update customer total purchases
-    if (invoice.customerId) {
-        await prisma.shopCustomer.update({
-            where: { id: invoice.customerId },
-            data: {
-                totalPurchases: { increment: Number(invoice.total) }
-            }
-        });
-    }
-
-    // Track applied promotions
-    if (appliedPromotions && appliedPromotions.length > 0) {
-        for (const ap of appliedPromotions) {
-            await prisma.shopAppliedPromotion.create({
+            await tx.sparePart.update({
+                where: { id: item.productId },
                 data: {
-                    invoiceId: id,
-                    promotionId: ap.promotionId,
-                    discountAmount: ap.discountAmount
+                    stockQty: { decrement: Number(item.quantity) }
                 }
             });
+        }
 
-            // Increment usage count
-            await prisma.shopPromotion.update({
-                where: { id: ap.promotionId },
-                data: { usageCount: { increment: 1 } }
+        // Update customer total purchases
+        if (invoice.customerId) {
+            await tx.shopCustomer.update({
+                where: { id: invoice.customerId },
+                data: {
+                    totalPurchases: { increment: Number(invoice.total) }
+                }
             });
         }
+
+        // Track applied promotions
+        if (appliedPromotions && appliedPromotions.length > 0) {
+            for (const ap of appliedPromotions) {
+                await tx.shopAppliedPromotion.create({
+                    data: {
+                        invoiceId: id,
+                        promotionId: ap.promotionId,
+                        discountAmount: ap.discountAmount
+                    }
+                });
+
+                // Increment usage count
+                await tx.shopPromotion.update({
+                    where: { id: ap.promotionId },
+                    data: { usageCount: { increment: 1 } }
+                });
+            }
+        }
+
+        return tx.shopInvoice.update({
+            where: { id },
+            data: { status: 'CONFIRMED' }
+        });
+    });
+
+    try {
+        const accounts = await resolveAccountCodes(tenantId, 'spareparts', 'SALE');
+        if (accounts) {
+            await postToGL({
+                tenantId,
+                sourceModule: 'spareparts',
+                sourceDocumentId: id,
+                sourceDocumentType: 'INVOICE',
+                eventType: 'SALE',
+                reference: `SP-INV-${invoice.invoiceNumber}`,
+                description: `Spareparts Sale - ${invoice.customerName || 'Walk-in'}`,
+                date: new Date(),
+                lines: [
+                    { accountCode: accounts.debitCode, debit: Number(invoice.total), credit: 0, description: 'Receivables/Cash' },
+                    { accountCode: accounts.creditCode, debit: 0, credit: Number(invoice.total), description: 'Sales Revenue' }
+                ]
+            });
+        }
+    } catch (error) {
+        console.error('GL Bridge error (confirmInvoice):', error);
     }
 
-    return prisma.shopInvoice.update({
-        where: { id },
-        data: { status: 'CONFIRMED' }
-    });
+    return updatedInvoice;
 }
 
 export async function recordPayment(invoiceId: string, payment: PaymentInput & { receivedById: string }, tenantId: string) {
@@ -484,7 +495,7 @@ export async function recordPayment(invoiceId: string, payment: PaymentInput & {
     // For ONLINE orders, payment is separate from delivery, so we don't auto-complete.
     const shouldComplete = newPaidAmount >= Number(invoice.total) && invoice.source !== 'ONLINE';
 
-    return prisma.shopInvoice.update({
+    const updatedInvoice = await prisma.shopInvoice.update({
         where: { id: invoiceId },
         data: {
             paidAmount: newPaidAmount,
@@ -493,16 +504,43 @@ export async function recordPayment(invoiceId: string, payment: PaymentInput & {
             status: shouldComplete ? 'COMPLETED' : invoice.status,
         }
     });
+
+    try {
+        const accounts = await resolveAccountCodes(tenantId, 'spareparts', 'PAYMENT_RECEIVED');
+        if (accounts) {
+            await postToGL({
+                tenantId,
+                sourceModule: 'spareparts',
+                sourceDocumentId: invoiceId,
+                sourceDocumentType: 'PAYMENT',
+                eventType: 'PAYMENT_RECEIVED',
+                reference: `SP-PAY-${payment.reference || invoice.invoiceNumber}`,
+                description: `Payment Received - ${invoice.customerName || 'Walk-in'}`,
+                date: new Date(),
+                lines: [
+                    { accountCode: accounts.debitCode, debit: payment.amount, credit: 0, description: 'Cash/Bank' },
+                    { accountCode: accounts.creditCode, debit: 0, credit: payment.amount, description: 'Receivables' }
+                ]
+            });
+        }
+    } catch (error) {
+        console.error('GL Bridge error (recordPayment):', error);
+    }
+
+    return updatedInvoice;
 }
 
 export async function cancelInvoice(id: string, reason: string, tenantId: string) {
     const invoice = await prisma.shopInvoice.findFirst({
         where: { id, tenantId },
-        include: { items: true }
+        include: { items: true, payments: true }
     });
 
     if (!invoice) throw new Error('Invoice not found');
     if (invoice.status === 'CANCELLED') throw new Error('Invoice already cancelled');
+    if (invoice.payments && invoice.payments.length > 0) {
+        throw new Error('Cannot cancel invoice: Payments have already been applied');
+    }
 
     // Restore stock if invoice was confirmed
     if (invoice.status === 'CONFIRMED' || invoice.status === 'COMPLETED') {
@@ -516,13 +554,26 @@ export async function cancelInvoice(id: string, reason: string, tenantId: string
         }
     }
 
-    return prisma.shopInvoice.update({
+    const updatedInvoice = await prisma.shopInvoice.update({
         where: { id },
         data: {
             status: 'CANCELLED',
             internalNotes: reason
         }
     });
+
+    try {
+        await reverseGLEntry(
+            tenantId,
+            id,
+            'INVOICE',
+            `SP-CAN-${invoice.invoiceNumber}`
+        );
+    } catch (error) {
+        console.error('GL Bridge error (cancelInvoice):', error);
+    }
+
+    return updatedInvoice;
 }
 
 // ============================================================================
@@ -707,14 +758,13 @@ export async function getReorderSuggestions(tenantId: string, status?: string) {
 }
 
 export async function generateReorderSuggestions(tenantId: string) {
-    // Get products with low stock (stockQty <= minStockQty)
-    const products = await (prisma as any).sparePart.findMany({
-        where: {
-            tenantId,
-            isActive: true,
-            stockQty: { lte: (prisma as any).sparePart.fields.minStockQty }
-        }
+    // Get ALL active products, then filter strictly via typescript 
+    const allProducts = await (prisma as any).sparePart.findMany({
+        where: { tenantId, isActive: true }
     });
+
+    // Filter locally to avoid unsupported Prisma self-referential comparisons in MySQL/Postgres without raw
+    const products = allProducts.filter((p: any) => p.stockQty <= p.minStockQty);
 
     const suggestions = [];
 
@@ -778,6 +828,9 @@ export async function generateReorderSuggestions(tenantId: string) {
 }
 
 export async function approveReorderSuggestion(id: string, userId: string, tenantId: string) {
+    const existing = await prisma.shopReorderSuggestion.findFirst({ where: { id, tenantId } });
+    if (!existing) throw new Error('Reorder suggestion not found or unauthorized');
+
     return prisma.shopReorderSuggestion.update({
         where: { id },
         data: {
@@ -789,6 +842,9 @@ export async function approveReorderSuggestion(id: string, userId: string, tenan
 }
 
 export async function rejectReorderSuggestion(id: string, userId: string, reason: string, tenantId: string) {
+    const existing = await prisma.shopReorderSuggestion.findFirst({ where: { id, tenantId } });
+    if (!existing) throw new Error('Reorder suggestion not found or unauthorized');
+
     return prisma.shopReorderSuggestion.update({
         where: { id },
         data: {
@@ -966,13 +1022,40 @@ export async function receivePurchaseOrder(
     }
 
     // Update PO status
-    return prisma.shopPurchaseOrder.update({
+    const updatedPo = await prisma.shopPurchaseOrder.update({
         where: { id },
         data: {
             status: allReceived ? 'RECEIVED' : 'PARTIAL_RECEIVED',
             receivedDate: allReceived ? new Date() : undefined
-        }
+        },
+        include: { supplier: true }
     });
+
+    if (allReceived) {
+        try {
+            const accounts = await resolveAccountCodes(tenantId, 'spareparts', 'PURCHASE');
+            if (accounts) {
+                await postToGL({
+                    tenantId,
+                    sourceModule: 'spareparts',
+                    sourceDocumentId: id,
+                    sourceDocumentType: 'PURCHASE_ORDER',
+                    eventType: 'PURCHASE',
+                    reference: `SP-PO-${po.orderNumber}`,
+                    description: `Spareparts Purchase - ${updatedPo.supplier?.name || 'Walk-in'}`,
+                    date: new Date(),
+                    lines: [
+                        { accountCode: accounts.debitCode, debit: Number(po.total), credit: 0, description: 'Inventory/Purchases' },
+                        { accountCode: accounts.creditCode, debit: 0, credit: Number(po.total), description: 'Accounts Payable' }
+                    ]
+                });
+            }
+        } catch (error) {
+            console.error('GL Bridge error (receivePurchaseOrder):', error);
+        }
+    }
+
+    return updatedPo;
 }
 
 // ============================================================================
@@ -1250,6 +1333,9 @@ export async function updateQuantityPromotion(id: string, tenantId: string, data
     }>;
 }) {
     const { tiers, ...promotionData } = data;
+
+    const existing = await (prisma as any).sparePromotion.findFirst({ where: { id, tenantId } });
+    if (!existing) throw new Error('Promotion not found or unauthorized');
 
     // Delete existing tiers if new ones provided
     if (tiers) {

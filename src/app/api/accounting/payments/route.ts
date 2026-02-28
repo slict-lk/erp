@@ -187,7 +187,8 @@ export async function POST(request: NextRequest) {
         // Link JE to Payment
         const finalPayment = await tx.payment.update({
           where: { id: newPayment.id },
-          data: { journalEntryId: je.id }
+          data: { journalEntryId: je.id },
+          include: { invoice: true }
         });
         return finalPayment;
       }
@@ -199,10 +200,10 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Error creating payment:', error);
     if (error.message?.startsWith('NOT_FOUND:')) {
-      return NextResponse.json({ error: error.message.split(':')[1] }, { status: 404 });
+      return NextResponse.json({ error: error.message.slice('NOT_FOUND:'.length).trim() }, { status: 404 });
     }
     if (error.message?.startsWith('VALIDATION:')) {
-      return NextResponse.json({ error: error.message.split(':')[1] }, { status: 400 });
+      return NextResponse.json({ error: error.message.slice('VALIDATION:'.length).trim() }, { status: 400 });
     }
     return NextResponse.json({ error: 'Failed to create payment' }, { status: 500 });
   }

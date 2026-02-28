@@ -9,8 +9,8 @@ export async function GET(request: NextRequest) {
         const tenant = await getOrCreateDefaultTenant();
 
         // TODO: Replace with server-driven sequence backed by database counters
-        // For now, generating a timestamp-based ID securely on the server
-        const sequenceNumber = `INV-${Date.now()}`;
+        // For now, generating a collision-safe ID securely on the server using a full UUID
+        const sequenceNumber = `INV-${crypto.randomUUID().toUpperCase()}`;
 
         return NextResponse.json({ number: sequenceNumber });
     } catch (error) {

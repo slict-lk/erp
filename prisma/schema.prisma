@@ -771,6 +771,8 @@ model Account {
   bankAccount   BankAccount?
   budgetLines   BudgetLine[]
   liabilityTaxRates TaxRate[]
+  debitMappings  ModuleAccountMapping[] @relation("DebitMappings")
+  creditMappings ModuleAccountMapping[] @relation("CreditMappings")
 
   @@unique([code, tenantId])
   @@index([type])
@@ -3669,10 +3671,11 @@ model ExportWalletTransaction {
   reference   String?
   status      String
   description String?
-  createdAt   DateTime     @default(now())
-  adminNote   String?
-  proofUrl    String?
-  wallet      ExportWallet @relation(fields: [walletId], references: [id])
+  createdAt       DateTime     @default(now())
+  adminNote       String?
+  glPostingStatus String?
+  proofUrl        String?
+  wallet          ExportWallet @relation(fields: [walletId], references: [id])
 
   @@index([walletId])
   @@index([tenantId])
@@ -5107,25 +5110,29 @@ model AccountingPeriod {
 }
 
 model JournalEntry {
-  id          String             @id @default(cuid())
-  tenantId    String
-  periodId    String
-  reference   String             
-  description String
-  entryDate   DateTime
-  status      JournalEntryStatus @default(POSTED)
-  postedBy    String?
-  voidedBy    String?
-  voidedAt    DateTime?
-  createdAt   DateTime           @default(now())
-  period      AccountingPeriod   @relation(fields: [periodId], references: [id])
-  lines       JournalLine[]
-  invoice     Invoice?
-  payment     Payment?
+  id                 String             @id @default(cuid())
+  tenantId           String
+  periodId           String
+  reference          String             
+  description        String
+  entryDate          DateTime
+  status             JournalEntryStatus @default(POSTED)
+  postedBy           String?
+  voidedBy           String?
+  voidedAt           DateTime?
+  sourceModule       String?            // e.g. "spareparts", "vehicle-export", "hotel"
+  sourceDocumentId   String?            // ID of the originating record
+  sourceDocumentType String?            // e.g. "ShopInvoice", "ExportInvoice", "HotelBooking"
+  createdAt          DateTime           @default(now())
+  period             AccountingPeriod   @relation(fields: [periodId], references: [id])
+  lines              JournalLine[]
+  invoice            Invoice?
+  payment            Payment?
 
   @@index([tenantId])
   @@index([periodId])
   @@index([reference])
+  @@index([sourceModule])
 }
 
 model JournalLine {
@@ -5248,4 +5255,24 @@ model BudgetLine {
   @@index([budgetId])
   @@index([accountId])
   @@unique([budgetId, accountId, month])
+}
+
+model ModuleAccountMapping {
+  id              String   @id @default(cuid())
+  tenantId        String
+  moduleSlug      String   // "spareparts", "vehicle-export", "hotel", "restaurant", "sales", "purchasing", "hr", "properties", "healthcare", "pos"
+  eventType       String   // "SALE", "SALE_TAX", "PAYMENT_RECEIVED", "REFUND", "PURCHASE_RECEIVED", "PURCHASE_PAYMENT", "DEPOSIT", "EXPENSE", "SALARY", "RENT", etc.
+  debitAccountId  String
+  creditAccountId String
+  description     String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  debitAccount  Account @relation("DebitMappings", fields: [debitAccountId], references: [id], onDelete: Restrict)
+  creditAccount Account @relation("CreditMappings", fields: [creditAccountId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, moduleSlug, eventType])
+  @@index([tenantId])
+  @@index([moduleSlug])
 }

@@ -319,7 +319,7 @@ export default function InvoicesPage() {
       });
       if (res.ok) {
         setPaymentDialogOpen(false);
-        fetchNextInvoiceNumber();
+        setSelectedInvoice(null);
         fetchInvoices();
       } else {
         const err = await res.json();
@@ -801,6 +801,7 @@ export default function InvoicesPage() {
                   <TableHead>Invoice #</TableHead>
                   <TableHead>Party</TableHead>
                   <TableHead className="hidden md:table-cell">Type</TableHead>
+                  <TableHead className="hidden lg:table-cell">Source</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                   <TableHead className="text-right hidden sm:table-cell">Balance</TableHead>
@@ -838,6 +839,15 @@ export default function InvoicesPage() {
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         <span className="text-xs text-gray-500 uppercase">{inv.type?.replace('_', ' ')}</span>
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        {inv.journalEntry?.sourceModule ? (
+                          <Badge variant="outline" className="capitalize text-slate-600 bg-slate-50 border-slate-200 text-[10px]">
+                            {inv.journalEntry.sourceModule.replaceAll('-', ' ')}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">Manual</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={`${getStatusColor(inv.status)} text-[10px] uppercase`}>

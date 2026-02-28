@@ -44,11 +44,14 @@ export default function JournalEntriesPage() {
     const [entries, setEntries] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [moduleFilter, setModuleFilter] = useState('ALL');
 
-    const filteredEntries = entries.filter((e: any) =>
-        e.reference?.toLowerCase().includes(search.toLowerCase()) ||
-        e.description?.toLowerCase().includes(search.toLowerCase())
-    );
+    const filteredEntries = entries.filter((e: any) => {
+        const matchesSearch = e.reference?.toLowerCase().includes(search.toLowerCase()) ||
+            e.description?.toLowerCase().includes(search.toLowerCase());
+        const matchesModule = moduleFilter === 'ALL' || e.sourceModule === moduleFilter;
+        return matchesSearch && matchesModule;
+    });
 
     // Modal Data
     const [periods, setPeriods] = useState<any[]>([]);
@@ -383,9 +386,23 @@ export default function JournalEntriesPage() {
                                     className="pl-9"
                                 />
                             </div>
-                            <Button variant="outline" size="icon">
-                                <Filter className="w-4 h-4" />
-                            </Button>
+                            <Select value={moduleFilter} onValueChange={setModuleFilter}>
+                                <SelectTrigger className="w-[160px]">
+                                    <Filter className="w-4 h-4 mr-2 text-slate-400" />
+                                    <SelectValue placeholder="All Modules" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ALL">All Modules</SelectItem>
+                                    <SelectItem value="vehicle-export">Vehicle Export</SelectItem>
+                                    <SelectItem value="spareparts">Spareparts</SelectItem>
+                                    <SelectItem value="hotel">Hotel</SelectItem>
+                                    <SelectItem value="pos">POS</SelectItem>
+                                    <SelectItem value="restaurant">Restaurant</SelectItem>
+                                    <SelectItem value="sales">Sales</SelectItem>
+                                    <SelectItem value="hr">HR</SelectItem>
+                                    <SelectItem value="properties">Properties</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                 </CardHeader>
@@ -396,6 +413,7 @@ export default function JournalEntriesPage() {
                                 <TableRow>
                                     <TableHead className="w-32">Date</TableHead>
                                     <TableHead>Reference</TableHead>
+                                    <TableHead>Source</TableHead>
                                     <TableHead className="hidden md:table-cell">Description</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead className="text-right">Debits</TableHead>
@@ -422,6 +440,15 @@ export default function JournalEntriesPage() {
                                             <TableRow key={entry.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
                                                 <TableCell className="text-sm whitespace-nowrap">{format(new Date(entry.entryDate), 'MMM dd, yyyy')}</TableCell>
                                                 <TableCell className="font-mono text-sm text-purple-600 dark:text-purple-400">{entry.reference}</TableCell>
+                                                <TableCell className="text-sm border-r border-slate-100 dark:border-slate-800">
+                                                    {entry.sourceModule ? (
+                                                        <Badge variant="outline" className="capitalize text-slate-600 bg-slate-50 border-slate-200">
+                                                            {entry.sourceModule.replace('-', ' ')}
+                                                        </Badge>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-400 italic">Manual</span>
+                                                    )}
+                                                </TableCell>
                                                 <TableCell className="hidden md:table-cell text-sm text-gray-500 max-w-[300px] truncate">{entry.description}</TableCell>
                                                 <TableCell>
                                                     <Badge variant="outline" className={entry.status === 'POSTED'

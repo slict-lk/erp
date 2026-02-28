@@ -131,6 +131,8 @@ const navigation: NavigationItem[] = [
       { name: 'Bank Rec.', href: '/accounting/bank-reconciliation', moduleId: 'accounting' },
       { name: 'Periods', href: '/accounting/periods', moduleId: 'accounting' },
       { name: 'Reports', href: '/accounting/reports', moduleId: 'accounting' },
+      { name: 'Module Reports', href: '/accounting/module-reports', icon: BarChart3, moduleId: 'accounting' },
+      { name: 'GL Mappings', href: '/accounting/settings/account-mappings', icon: Settings, moduleId: 'accounting' },
     ],
   },
   {

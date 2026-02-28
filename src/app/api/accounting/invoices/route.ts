@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
           },
         },
         payments: true,
+        journalEntry: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
 
       const now = new Date();
       const issueDate = body.issueDate ? new Date(body.issueDate) : now;
-      const dueDate = body.dueDate ? new Date(body.dueDate) : now;
+      const dueDate = body.dueDate ? new Date(body.dueDate) : issueDate;
       if (dueDate < issueDate) {
         const err = new Error('Due date cannot be before issue date');
         err.name = 'ValidationError';

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { postToGL, resolveAccountCodes } from '@/lib/accounting/gl-bridge';
 
 // POST /api/properties/[id]/maintenance - Create a maintenance request
 export async function POST(
@@ -21,6 +22,11 @@ export async function POST(
       );
     }
 
+    const parsedCost = body.cost != null ? parseFloat(body.cost) : null;
+    if (parsedCost !== null && isNaN(parsedCost)) {
+      return NextResponse.json({ error: 'Invalid cost value: must be a number' }, { status: 400 });
+    }
+
     // Check if property exists
     const property = await prisma.property.findUnique({
       where: { id },
@@ -38,9 +44,40 @@ export async function POST(
         priority: body.priority || 'MEDIUM',
         status: body.status || 'PENDING',
         assignedTo: body.assignedTo || null,
-        cost: body.cost ? parseFloat(body.cost) : null,
+        cost: parsedCost,
       },
+      include: {
+        property: true,
+      }
     });
+
+    // --- GL POSTING ---
+    try {
+      const tenantId = maintenance.property?.tenantId;
+      if (tenantId && maintenance.cost && maintenance.cost > 0) {
+        const expenseAccounts = await resolveAccountCodes(tenantId, 'properties', 'MAINTENANCE_EXP');
+        if (!expenseAccounts?.debitCode || !expenseAccounts?.creditCode) {
+          throw new Error(`Missing account mappings for property maintenance: ${maintenance.id}`);
+        }
+
+        await postToGL({
+          tenantId,
+          sourceModule: 'properties',
+          sourceDocumentId: maintenance.id,
+          sourceDocumentType: 'PropertyMaintenance',
+          eventType: 'MAINTENANCE_EXP',
+          reference: `MNT-${maintenance.id.slice(-6)}`,
+          description: `Property Maintenance - ${maintenance.title}`,
+          date: new Date(),
+          lines: [
+            { accountCode: expenseAccounts.debitCode, debit: maintenance.cost, credit: 0, description: 'Maintenance Expense' },
+            { accountCode: expenseAccounts.creditCode, debit: 0, credit: maintenance.cost, description: 'Accounts Payable / Cash' }
+          ]
+        });
+      }
+    } catch (error) {
+      console.error('GL Bridge error (property maintenance):', error);
+    }
 
     return NextResponse.json(maintenance, { status: 201 });
   } catch (error: any) {
