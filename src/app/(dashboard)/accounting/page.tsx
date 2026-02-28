@@ -139,10 +139,18 @@ export default function AccountingDashboard() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const safeDate = (dateString: string) => {
+    if (!dateString) return null;
+    const d = new Date(dateString.includes('T') ? dateString : `${dateString}T00:00:00`);
+    return isNaN(d.getTime()) ? null : d;
+  };
 
   const fetchData = useCallback(async () => {
     try {
       setRefreshing(true);
+      setError(null);
       const [invRes, payRes] = await Promise.all([
         fetch('/api/accounting/invoices?limit=10'),
         fetch('/api/accounting/payments?limit=10')
@@ -152,6 +160,7 @@ export default function AccountingDashboard() {
       if (payRes.ok) setPayments(await payRes.json());
     } catch (err) {
       console.error(err);
+      setError('Failed to load dashboard data. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -162,10 +171,32 @@ export default function AccountingDashboard() {
     fetchData();
   }, [fetchData]);
 
-  // Derived metrics
-  const totalReceivables = invoices.filter(i => i.type === 'SALES' && ['OPEN', 'OVERDUE'].includes(i.status)).reduce((acc, i) => acc + i.amountDue, 0);
-  const totalPayables = invoices.filter(i => i.type === 'PURCHASE' && ['OPEN', 'OVERDUE'].includes(i.status)).reduce((acc, i) => acc + i.amountDue, 0);
+  // Derived metrics grouped by currency
+  const totalReceivables = invoices.filter(i => i.type === 'SALES' && ['OPEN', 'OVERDUE'].includes(i.status)).reduce((acc, i) => {
+    const c = i.currencyCode || 'LKR';
+    acc[c] = (acc[c] || 0) + Number(i.amountDue);
+    return acc;
+  }, {} as Record<string, number>);
+
+  const totalPayables = invoices.filter(i => i.type === 'PURCHASE' && ['OPEN', 'OVERDUE'].includes(i.status)).reduce((acc, i) => {
+    const c = i.currencyCode || 'LKR';
+    acc[c] = (acc[c] || 0) + Number(i.amountDue);
+    return acc;
+  }, {} as Record<string, number>);
+
+  const totalPayments = payments.reduce((acc, p) => {
+    const c = p.currencyCode || 'LKR';
+    acc[c] = (acc[c] || 0) + Number(p.amount);
+    return acc;
+  }, {} as Record<string, number>);
+
   const overdueCount = invoices.filter(i => i.status === 'OVERDUE').length;
+
+  const formatGroupedValues = (group: Record<string, number>) => {
+    const entries = Object.entries(group);
+    if (entries.length === 0) return formatCurrency(0, 'LKR');
+    return entries.map(([c, v]) => formatCurrency(v, c)).join(' + ');
+  };
 
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-[1600px] mx-auto">
@@ -196,25 +227,31 @@ export default function AccountingDashboard() {
         </div>
       </div>
 
+      {error && (
+        <div className="p-4 bg-red-50 text-red-600 rounded-lg dark:bg-red-900/30 dark:text-red-400">
+          {error}
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Receivables"
-          value={formatCurrency(totalReceivables, 'LKR')}
+          value={formatGroupedValues(totalReceivables)}
           subtitle={`${invoices.filter(i => i.type === 'SALES' && i.status === 'OPEN').length} open invoices`}
           icon={TrendingUp}
           variant="green"
         />
         <StatCard
           title="Total Payables"
-          value={formatCurrency(totalPayables, 'LKR')}
+          value={formatGroupedValues(totalPayables)}
           subtitle={`${invoices.filter(i => i.type === 'PURCHASE' && i.status === 'OPEN').length} open bills`}
           icon={TrendingDown}
           variant="orange"
         />
         <StatCard
           title="Payments Received"
-          value={formatCurrency(payments.reduce((a, p) => a + p.amount, 0), 'LKR')}
+          value={formatGroupedValues(totalPayments)}
           subtitle={`${payments.length} transactions`}
           icon={Wallet}
           variant="blue"
@@ -273,7 +310,7 @@ export default function AccountingDashboard() {
                       <div className="min-w-0">
                         <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{inv.number}</p>
                         <p className="text-xs text-gray-500 truncate">
-                          {inv.type === 'SALES' ? inv.customer?.name : inv.vendor?.name} • {format(new Date(inv.issueDate), 'MMM dd')}
+                          {inv.type === 'SALES' ? inv.customer?.name : inv.vendor?.name} • {safeDate(inv.issueDate) ? format(safeDate(inv.issueDate)!, 'MMM dd') : 'N/A'}
                         </p>
                       </div>
                     </div>

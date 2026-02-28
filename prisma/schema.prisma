@@ -770,6 +770,7 @@ model Account {
   journalLines  JournalLine[]
   bankAccount   BankAccount?
   budgetLines   BudgetLine[]
+  liabilityTaxRates TaxRate[]
 
   @@unique([code, tenantId])
   @@index([type])
@@ -5136,7 +5137,7 @@ model JournalLine {
   credit         Float        @default(0)
   currencyCode   String       @default("LKR")
   exchangeRate   Float        @default(1)
-  baseCurrency   Float        
+  baseCurrency   Float        @default(0)
   costCenterId   String?
   projectId      String?
   journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
@@ -5156,6 +5157,7 @@ model TaxRate {
   isCompound        Boolean  @default(false) 
   sequenceOrder     Int      @default(0)     
   liabilityAccountId String  
+  liabilityAccount  Account  @relation(fields: [liabilityAccountId], references: [id])
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
   invoiceLineTaxes  InvoiceLineTax[]
@@ -5245,4 +5247,5 @@ model BudgetLine {
 
   @@index([budgetId])
   @@index([accountId])
+  @@unique([budgetId, accountId, month])
 }

@@ -32,6 +32,15 @@ export async function POST(request: NextRequest) {
         const tenant = await getOrCreateDefaultTenant();
         const body = await request.json();
 
+        if (!body.code || !body.name || body.rate === undefined || !body.liabilityAccountId) {
+            return NextResponse.json({ error: 'Code, name, rate, and liabilityAccountId are required' }, { status: 400 });
+        }
+
+        const validTaxTypes = ['STANDARD', 'COMPOUND', 'FLAT'];
+        if (body.type && !validTaxTypes.includes(body.type)) {
+            return NextResponse.json({ error: 'Invalid tax type' }, { status: 400 });
+        }
+
         // Verify liability account exists
         const account = await prisma.account.findFirst({
             where: {

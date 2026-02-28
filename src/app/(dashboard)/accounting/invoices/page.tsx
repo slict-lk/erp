@@ -58,6 +58,12 @@ export default function InvoicesPage() {
   const [search, setSearch] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+  const filteredInvoices = invoices.filter(inv =>
+    inv.number?.toLowerCase().includes(search.toLowerCase()) ||
+    inv.customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
+    inv.vendor?.name?.toLowerCase().includes(search.toLowerCase())
+  );
+
   // Modal Data
   const [isOpen, setIsOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -85,7 +91,7 @@ export default function InvoicesPage() {
 
   const [formData, setFormData] = useState({
     type: 'SALES',
-    number: `INV-${Math.floor(Math.random() * 10000)}`,
+    number: '', // TODO: Replace with server-driven sequence
     customerId: '',
     vendorId: '',
     periodId: '',
@@ -129,8 +135,21 @@ export default function InvoicesPage() {
     }
   };
 
+  const fetchNextInvoiceNumber = async () => {
+    try {
+      const res = await fetch('/api/accounting/invoices/next-number');
+      if (res.ok) {
+        const data = await res.json();
+        setFormData(prev => ({ ...prev, number: data.number }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch next invoice number:', error);
+    }
+  };
+
   useEffect(() => {
     fetchInvoices();
+    fetchNextInvoiceNumber();
 
     async function fetchLookups() {
       try {
@@ -175,8 +194,8 @@ export default function InvoicesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          issueDate: new Date(formData.issueDate).toISOString(),
-          dueDate: new Date(formData.dueDate).toISOString(),
+          issueDate: new Date(`${formData.issueDate}T12:00:00Z`).toISOString(),
+          dueDate: new Date(`${formData.dueDate}T12:00:00Z`).toISOString(),
           subtotal,
           tax: totalTax,
           total,
@@ -195,7 +214,7 @@ export default function InvoicesPage() {
         setIsOpen(false);
         setFormData({
           type: 'SALES',
-          number: `INV-${Math.floor(Math.random() * 10000)}`,
+          number: '', // Will be re-fetched soon
           customerId: '',
           vendorId: '',
           periodId: '',
@@ -280,6 +299,10 @@ export default function InvoicesPage() {
       alert('Payment amount must be greater than 0');
       return;
     }
+    if (paymentData.amount > Number(selectedInvoice.amountDue)) {
+      alert('Payment amount cannot exceed the amount due');
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch('/api/accounting/payments', {
@@ -296,7 +319,7 @@ export default function InvoicesPage() {
       });
       if (res.ok) {
         setPaymentDialogOpen(false);
-        setSelectedInvoice(null);
+        fetchNextInvoiceNumber();
         fetchInvoices();
       } else {
         const err = await res.json();
@@ -524,18 +547,14 @@ export default function InvoicesPage() {
         </div>
 
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger asChild>
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <Button variant="outline" className="w-full sm:w-auto">
-                <Filter className="w-4 h-4 mr-2" />
-                Filter
-              </Button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <DialogTrigger asChild>
               <Button className="w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-2" />
                 New Invoice
               </Button>
-            </div>
-          </DialogTrigger>
+            </DialogTrigger>
+          </div>
           <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
             <form onSubmit={handleSubmit}>
               <DialogHeader>
@@ -799,9 +818,15 @@ export default function InvoicesPage() {
                       No invoices found. Create one to get started.
                     </TableCell>
                   </TableRow>
+                ) : filteredInvoices.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                      No invoices match your search.
+                    </TableCell>
+                  </TableRow>
                 ) : (
-                  invoices.map((inv: any) => (
-                    <TableRow key={inv.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer group">
+                  filteredInvoices.map((inv: any) => (
+                    <TableRow key={inv.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 group">
                       <TableCell className="text-sm whitespace-nowrap">{format(new Date(inv.issueDate), 'MMM dd, yyyy')}</TableCell>
                       <TableCell className="font-mono text-sm text-blue-600 dark:text-blue-400">{inv.number}</TableCell>
                       <TableCell>

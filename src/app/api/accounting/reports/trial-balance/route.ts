@@ -15,6 +15,9 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const asOfDateParam = searchParams.get('asOfDate');
         const endDate = asOfDateParam ? new Date(asOfDateParam) : new Date();
+        if (isNaN(endDate.getTime())) {
+            return NextResponse.json({ error: 'Invalid asOfDate parameter' }, { status: 400 });
+        }
 
         // Set to end of day
         endDate.setHours(23, 59, 59, 999);
@@ -62,8 +65,19 @@ export async function GET(request: NextRequest) {
             }
 
             const acct = accountBalances.get(line.accountId)!;
-            acct.debit += line.baseCurrency > 0 && line.debit > 0 ? line.baseCurrency : 0;
-            acct.credit += line.baseCurrency > 0 && line.credit > 0 ? line.baseCurrency : 0;
+
+            // Sanitize baseCurrency to prevent NaN propagation
+            const rawValue = Number(line.baseCurrency);
+            const value = Number.isFinite(rawValue) ? rawValue : 0;
+
+            // For presentation in columns, we need absolute values
+            const absValue = Math.abs(value);
+
+            if (line.debit > 0) {
+                acct.debit += absValue;
+            } else if (line.credit > 0) {
+                acct.credit += absValue;
+            }
         }
 
         let totalDebit = 0;
@@ -104,7 +118,10 @@ export async function GET(request: NextRequest) {
             isBalanced: Math.abs(totalDebit - totalCredit) < 0.01
         });
 
-    } catch (error) {
+    } catch (error: any) {
+        if (error.message === 'Forbidden: Insufficient Permissions') {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
         console.error('Error generating Trial Balance:', error);
         return NextResponse.json({ error: 'Failed to generate Trial Balance' }, { status: 500 });
     }

@@ -17,6 +17,9 @@ export async function GET(request: NextRequest) {
 
         // Default to current date if none provided
         const asOfDate = asOfDateParam ? new Date(asOfDateParam) : new Date();
+        if (isNaN(asOfDate.getTime())) {
+            return NextResponse.json({ error: 'Invalid asOfDate parameter' }, { status: 400 });
+        }
         asOfDate.setHours(23, 59, 59, 999);
 
         // Balance Sheet only includes ASSET, LIABILITY, and EQUITY
@@ -112,7 +115,7 @@ export async function GET(request: NextRequest) {
         const formattedEquity = Array.from(equity.values()).sort((a, b) => a.code.localeCompare(b.code));
         formattedEquity.push({
             id: 'retained-earnings-calc',
-            code: '3999',
+            code: 'CALC-3999',
             name: 'Retained Earnings (Calculated)',
             total: retainedEarnings
         });

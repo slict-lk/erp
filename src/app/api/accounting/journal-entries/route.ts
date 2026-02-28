@@ -11,6 +11,10 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = new URL(request.url);
         const statusParam = searchParams.get('status') as JournalEntryStatus | null;
+        const validStatuses = ['DRAFT', 'POSTED', 'VOID'];
+        if (statusParam && !validStatuses.includes(statusParam)) {
+            return NextResponse.json({ error: 'Invalid status parameter' }, { status: 400 });
+        }
         const periodId = searchParams.get('periodId');
         const reference = searchParams.get('reference');
 
@@ -48,6 +52,10 @@ export async function POST(request: NextRequest) {
         const tenant = await getOrCreateDefaultTenant();
         const body = await request.json();
 
+        if (!body.periodId) {
+            return NextResponse.json({ error: 'Period ID is required' }, { status: 400 });
+        }
+
         // 1. Period Validation
         const period = await prisma.accountingPeriod.findFirst({
             where: {
@@ -66,6 +74,10 @@ export async function POST(request: NextRequest) {
 
         // Check if the entry date falls within the period dates
         const entryDate = new Date(body.entryDate);
+        if (isNaN(entryDate.getTime())) {
+            return NextResponse.json({ error: 'Invalid entry date' }, { status: 400 });
+        }
+
         if (entryDate < period.startDate || entryDate > period.endDate) {
             return NextResponse.json({ error: 'Entry date must fall within the selected accounting period' }, { status: 400 });
         }

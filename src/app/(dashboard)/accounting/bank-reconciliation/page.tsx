@@ -103,12 +103,14 @@ export default function BankReconciliationPage() {
                             onChange={handleFileUpload}
                             disabled={isUploading}
                         />
-                        <Button asChild className="w-full sm:w-auto cursor-pointer" disabled={isUploading}>
-                            <label htmlFor="statement-upload">
-                                <UploadCloud className="w-4 h-4 mr-2" />
-                                {isUploading ? 'Uploading...' : 'Upload Statement'}
-                            </label>
-                        </Button>
+                        <label
+                            htmlFor="statement-upload"
+                            className={`inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full sm:w-auto cursor-pointer ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
+                            aria-disabled={isUploading}
+                        >
+                            <UploadCloud className="w-4 h-4 mr-2" />
+                            {isUploading ? 'Uploading...' : 'Upload Statement'}
+                        </label>
                     </div>
                 </div>
             </div>

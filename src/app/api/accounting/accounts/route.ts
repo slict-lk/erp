@@ -39,6 +39,15 @@ export async function POST(request: NextRequest) {
     const tenant = await getOrCreateDefaultTenant();
     const body = await request.json();
 
+    if (body.parentId) {
+      const parent = await prisma.account.findFirst({
+        where: { id: body.parentId, tenantId: tenant.id }
+      });
+      if (!parent) {
+        return NextResponse.json({ error: 'Parent account not found or access denied' }, { status: 400 });
+      }
+    }
+
     const account = await prisma.account.create({
       data: {
         code: body.code,
@@ -47,7 +56,7 @@ export async function POST(request: NextRequest) {
         currency: body.currency || tenant.baseCurrency || 'LKR',
         normalBalance: body.normalBalance || 'DEBIT',
         description: body.description,
-        isSystemAccount: body.isSystemAccount || false,
+        isSystemAccount: false, // Prevent users from creating system accounts
         parentId: body.parentId,
         tenantId: tenant.id,
       },

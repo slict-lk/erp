@@ -51,24 +51,35 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    // Base validation for period locking
-    const period = await prisma.accountingPeriod.findFirst({
-      where: {
-        id: body.periodId,
-        tenantId
-      }
-    });
 
-    if (!period) {
-      return NextResponse.json({ error: 'Accounting period is required and must be valid' }, { status: 400 });
-    }
-
-    if (period.status === 'CLOSED') {
-      return NextResponse.json({ error: 'Cannot post invoice to a closed accounting period' }, { status: 400 });
-    }
 
     // Wrap the invoice creation and GL posting in a transaction
-    const invoice = await prisma.$transaction(async (tx) => {
+    const invoice = await prisma.$transaction(async (tx: any) => {
+      const period = await tx.accountingPeriod.findFirst({
+        where: { id: body.periodId, tenantId }
+      });
+      if (!period || period.status === 'CLOSED') {
+        throw new Error('Valid open accounting period is required');
+      }
+
+      const existing = await tx.invoice.findFirst({
+        where: { tenantId, number: body.number }
+      });
+      if (existing) {
+        const err = new Error(`Invoice number ${body.number} already exists`);
+        err.name = 'ValidationError';
+        throw err;
+      }
+
+      const now = new Date();
+      const issueDate = body.issueDate ? new Date(body.issueDate) : now;
+      const dueDate = body.dueDate ? new Date(body.dueDate) : now;
+      if (dueDate < issueDate) {
+        const err = new Error('Due date cannot be before issue date');
+        err.name = 'ValidationError';
+        throw err;
+      }
+
       // Compute totals server-side from lines if provided
       let computedSubtotal = Number(body.subtotal) || 0;
       let computedTax = Number(body.tax) || 0;
@@ -81,7 +92,12 @@ export async function POST(request: NextRequest) {
           const lineSub = Number(l.quantity) * Number(l.unitPrice);
           return s + (lineSub * (Number(l.tax) || 0)) / 100;
         }, 0);
-        computedTotal = computedSubtotal + computedTax;
+        computedTotal = computedSubtotal + computedTax - (Number(body.discount) || 0);
+        if (computedTotal < 0) {
+          const err = new Error('Discount cannot exceed subtotal and tax. Computed total must not be negative.');
+          err.name = 'ValidationError';
+          throw err;
+        }
       }
 
       // 1. Create the Invoice with lines
@@ -97,8 +113,8 @@ export async function POST(request: NextRequest) {
           currencyCode: body.currencyCode || 'LKR',
           exchangeRate: Number(body.exchangeRate || 1),
           baseCurrencyTotal: computedTotal * Number(body.exchangeRate || 1),
-          issueDate: body.issueDate ? new Date(body.issueDate) : new Date(),
-          dueDate: new Date(body.dueDate),
+          issueDate: issueDate,
+          dueDate: dueDate,
           subtotal: computedSubtotal,
           tax: computedTax,
           discount: body.discount || 0,
@@ -134,70 +150,105 @@ export async function POST(request: NextRequest) {
         const controlAccount = await tx.account.findFirst({ where: { tenantId, code: arApCode } });
         const offsetAccount = await tx.account.findFirst({ where: { tenantId, code: offsetCode } });
 
-        if (controlAccount && offsetAccount) {
-          const journalLines = [];
-          const baseEquivalent = Number(newInvoice.total) * Number(newInvoice.exchangeRate);
+        if (!controlAccount || !offsetAccount) {
+          throw new Error('System accounts missing (AR/AP or Revenue/Expense). Setup chart of accounts properly.');
+        }
 
-          if (newInvoice.type === 'SALES') {
-            // Debit AR, Credit Revenue
+        const journalLines = [];
+        const baseEquivalent = Number(newInvoice.total) * Number(newInvoice.exchangeRate);
+
+        if (newInvoice.type === 'SALES') {
+          // Debit AR, Credit Revenue
+          journalLines.push({
+            accountId: controlAccount.id,
+            description: `AR for Invoice ${newInvoice.number}`,
+            debit: newInvoice.total,
+            credit: 0,
+            currencyCode: newInvoice.currencyCode,
+            exchangeRate: newInvoice.exchangeRate,
+            baseCurrency: baseEquivalent
+          });
+          journalLines.push({
+            accountId: offsetAccount.id,
+            description: `Sales Revenue for Invoice ${newInvoice.number}`,
+            debit: 0,
+            credit: newInvoice.total - newInvoice.tax,
+            currencyCode: newInvoice.currencyCode,
+            exchangeRate: newInvoice.exchangeRate,
+            baseCurrency: (newInvoice.total - newInvoice.tax) * newInvoice.exchangeRate
+          });
+
+          if (newInvoice.tax > 0) {
+            // Need a Tax Liability account (Code 2100)
+            const taxAccount = await tx.account.findFirst({ where: { tenantId, code: '2100' } });
+            if (!taxAccount) throw new Error('Tax Liability account (2100) missing');
             journalLines.push({
-              accountId: controlAccount.id,
-              description: `AR for Invoice ${newInvoice.number}`,
-              debit: newInvoice.total,
+              accountId: taxAccount.id,
+              description: `Tax Liability for Invoice ${newInvoice.number}`,
+              debit: 0,
+              credit: newInvoice.tax,
+              currencyCode: newInvoice.currencyCode,
+              exchangeRate: newInvoice.exchangeRate,
+              baseCurrency: newInvoice.tax * newInvoice.exchangeRate
+            });
+          }
+        } else if (newInvoice.type === 'PURCHASE') {
+          // Debit Expense (offset), Credit AP (control)
+          journalLines.push({
+            accountId: offsetAccount.id,
+            description: `Expense for Bill ${newInvoice.number}`,
+            debit: newInvoice.total - newInvoice.tax,
+            credit: 0,
+            currencyCode: newInvoice.currencyCode,
+            exchangeRate: newInvoice.exchangeRate,
+            baseCurrency: (newInvoice.total - newInvoice.tax) * newInvoice.exchangeRate
+          });
+          journalLines.push({
+            accountId: controlAccount.id,
+            description: `AP for Bill ${newInvoice.number}`,
+            debit: 0,
+            credit: newInvoice.total,
+            currencyCode: newInvoice.currencyCode,
+            exchangeRate: newInvoice.exchangeRate,
+            baseCurrency: baseEquivalent
+          });
+
+          if (newInvoice.tax > 0) {
+            const taxAccount = await tx.account.findFirst({ where: { tenantId, code: '1300' } }); // e.g. Tax Asset or Input Tax
+            if (!taxAccount) throw new Error('Input Tax asset account (1300) missing');
+            journalLines.push({
+              accountId: taxAccount.id,
+              description: `Input Tax for Bill ${newInvoice.number}`,
+              debit: newInvoice.tax,
               credit: 0,
               currencyCode: newInvoice.currencyCode,
               exchangeRate: newInvoice.exchangeRate,
-              baseCurrency: baseEquivalent
+              baseCurrency: newInvoice.tax * newInvoice.exchangeRate
             });
-            journalLines.push({
-              accountId: offsetAccount.id,
-              description: `Sales Revenue for Invoice ${newInvoice.number}`,
-              debit: 0,
-              credit: newInvoice.total - newInvoice.tax,
-              currencyCode: newInvoice.currencyCode,
-              exchangeRate: newInvoice.exchangeRate,
-              baseCurrency: (newInvoice.total - newInvoice.tax) * newInvoice.exchangeRate
-            });
+          }
+        }
 
-            if (newInvoice.tax > 0) {
-              // Need a Tax Liability account (Code 2100)
-              const taxAccount = await tx.account.findFirst({ where: { tenantId, code: '2100' } });
-              if (taxAccount) {
-                journalLines.push({
-                  accountId: taxAccount.id,
-                  description: `Tax Liability for Invoice ${newInvoice.number}`,
-                  debit: 0,
-                  credit: newInvoice.tax,
-                  currencyCode: newInvoice.currencyCode,
-                  exchangeRate: newInvoice.exchangeRate,
-                  baseCurrency: newInvoice.tax * newInvoice.exchangeRate
-                });
+        // Post Journal Entry
+        if (journalLines.length >= 2) {
+          const je = await tx.journalEntry.create({
+            data: {
+              tenantId,
+              periodId: newInvoice.periodId!,
+              reference: `INV-${newInvoice.number}`,
+              description: `Auto-posted from Invoice ${newInvoice.number}`,
+              entryDate: newInvoice.issueDate,
+              status: 'POSTED',
+              lines: {
+                create: journalLines
               }
             }
-          }
+          });
 
-          // Post Journal Entry
-          if (journalLines.length >= 2) {
-            const je = await tx.journalEntry.create({
-              data: {
-                tenantId,
-                periodId: newInvoice.periodId!,
-                reference: `INV-${newInvoice.number}`,
-                description: `Auto-posted from Invoice ${newInvoice.number}`,
-                entryDate: newInvoice.issueDate,
-                status: 'POSTED',
-                lines: {
-                  create: journalLines
-                }
-              }
-            });
-
-            // Link JE back to invoice
-            await tx.invoice.update({
-              where: { id: newInvoice.id },
-              data: { journalEntryId: je.id }
-            });
-          }
+          // Link JE back to invoice
+          await tx.invoice.update({
+            where: { id: newInvoice.id },
+            data: { journalEntryId: je.id }
+          });
         }
       }
 
@@ -205,8 +256,11 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(invoice, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating invoice:', error);
+    if (error.name === 'ValidationError') {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return NextResponse.json({ error: 'Failed to create invoice' }, { status: 500 });
   }
 }

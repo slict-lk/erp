@@ -45,6 +45,11 @@ export default function JournalEntriesPage() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
 
+    const filteredEntries = entries.filter((e: any) =>
+        e.reference?.toLowerCase().includes(search.toLowerCase()) ||
+        e.description?.toLowerCase().includes(search.toLowerCase())
+    );
+
     // Modal Data
     const [periods, setPeriods] = useState<any[]>([]);
     const [accounts, setAccounts] = useState<any[]>([]);
@@ -106,6 +111,7 @@ export default function JournalEntriesPage() {
         e.preventDefault();
         if (!isBalanced) return alert("Journal entry is not balanced.");
         if (!formData.periodId) return alert("Please select an open period.");
+        if (lines.some(l => !l.accountId)) return alert("Please select an account for all lines.");
 
         setSubmitting(true);
         try {
@@ -401,12 +407,14 @@ export default function JournalEntriesPage() {
                                     <TableRow>
                                         <TableCell colSpan={6} className="text-center py-8 text-gray-500">Loading entries...</TableCell>
                                     </TableRow>
-                                ) : entries.length === 0 ? (
+                                ) : filteredEntries.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">No journal entries found.</TableCell>
+                                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                                            {search ? 'No journal entries match your search.' : 'No journal entries found.'}
+                                        </TableCell>
                                     </TableRow>
                                 ) : (
-                                    entries.map((entry: any) => {
+                                    filteredEntries.map((entry: any) => {
                                         const entryDebits = entry.lines?.reduce((acc: number, line: any) => acc + (line.debit > 0 ? (line.baseCurrency || line.debit) : 0), 0) || 0;
                                         const entryCredits = entry.lines?.reduce((acc: number, line: any) => acc + (line.credit > 0 ? (line.baseCurrency || line.credit) : 0), 0) || 0;
 

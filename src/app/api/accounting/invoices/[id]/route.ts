@@ -64,7 +64,7 @@ export async function PATCH(
         }
 
         const updatedInvoice = await prisma.invoice.update({
-            where: { id: resolvedParams.id },
+            where: { id: resolvedParams.id, tenantId },
             data: {
                 ...(body.status && { status: body.status }),
                 // other fields can be added here if needed

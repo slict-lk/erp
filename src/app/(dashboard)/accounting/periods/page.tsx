@@ -63,6 +63,7 @@ function getEndOfMonth(year: number, month: number) {
 export default function AccountingPeriodsPage() {
     const [periods, setPeriods] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState("");
     const [filterYear, setFilterYear] = useState<string>("all");
     const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -92,9 +93,13 @@ export default function AccountingPeriodsPage() {
             const res = await fetch(url);
             if (res.ok) {
                 setPeriods(await res.json());
+                setError(null);
+            } else {
+                setError("Failed to fetch periods");
             }
         } catch (err) {
             console.error("Error fetching periods:", err);
+            setError("Failed to fetch periods");
         } finally {
             setLoading(false);
         }
@@ -168,21 +173,6 @@ export default function AccountingPeriodsPage() {
         }
     };
 
-    const handleReopenPeriod = async (period: any) => {
-        if (!confirm(`Are you sure you want to reopen "${period.name}"? This allows new transactions to be posted.`)) return;
-
-        try {
-            const res = await fetch(`/api/accounting/periods/${period.id}/close`, {
-                method: "PATCH",
-            });
-            // The close endpoint toggles status; for reopen, we may need a separate approach.
-            // For now, we'll handle it via the periods API if available.
-            // Let's just refetch:
-            fetchPeriods();
-        } catch (err) {
-            console.error(err);
-        }
-    };
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -442,6 +432,12 @@ export default function AccountingPeriodsPage() {
                                             Loading periods...
                                         </TableCell>
                                     </TableRow>
+                                ) : error ? (
+                                    <TableRow>
+                                        <TableCell colSpan={8} className="text-center py-8 text-red-500">
+                                            {error}
+                                        </TableCell>
+                                    </TableRow>
                                 ) : filteredPeriods.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={8} className="text-center py-12 text-gray-500">
@@ -468,7 +464,9 @@ export default function AccountingPeriodsPage() {
                                             </TableCell>
                                             <TableCell className="text-sm">{period.year}</TableCell>
                                             <TableCell className="text-sm">
-                                                {MONTH_NAMES[period.month - 1]}
+                                                {typeof period.month === 'number' && period.month >= 1 && period.month <= 12
+                                                    ? MONTH_NAMES[period.month - 1]
+                                                    : 'Unknown'}
                                             </TableCell>
                                             <TableCell className="text-sm text-gray-600 dark:text-gray-400">
                                                 {format(new Date(period.startDate), "MMM dd, yyyy")}
@@ -487,7 +485,8 @@ export default function AccountingPeriodsPage() {
                                                     <DropdownMenuTrigger asChild>
                                                         <Button
                                                             variant="ghost"
-                                                            className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            aria-label="Period actions"
+                                                            className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                                                         >
                                                             <MoreHorizontal className="h-4 w-4" />
                                                         </Button>

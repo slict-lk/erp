@@ -28,32 +28,31 @@ export async function PATCH(
             return NextResponse.json({ error: 'Period is already closed' }, { status: 400 });
         }
 
-        // Validate that there are no unposted journal entries in this period
-        const unpostedEntries = await prisma.journalEntry.count({
-            where: {
-                periodId: resolvedParams.id,
-                status: { not: 'POSTED' }
-            }
-        });
+        // Wrap the check and update in a transaction
+        const updatedPeriod = await prisma.$transaction(async (tx) => {
+            const unpostedEntries = await tx.journalEntry.count({
+                where: {
+                    periodId: resolvedParams.id,
+                    tenantId,
+                    status: { not: 'POSTED' }
+                }
+            });
 
-        if (unpostedEntries > 0) {
-            return NextResponse.json({
-                error: `Cannot close period. There are ${unpostedEntries} unposted journal entries.`
-            }, { status: 400 });
-        }
-
-        // Close the period
-        const updatedPeriod = await prisma.accountingPeriod.update({
-            where: { id: resolvedParams.id },
-            data: {
-                status: 'CLOSED',
-                closedAt: new Date(),
-                // closedBy would normally be the current user's ID
+            if (unpostedEntries > 0) {
+                throw new Error(`Cannot close period. There are ${unpostedEntries} unposted journal entries.`);
             }
+
+            return await tx.accountingPeriod.update({
+                where: { id: resolvedParams.id, tenantId },
+                data: {
+                    status: 'CLOSED',
+                    closedAt: new Date(),
+                }
+            });
         });
 
         return NextResponse.json(updatedPeriod);
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error closing period:', error);
         return NextResponse.json({ error: 'Failed to close period' }, { status: 500 });
     }

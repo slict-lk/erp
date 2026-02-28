@@ -49,6 +49,7 @@ export default function ChartOfAccountsPage() {
     // Modal state
     const [isOpen, setIsOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         code: '',
         name: '',
@@ -60,10 +61,16 @@ export default function ChartOfAccountsPage() {
 
     const fetchAccounts = async () => {
         try {
+            setError(null);
             const res = await fetch('/api/accounting/accounts');
-            if (res.ok) setAccounts(await res.json());
+            if (res.ok) {
+                setAccounts(await res.json());
+            } else {
+                setError('Failed to load accounts. Please try again.');
+            }
         } catch (err) {
             console.error(err);
+            setError('An unexpected error occurred while loading accounts.');
         } finally {
             setLoading(false);
         }
@@ -279,6 +286,10 @@ export default function ChartOfAccountsPage() {
                                     <TableRow>
                                         <TableCell colSpan={5} className="text-center py-8 text-gray-500">Loading accounts...</TableCell>
                                     </TableRow>
+                                ) : error ? (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="text-center py-8 text-red-500">{error}</TableCell>
+                                    </TableRow>
                                 ) : filteredAccounts.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={5} className="text-center py-8 text-gray-500">
@@ -287,7 +298,7 @@ export default function ChartOfAccountsPage() {
                                     </TableRow>
                                 ) : (
                                     filteredAccounts.map((acct) => (
-                                        <TableRow key={acct.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
+                                        <TableRow key={acct.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                                             <TableCell className="font-mono text-sm text-blue-600 dark:text-blue-400">{acct.code}</TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">

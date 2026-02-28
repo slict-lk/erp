@@ -18,6 +18,9 @@ export async function GET(request: NextRequest) {
         const typeParam = searchParams.get('type') || 'AR'; // AR or AP
 
         const asOfDate = asOfDateParam ? new Date(asOfDateParam) : new Date();
+        if (isNaN(asOfDate.getTime())) {
+            return NextResponse.json({ error: 'Invalid asOfDate parameter' }, { status: 400 });
+        }
         asOfDate.setHours(23, 59, 59, 999);
 
         const invoiceType = typeParam === 'AR' ? 'SALES' : 'PURCHASE';

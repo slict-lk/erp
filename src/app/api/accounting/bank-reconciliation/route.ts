@@ -52,6 +52,22 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json();
 
+        if (!body.bankAccountId) {
+            return NextResponse.json({ error: 'Bank account ID is required' }, { status: 400 });
+        }
+
+        const bankAccount = await prisma.account.findFirst({
+            where: { id: body.bankAccountId, tenantId: tenant.id }
+        });
+
+        if (!bankAccount) {
+            return NextResponse.json({ error: 'Invalid bank account' }, { status: 400 });
+        }
+
+        if (!Array.isArray(body.lines)) {
+            return NextResponse.json({ error: 'Lines must be an array' }, { status: 400 });
+        }
+
         const statement = await prisma.$transaction(async (tx) => {
             const stmt = await tx.bankStatement.create({
                 data: {
@@ -93,6 +109,27 @@ export async function PATCH(request: NextRequest) {
 
         const body = await request.json();
         const { statementLineId, paymentId } = body;
+
+        const line = await prisma.bankStatementLine.findUnique({
+            where: { id: statementLineId },
+            include: { statement: true }
+        });
+
+        const payment = await prisma.payment.findUnique({
+            where: { id: paymentId }
+        });
+
+        if (!line || line.statement.tenantId !== tenant.id) {
+            return NextResponse.json({ error: 'Invalid statement line' }, { status: 400 });
+        }
+
+        if (!payment || payment.tenantId !== tenant.id) {
+            return NextResponse.json({ error: 'Invalid payment' }, { status: 400 });
+        }
+
+        if (Math.abs(Number(line.amount)) !== Number(payment.amount)) {
+            return NextResponse.json({ error: 'Amount mismatch between statement line and payment' }, { status: 400 });
+        }
 
         const result = await prisma.$transaction(async (tx) => {
             const line = await tx.bankStatementLine.update({

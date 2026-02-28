@@ -21,6 +21,10 @@ export async function GET(request: NextRequest) {
         const startDate = startDateParam ? new Date(startDateParam) : new Date(now.getFullYear(), 0, 1);
         const endDate = endDateParam ? new Date(endDateParam) : new Date();
 
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+            return NextResponse.json({ error: 'Invalid startDate or endDate parameters' }, { status: 400 });
+        }
+
         endDate.setHours(23, 59, 59, 999);
 
         // Get all POSTED journal lines within the date range for REVENUE and EXPENSE accounts

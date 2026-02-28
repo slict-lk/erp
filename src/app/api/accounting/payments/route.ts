@@ -42,6 +42,10 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
+    if (!body.invoiceId || !body.amount || body.amount <= 0) {
+      return NextResponse.json({ error: 'Valid invoiceId and amount are required' }, { status: 400 });
+    }
+
     // Base validation for period locking
     const period = await prisma.accountingPeriod.findFirst({
       where: {
@@ -58,16 +62,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Cannot post payment to a closed accounting period' }, { status: 400 });
     }
 
-    // Get the associated invoice to check type
-    const relatedInvoice = await prisma.invoice.findUnique({
-      where: { id: body.invoiceId }
-    });
-
-    if (!relatedInvoice) {
-      return NextResponse.json({ error: 'Related invoice not found' }, { status: 404 });
-    }
-
     const payment = await prisma.$transaction(async (tx) => {
+      const relatedInvoice = await tx.invoice.findUnique({
+        where: { id: body.invoiceId, tenantId }
+      });
+
+      if (!relatedInvoice) {
+        throw new Error('NOT_FOUND:Related invoice not found');
+      }
+
+      if (body.amount > Number(relatedInvoice.amountDue)) {
+        throw new Error('VALIDATION:Payment amount cannot exceed invoice amount due');
+      }
+
       // 1. Create the Payment
       const newPayment = await tx.payment.create({
         data: {
@@ -114,80 +121,89 @@ export async function POST(request: NextRequest) {
         const bankAccount = await tx.account.findFirst({ where: { tenantId, code: bankCode } });
         const arApAccount = await tx.account.findFirst({ where: { tenantId, code: arApCode } });
 
-        if (bankAccount && arApAccount) {
-          const journalLines = [];
-          const baseEquivalent = Number(newPayment.amount) * Number(newPayment.exchangeRate);
+        if (!bankAccount || !arApAccount) {
+          throw new Error(`System accounts missing (Bank: ${bankCode}, AR/AP: ${arApCode})`);
+        }
 
-          if (relatedInvoice.type === 'SALES') {
-            // Debit Cash/Bank, Credit AR
-            journalLines.push({
-              accountId: bankAccount.id,
-              description: `Payment received for Invoice ${relatedInvoice.number}`,
-              debit: newPayment.amount,
-              credit: 0,
-              currencyCode: newPayment.currencyCode,
-              exchangeRate: newPayment.exchangeRate,
-              baseCurrency: baseEquivalent
-            });
-            journalLines.push({
-              accountId: arApAccount.id,
-              description: `Payment applied to Invoice ${relatedInvoice.number}`,
-              debit: 0,
-              credit: newPayment.amount,
-              currencyCode: newPayment.currencyCode,
-              exchangeRate: newPayment.exchangeRate,
-              baseCurrency: baseEquivalent
-            });
-          } else {
-            // Purchase: Debit AP, Credit Cash/Bank
-            journalLines.push({
-              accountId: arApAccount.id,
-              description: `Payment sent for Bill ${relatedInvoice.number}`,
-              debit: newPayment.amount,
-              credit: 0,
-              currencyCode: newPayment.currencyCode,
-              exchangeRate: newPayment.exchangeRate,
-              baseCurrency: baseEquivalent
-            });
-            journalLines.push({
-              accountId: bankAccount.id,
-              description: `Funds outgoing for Bill ${relatedInvoice.number}`,
-              debit: 0,
-              credit: newPayment.amount,
-              currencyCode: newPayment.currencyCode,
-              exchangeRate: newPayment.exchangeRate,
-              baseCurrency: baseEquivalent
-            });
-          }
+        const journalLines = [];
+        const baseEquivalent = Number(newPayment.amount) * Number(newPayment.exchangeRate);
 
-          const je = await tx.journalEntry.create({
-            data: {
-              tenantId,
-              periodId: body.periodId,
-              reference: `PAY-${newPayment.id.slice(-6).toUpperCase()}`,
-              description: `Payment for ${relatedInvoice.number}`,
-              entryDate: newPayment.paymentDate,
-              status: 'POSTED',
-              lines: {
-                create: journalLines
-              }
-            }
+        if (relatedInvoice.type === 'SALES') {
+          // Debit Cash/Bank, Credit AR
+          journalLines.push({
+            accountId: bankAccount.id,
+            description: `Payment received for Invoice ${relatedInvoice.number}`,
+            debit: newPayment.amount,
+            credit: 0,
+            currencyCode: newPayment.currencyCode,
+            exchangeRate: newPayment.exchangeRate,
+            baseCurrency: baseEquivalent
           });
-
-          // Link JE to Payment
-          await tx.payment.update({
-            where: { id: newPayment.id },
-            data: { journalEntryId: je.id }
+          journalLines.push({
+            accountId: arApAccount.id,
+            description: `Payment applied to Invoice ${relatedInvoice.number}`,
+            debit: 0,
+            credit: newPayment.amount,
+            currencyCode: newPayment.currencyCode,
+            exchangeRate: newPayment.exchangeRate,
+            baseCurrency: baseEquivalent
+          });
+        } else {
+          // Purchase: Debit AP, Credit Cash/Bank
+          journalLines.push({
+            accountId: arApAccount.id,
+            description: `Payment sent for Bill ${relatedInvoice.number}`,
+            debit: newPayment.amount,
+            credit: 0,
+            currencyCode: newPayment.currencyCode,
+            exchangeRate: newPayment.exchangeRate,
+            baseCurrency: baseEquivalent
+          });
+          journalLines.push({
+            accountId: bankAccount.id,
+            description: `Funds outgoing for Bill ${relatedInvoice.number}`,
+            debit: 0,
+            credit: newPayment.amount,
+            currencyCode: newPayment.currencyCode,
+            exchangeRate: newPayment.exchangeRate,
+            baseCurrency: baseEquivalent
           });
         }
+
+        const je = await tx.journalEntry.create({
+          data: {
+            tenantId,
+            periodId: body.periodId,
+            reference: `PAY-${newPayment.id.slice(-6).toUpperCase()}`,
+            description: `Payment for ${relatedInvoice.number}`,
+            entryDate: newPayment.paymentDate,
+            status: 'POSTED',
+            lines: {
+              create: journalLines
+            }
+          }
+        });
+
+        // Link JE to Payment
+        const finalPayment = await tx.payment.update({
+          where: { id: newPayment.id },
+          data: { journalEntryId: je.id }
+        });
+        return finalPayment;
       }
 
       return newPayment;
     });
 
     return NextResponse.json(payment, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating payment:', error);
+    if (error.message?.startsWith('NOT_FOUND:')) {
+      return NextResponse.json({ error: error.message.split(':')[1] }, { status: 404 });
+    }
+    if (error.message?.startsWith('VALIDATION:')) {
+      return NextResponse.json({ error: error.message.split(':')[1] }, { status: 400 });
+    }
     return NextResponse.json({ error: 'Failed to create payment' }, { status: 500 });
   }
 }

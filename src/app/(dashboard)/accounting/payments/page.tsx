@@ -210,7 +210,7 @@ export default function PaymentsPage() {
           <PaymentForm
             initialData={selectedPayment ? {
               ...selectedPayment,
-              paymentDate: new Date(selectedPayment.paymentDate).toISOString().split('T')[0]
+              paymentDate: String(selectedPayment.paymentDate).split('T')[0]
             } : undefined}
             customers={customers}
             vendors={vendors}

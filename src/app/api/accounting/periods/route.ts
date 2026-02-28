@@ -11,13 +11,25 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = new URL(request.url);
         const statusParam = searchParams.get('status') as PeriodStatus | null;
+        const validStatuses = ['OPEN', 'CLOSED'];
+        if (statusParam && !validStatuses.includes(statusParam)) {
+            return NextResponse.json({ error: 'Invalid status parameter' }, { status: 400 });
+        }
+
         const yearParam = searchParams.get('year');
+        let parsedYear = undefined;
+        if (yearParam) {
+            parsedYear = parseInt(yearParam, 10);
+            if (isNaN(parsedYear)) {
+                return NextResponse.json({ error: 'Invalid year parameter' }, { status: 400 });
+            }
+        }
 
         const periods = await prisma.accountingPeriod.findMany({
             where: {
                 tenantId,
                 ...(statusParam && { status: statusParam }),
-                ...(yearParam && { year: parseInt(yearParam) }),
+                ...(parsedYear && { year: parsedYear }),
             },
             orderBy: [
                 { year: 'desc' },
@@ -39,6 +51,13 @@ export async function POST(request: NextRequest) {
     try {
         const { tenantId } = await requireTenantContext({ moduleId: 'accounting', action: 'create' });
         const body = await request.json();
+
+        if (!body.year || !body.month || !body.startDate || !body.endDate) {
+            return NextResponse.json({ error: 'Missing required period fields' }, { status: 400 });
+        }
+        if (typeof body.year !== 'number' || typeof body.month !== 'number') {
+            return NextResponse.json({ error: 'Year and month must be numbers' }, { status: 400 });
+        }
 
         // Check if period already exists for this year/month
         const existing = await prisma.accountingPeriod.findUnique({
@@ -71,7 +90,10 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json(period, { status: 201 });
-    } catch (error) {
+    } catch (error: any) {
+        if (error.message === 'Forbidden: Insufficient Permissions') {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
         console.error('Error creating period:', error);
         return NextResponse.json({ error: 'Failed to create period' }, { status: 500 });
     }

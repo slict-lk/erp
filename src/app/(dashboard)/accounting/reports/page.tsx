@@ -18,6 +18,7 @@ export default function FinancialReportsPage() {
     const [activeTab, setActiveTab] = useState("pl");
     const [reportData, setReportData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const [startDate, setStartDate] = useState(() => {
         const d = new Date();
@@ -28,6 +29,7 @@ export default function FinancialReportsPage() {
 
     const fetchReport = async (type: string) => {
         setLoading(true);
+        setError(null);
         try {
             let url = "";
             if (type === "pl") url = `/api/accounting/reports/profit-loss?startDate=${startDate}&endDate=${endDate}`;
@@ -36,9 +38,15 @@ export default function FinancialReportsPage() {
             if (type === "ar") url = `/api/accounting/reports/ar-aging?asOfDate=${endDate}&type=AR`;
 
             const res = await fetch(url);
-            if (res.ok) setReportData(await res.json());
+            if (res.ok) {
+                setReportData(await res.json());
+            } else {
+                const err = await res.json();
+                setError(err.error || "Failed to load report data.");
+            }
         } catch (err) {
             console.error(err);
+            setError("Unexpected error loading report.");
         } finally {
             setLoading(false);
         }
@@ -123,12 +131,14 @@ export default function FinancialReportsPage() {
                         <CardHeader className="text-center border-b">
                             <CardTitle className="text-lg">Statement of Profit & Loss</CardTitle>
                             <CardDescription>
-                                For the period {format(new Date(startDate), 'MMM dd, yyyy')} to {format(new Date(endDate), 'MMM dd, yyyy')}
+                                For the period {format(new Date(`${startDate}T00:00:00`), 'MMM dd, yyyy')} to {format(new Date(`${endDate}T00:00:00`), 'MMM dd, yyyy')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="p-4 sm:p-6">
                             {loading ? (
                                 <div className="text-center py-12 text-gray-500">Generating report...</div>
+                            ) : error ? (
+                                <div className="text-center py-12 text-red-500">{error}</div>
                             ) : !reportData ? (
                                 <div className="text-center py-12 text-gray-500">No data available.</div>
                             ) : (
