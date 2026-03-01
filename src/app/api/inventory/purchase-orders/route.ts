@@ -8,17 +8,19 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const tenant = await getOrCreateDefaultTenant();
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status') as any;
-    const supplier = searchParams.get('supplier');
+    const searchParams = new URL(request.url).searchParams;
+    const status = searchParams.get('status');
+    const vendorId = searchParams.get('vendorId') || searchParams.get('supplierId'); // Fallback compatibility
 
-    const client = prisma as any;
-
-    const purchaseOrders = await client.purchaseOrder.findMany({
+    const purchaseOrders = await prisma.purchaseOrder.findMany({
       where: {
         tenantId: tenant.id,
         ...(status && { status }),
-        ...(supplier && { supplier: { contains: supplier, mode: 'insensitive' } }),
+        ...(vendorId && { vendorId }),
+      },
+      include: {
+        vendor: true,
+        items: true
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -36,18 +38,23 @@ export async function POST(request: NextRequest) {
     const tenant = await getOrCreateDefaultTenant();
     const body = await request.json();
 
-    const client = prisma as any;
+    if (!body.vendorId && !body.supplierId) {
+      return NextResponse.json({ error: 'vendorId is required' }, { status: 400 });
+    }
 
-    const purchaseOrder = await client.purchaseOrder.create({
+    const subtotal = !isNaN(Number(body.subtotal)) ? Number(body.subtotal) : 0;
+    const tax = !isNaN(Number(body.tax)) ? Number(body.tax) : 0;
+    const total = !isNaN(Number(body.total)) ? Number(body.total) : 0;
+
+    const purchaseOrder = await prisma.purchaseOrder.create({
       data: {
         orderNumber: body.orderNumber || `PO-${Date.now()}`,
-        status: (body.status as any) || 'DRAFT',
-        supplier: body.supplier,
-        orderDate: body.orderDate ? new Date(body.orderDate) : new Date(),
+        status: body.status || 'DRAFT',
+        vendorId: body.vendorId || body.supplierId,
         expectedDate: body.expectedDate ? new Date(body.expectedDate) : null,
-        subtotal: body.subtotal,
-        tax: body.tax || 0,
-        total: body.total,
+        subtotal,
+        tax,
+        total,
         tenantId: tenant.id,
       },
     });

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { differenceInDays } from 'date-fns';
 import { postToGL, resolveAccountCodes } from '@/lib/accounting/gl-bridge';
+import { recordStockOut } from '@/lib/inventory/inventory-bridge';
+
+// Documented default margin for auto-created hotel inventory items
+const DEFAULT_COST_MARGIN = 0.4;
 
 export async function GET(
     request: NextRequest,
@@ -88,9 +92,51 @@ export async function POST(
         // OR: Update totalAmount to be inclusive of all? 
         // Answer: usually better to keep totalAmount as the "Room Rate Total", and calculate bill dynamically.
         // However, for simplicity in `payment` logic, sometimes beneficial to update `totalAmount`.
-        // Let's decide to keep `totalAmount` strictly as Room Revenue for now.
-        // But for "Balance Due" logic in simple lists, we might want to know total bill. 
         // Use a computed field? No. Let's stick to on-the-fly calc in UI/API for now.
+
+        // --- INTEGRATE WITH MASTER INVENTORY MODULE ---
+        if (type === 'MINIBAR' || type === 'F_B') {
+            const defaultWarehouse = await prisma.invWarehouse.findFirst({ where: { tenantId: booking.tenantId, isDefault: true } })
+                || await prisma.invWarehouse.findFirst({ where: { tenantId: booking.tenantId } });
+
+            if (defaultWarehouse) {
+                // Determine a safe pseudo-ID for auto-syncing if it doesn't exist
+                const getCanonicalProductId = (desc: string) => {
+                    const lookup: Record<string, string> = {
+                        'soda': 'HOTEL-MINIBAR-SODA',
+                        'water': 'HOTEL-MINIBAR-WATER',
+                        'beer': 'HOTEL-MINIBAR-BEER',
+                        'snack': 'HOTEL-MINIBAR-SNACK',
+                    };
+                    for (const [key, val] of Object.entries(lookup)) {
+                        if (desc.toLowerCase().includes(key)) return val;
+                    }
+                    console.warn(`No explicit mapping for hotel inventory item: ${desc}`);
+                    return `HOTEL-${desc.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`;
+                };
+
+                const explicitProductId = body.productId;
+                const canonicalId = explicitProductId || getCanonicalProductId(description);
+
+                let category = type === 'MINIBAR' ? 'Hotel Minibar' : 'Hotel F&B';
+
+                const margin = body.costMargin || DEFAULT_COST_MARGIN;
+
+                await recordStockOut('OUT', {
+                    tenantId: booking.tenantId,
+                    productId: canonicalId,
+                    productName: description,
+                    productCategory: category,
+                    productPrice: parsedAmount,
+                    warehouseId: defaultWarehouse.id,
+                    quantity: parsedQuantity,
+                    unitCost: parsedAmount * margin,
+                    sourceModule: 'hotel',
+                    sourceDocument: charge.id,
+                    reference: `FOL-${charge.id.substring(0, 6)}`
+                }).catch(e => console.error("Failed to sync hotel inventory outflow:", e));
+            }
+        }
 
         // --- GL POSTING ---
         try {

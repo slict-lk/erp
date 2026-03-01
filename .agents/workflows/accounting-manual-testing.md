@@ -1,325 +1,136 @@
 ---
-description: Manual QA verification and real-world testing guide for the Accounting Module
+description: Fully comprehensive manual QA verification and real-world testing guide for all ERP accounting functions
 ---
 
-# Accounting Module — Manual Testing Workflow
+# 🚀 Ultimate Accounting & Multi-Module Testing Guide
 
-> This guide walks you through **every tab** in the Accounting module with **real-world mock data** so you can verify functionality end-to-end — even if you've never used accounting software before.
-
----
-
-## Prerequisites
-
-1. The app is running locally (`pnpm dev`) or on a deployed URL.
-2. You are logged in as **SLICT Team / ADMIN**.
-3. Navigate to **Accounting** in the sidebar.
+This guide ensures **100% functional coverage** of the ERP's financial core. Follow these steps to verify that every module correctly communicates with the Ledger.
 
 ---
 
-## 🗺️ Module Overview (7 Tabs)
+## 🛠️ Step 0: Global Setup
 
-| # | Tab | What It Does |
-|---|-----|-------------|
-| 1 | **Overview** | Dashboard with KPI cards, recent invoices & payments |
-| 2 | **Invoices** | Create and manage Sales & Purchase invoices |
-| 3 | **Payments** | Record payments against invoices |
-| 4 | **Chart of Accounts** | Define your ledger structure (Assets, Liabilities, etc.) |
-| 5 | **Journal Entries** | Manual double-entry bookkeeping entries |
-| 6 | **Bank Rec.** | Upload bank statements and match with ledger |
-| 7 | **Reports** | Financial reports: P&L, Balance Sheet, Trial Balance, AR Aging |
+### 1. Multi-Currency Support
+- **Navigate to:** Sidebar → Settings (or Tenant Settings if available).
+- Ensure **Base Currency** is `LKR` and you have at least `USD` as a secondary currency for Vehicle Exports.
 
----
+### 2. Full Chart of Accounts (COA)
+**Navigate to:** Accounting → **Chart of Accounts**
+Add these critical accounts (if missing):
 
-## 📋 Test Scenario: "SLICT Auto Parts — First Month of Operations"
-
-You are the accountant for **SLICT Auto Parts**, a Sri Lankan spare parts company. It's your first month. You need to:
-1. Set up accounts
-2. Record a sale and a purchase
-3. Record payments
-4. Make a journal entry for rent
-5. Upload a bank statement
-6. Generate financial reports
-
----
-
-## Step 1: Chart of Accounts — Set Up Your Ledger
-
-**Navigate to:** Sidebar → Accounting → **Chart of Accounts**
-
-Click **"Add Account"** and create these accounts one by one:
-
-| Code | Account Name | Type | Normal Balance | Currency | Description |
-|------|-------------|------|----------------|----------|------------|
-| `1000` | Cash in Hand | ASSET | DEBIT | LKR | Petty cash & register |
-| `1010` | Commercial Bank | ASSET | DEBIT | LKR | Main business bank account |
-| `1200` | Accounts Receivable | ASSET | DEBIT | LKR | Money owed by customers |
-| `2000` | Accounts Payable | LIABILITY | CREDIT | LKR | Money owed to suppliers |
-| `2100` | VAT Payable | LIABILITY | CREDIT | LKR | Tax collected on sales |
-| `3000` | Owner's Equity | EQUITY | CREDIT | LKR | Owner capital investment |
-| `4000` | Sales Revenue | REVENUE | CREDIT | LKR | Income from spare parts |
-| `5000` | Cost of Goods Sold | EXPENSE | DEBIT | LKR | Parts purchased for resale |
-| `5100` | Rent Expense | EXPENSE | DEBIT | LKR | Monthly shop rent |
-| `5200` | Utilities Expense | EXPENSE | DEBIT | LKR | Electricity, water, internet |
-
-**✅ Expected:** All 10 accounts appear in the table. You can search by code or name.
+| Code | Name | Type | Normal | Notes |
+|------|------|------|--------|-------|
+| `1010` | Commercial Bank (LKR) | ASSET | Debit | Main LKR operating account |
+| `1011` | HNB Bank (USD) | ASSET | Debit | Foreign currency wallet |
+| `1200` | Accounts Receivable | ASSET | Debit | Linked to Sales/Invoices |
+| `2000` | Accounts Payable | LIABILITY | Credit | Linked to Purchases |
+| `2200` | Customer Deposits | LIABILITY | Credit | For Hotel/Vehicle advance payments |
+| `4000` | Sales Revenue (Parts) | REVENUE | Credit | Spareparts income |
+| `4100` | Hotel Room Revenue | REVENUE | Credit | From Room bookings |
+| `4200` | Vehicle Export Revenue | REVENUE | Credit | From Bid wins |
+| `4300` | Property Rent Income | REVENUE | Credit | From Leases |
+| `5000` | COGS | EXPENSE | Debit | Cost of goods sold |
+| `5100` | Maintenance Expense | EXPENSE | Debit | Property/Yard repairs |
 
 ---
 
-## Step 2: Invoices — Create a Sales Invoice
+## 🏨 Step 1: Hotel Module (Front-Desk to Ledger)
 
-**Navigate to:** Sidebar → Accounting → **Invoices**
-
-Click **"Create Invoice"** and fill in:
-
-| Field | Value |
-|-------|-------|
-| Type | **SALES** |
-| Period | *(select the current open period, or any available)* |
-| Customer | **Walk-in Customer** (or any available customer) |
-| Issue Date | `2026-02-01` |
-| Due Date | `2026-03-01` |
-| Invoice Lines | |
-| → Description | `Brake pads — Toyota Corolla` |
-| → Quantity | `4` |
-| → Unit Price | `2500` |
-| → Tax % | `0` |
-
-**Total should be:** LKR 10,000.00
-
-Click **Save**. You should see the invoice in the table with status **DRAFT** or **OPEN**.
-
-### Test 2b: Create a Purchase Invoice
-
-Click **"Create Invoice"** again:
-
-| Field | Value |
-|-------|-------|
-| Type | **PURCHASE** |
-| Period | *(select current period)* |
-| Vendor | **General Supplier** (or any available vendor) |
-| Issue Date | `2026-02-01` |
-| Due Date | `2026-02-28` |
-| Invoice Lines | |
-| → Description | `Bulk brake pads order — 50 units` |
-| → Quantity | `50` |
-| → Unit Price | `1500` |
-| → Tax % | `0` |
-
-**Total should be:** LKR 75,000.00
-
-**✅ Expected:** Two invoices visible in the list. You can search by number or filter by type.
+### A. The "Full Stay" Test
+1. **Create Booking:** Go to Hotel → Bookings → **New Booking**.
+   - select a guest, any room, and set status to `CHECKED_IN`.
+2. **Add Folio Charges (The "Mini-bar" Test):**
+   - Click "View Folio".
+   - Add a charge: Type: `Food`, Description: `Club Sandwich`, Amount: `1200`.
+   - Add a charge: Type: `Laundry`, Description: `Suit Cleaning`, Amount: `2500`.
+   - **✅ Verify:** Totals update in real-time.
+3. **The "Check-Out" Transaction:** 
+   - Click **"Check Out"**.
+   - **✅ Verify Status:** Booking is `CHECKED_OUT`.
+   - **✅ Verify Housekeeping:** Go to "Rooms" tab; that room must now be **"DIRTY"**.
+   - **✅ Verify Accounting:** Go to Accounting → **Journal Entries**. Find a new entry for "Hotel Check-Out". Total should equal Room Price + Folio Charges.
 
 ---
 
-## Step 3: Payments — Record Customer Payment
+## 🚢 Step 2: Vehicle Export (International Trade)
 
-**Navigate to:** Sidebar → Accounting → **Payments**
+### A. Purchase to Yard
+1. **Add Vehicle:** Vehicle Export → Inventory → **Add Vehicle**.
+   - Purchase Price: `$8,000`.
+   - **✅ Verify Transaction:** Go to Accounting → Journal Entries. A `VEHICLE_PURCHASE` entry should exist (if GL Bridge is active).
+2. **Auto-Yard Job:** Go to Vehicle Export → **Yard**. 
+   - **✅ Verify:** An "Initial Inspection" job should have been auto-created for your new vehicle.
 
-Click **"Record Payment"** and fill in:
-
-### Payment 1: Customer pays for the sales invoice
-
-| Field | Value |
-|-------|-------|
-| Type | **Received** |
-| Amount | `10000` |
-| Method | **Bank Transfer** |
-| Payment Date | `2026-02-05` |
-| Reference | `TT-20260205-001` |
-| Customer | Walk-in Customer |
-| Invoice | *(select the sales invoice you created)* |
-
-### Payment 2: You pay the supplier
-
-Click **"Record Payment"** again:
-
-| Field | Value |
-|-------|-------|
-| Type | **Sent** |
-| Amount | `75000` |
-| Method | **Cheque** |
-| Payment Date | `2026-02-10` |
-| Reference | `CHQ-4521` |
-| Vendor | General Supplier |
-
-**✅ Expected:** Two payments visible. The invoices should update their status (OPEN → PAID) if the amounts match.
+### B. The Bidding & Wallet Flow
+1. **Bid Creation:** Vehicle Export → Bids. Create a bid for a customer at `$12,000`.
+2. **The "Win":** Mark Bid as **"WON"**.
+   - **✅ Verify Accounting:** A JE for `EXPORT_SALE` should appear.
+3. **Wallet Clearance:** Go to Vehicle Export → **Wallet**.
+   - Record a `$5,000` Deposit. Balance stays `$0` (Pending).
+   - Click **"Clear"**.
+   - **✅ Verify Balance:** Balance becomes `$5,000`.
+   - **✅ Verify GL:** A JE for `CUSTOMER_DEPOSIT` appears.
+   - **✅ Verify Status:** Check the transaction history; `glPostingStatus` should be `POSTED`.
 
 ---
 
-## Step 4: Journal Entries — Record Rent Payment
+## ⚙️ Step 3: Spareparts (Inventory & POS)
 
-**Navigate to:** Sidebar → Accounting → **Journal Entries**
-
-This is double-entry bookkeeping. Every entry must have **Debits = Credits**.
-
-Click **"New Journal Entry"** and fill in:
-
-| Field | Value |
-|-------|-------|
-| Period | *(current open period)* |
-| Date | `2026-02-15` |
-| Reference | `JE-RENT-FEB` |
-| Memo | `Monthly rent payment for shop premises` |
-
-**Journal Lines:**
-
-| # | Account | Description | Debit (LKR) | Credit (LKR) |
-|---|---------|-------------|-------------|--------------|
-| 1 | `5100 - Rent Expense` | Feb 2026 shop rent | `45000` | `0` |
-| 2 | `1010 - Commercial Bank` | Bank payment for rent | `0` | `45000` |
-
-The totals bar at the bottom should show:
-- **Total Debits:** 45,000
-- **Total Credits:** 45,000
-- **Status:** ✅ Balanced
-
-Click **"Post Entry"**.
-
-### Test 4b: Another Journal Entry — Utilities
-
-| Field | Value |
-|-------|-------|
-| Period | *(current)* |
-| Date | `2026-02-20` |
-| Reference | `JE-UTIL-FEB` |
-| Memo | `Electricity and internet for February` |
-
-| # | Account | Description | Debit | Credit |
-|---|---------|-------------|-------|--------|
-| 1 | `5200 - Utilities Expense` | CEB electricity bill | `8500` | `0` |
-| 2 | `5200 - Utilities Expense` | Dialog internet | `3500` | `0` |
-| 3 | `1010 - Commercial Bank` | Bank payment | `0` | `12000` |
-
-**✅ Expected:** Both entries appear in the list. Entries show "POSTED" status. The balanced indicator is green.
+### A. Stock Protection Test
+1. **Low Stock Warning:** Pick a part with `stockQty = 2`.
+2. **Oversell Attempt:** Create a Sale for `3` units.
+3. **✅ Expected:** System must block the confirmation with **"Insufficient stock"**.
+4. **Valid Sale:** Sell `1` unit. 
+   - **✅ Verify:** Stock drops to `1`.
+   - **✅ Verify Accounting:** A JE for `SPAREPARTS_SALE` appears.
 
 ---
 
-## Step 5: Bank Reconciliation — Upload a Statement
+## 🏢 Step 4: Properties (Leasing & Maintenance)
 
-**Navigate to:** Sidebar → Accounting → **Bank Rec.**
+### A. Lease Security
+1. **Create Lease:** Start a new lease.
+2. **Validation Test:** Try entering `-1000` for Rent.
+3. **✅ Expected:** System blocks submission (Negative numbers disallowed).
+4. **Confirm Lease:** Set Rent to `50,000`.
+   - **✅ Verify GL:** Monthly rent should post to `Property Rent Income`.
 
-Click **"Upload Statement"** and select a file from your computer.
-
-> **Accepted formats:** CSV, PDF, XLS, XLSX, or image files.  
-> For testing, you can use any small CSV or image file — the system uploads it to Cloudinary.
-
-**✅ Expected:** 
-- A toast notification appears: "Statement uploaded successfully"
-- After ~1.5 seconds, a second toast: "Parsed 12 transactions from statement"
-- The upload button resets and is ready for another file
-
-> **Note:** The Auto-Match button is a placeholder for future AI-powered matching.
+### B. Maintenance Expenses
+1. **Record Repair:** Property → Maintenance. Add a "Pipe Burst Repair" for `12,000`. 
+2. **✅ Expected:** JE posts to `Maintenance Expense` vs `Cash/Bank`.
 
 ---
 
-## Step 6: Reports — Generate Financial Reports
+## 📊 Step 5: Advanced Accounting Operations
 
-**Navigate to:** Sidebar → Accounting → **Reports**
+### 1. Manual Journal Entries
+- Create a JE for "Inter-bank Transfer".
+- Debit `Commercial Bank` LKR 100,000.
+- Credit `Petty Cash` LKR 100,000.
+- **✅ Expected:** Entries show in Ledger. Reports update.
 
-### Tab 1: Profit & Loss
+### 2. Expense Management
+- Go to Accounting → **Expenses**.
+- Record a "Utility Bill" for `8,500`.
+- **✅ Expected:** Direct JE created without an invoice (simplified flow).
 
-| Setting | Value |
-|---------|-------|
-| Start Date | `2026-02-01` |
-| End Date | `2026-02-28` |
+### 3. Financial Intelligence (Reports)
+- **Module Reports:** Go to Accounting → **Module Reports**.
+- **✅ Verify:** You should see a bar chart comparing Hotel Revenue vs Spareparts vs Vehicle Export.
+- **Fallback Test:** If one module has 0 data, the page should still load (no crash).
+- **P&L / Balance Sheet:** Verify that your "Net Profit" matches the math of your sales minus expenses from the steps above.
 
-**✅ Expected:** 
-- **Revenue** section shows Sales Revenue
-- **Expenses** section shows Rent + Utilities
-- **Net Income** = Revenue − Expenses (highlighted in green/red)
-
-### Tab 2: Balance Sheet
-
-| Setting | Value |
-|---------|-------|
-| End Date (As Of) | `2026-02-28` |
-
-**✅ Expected:** Shows Assets, Liabilities, and Equity sections.
-
-### Tab 3: Trial Balance
-
-| Setting | Value |
-|---------|-------|
-| End Date (As Of) | `2026-02-28` |
-
-**✅ Expected:** Lists all accounts with their debit/credit totals. Total Debits should equal Total Credits.
-
-### Tab 4: AR Aging
-
-| Setting | Value |
-|---------|-------|
-| End Date (As Of) | `2026-02-28` |
-
-**✅ Expected:** Shows outstanding invoices grouped by aging buckets (Current, 30, 60, 90+ days).
-
-### Export
-
-Click the **"Export"** button → Your browser's print dialog should open. You can save as PDF.
-
-### More Filters
-
-Click **"More Filters"** → A toast should appear explaining that filtering is managed via the date pickers.
-
-**✅ Expected:** Both buttons respond with visible feedback.
+### 4. Bank Reconciliation
+- Upload any CSV or Image.
+- **✅ Verify:** AI parsing toast appears. Matches are listed (even if placeholders for now).
 
 ---
 
-## Step 7: Overview Dashboard — Final Verification
+## 🕵️ Technical "Hidden" Fixes to Verify
 
-**Navigate to:** Sidebar → Accounting → **Overview**
-
-**✅ Expected:**
-- KPI cards show updated totals (Revenue, Expenses, Receivables, Payables)
-- Recent Invoices table shows your 2 invoices
-- Recent Payments table shows your 2 payments
-- Quick action links work (Create Invoice, Record Payment, etc.)
+- **Invoice Numbers:** Create 3 invoices. Verify they follow `INV-[FULL-UUID]` format (safeguard against collisions).
+- **Tenant Isolation:** Log in as User A. Create data. Log in as User B. **Verify User B cannot see any of User A's financial data.**
+- **Admin Notes:** Fail a GL post intentionally (e.g., deleted account). Verify that the `adminNote` captures the error message precisely without wiping previous notes.
 
 ---
-
-## 🧪 Edge Case Tests
-
-| Test | Steps | Expected |
-|------|-------|----------|
-| **Empty state** | Visit Chart of Accounts with no data | "No accounts found" or empty table displays cleanly |
-| **Unbalanced JE** | Create a Journal Entry where Debits ≠ Credits | The "Post" button should be disabled; a red "unbalanced" indicator appears |
-| **Duplicate account code** | Try adding two accounts with code `1000` | Server should return an error toast |
-| **Search** | Type "brake" in the Invoices search bar | Only the brake pads invoice should appear |
-| **Large numbers** | Create an invoice for LKR 999,999,999 | Numbers should format correctly with commas |
-| **Empty upload** | Click Upload Statement without selecting a file | Nothing should happen (no crash) |
-
----
-
-## 📊 Complete Mock Data Reference
-
-### Customers (if you need to add via Sales module)
-| Name | Email | Phone |
-|------|-------|-------|
-| Kamal Perera | kamal@example.com | +94 77 123 4567 |
-| Nimal Fernando | nimal@example.com | +94 76 234 5678 |
-| Chamari Silva | chamari@example.com | +94 71 345 6789 |
-
-### Vendors (if you need to add via Purchasing module)
-| Name | Email | Phone |
-|------|-------|-------|
-| Toyota Lanka Parts | parts@toyotalanka.lk | +94 11 234 5678 |
-| ABC Auto Supplies | sales@abcauto.lk | +94 11 345 6789 |
-| Nippon Parts International | info@nipponparts.jp | +81 3 1234 5678 |
-
-### Sample Invoice Lines (for variety)
-| Description | Qty | Unit Price (LKR) |
-|-------------|-----|------------------|
-| Brake pads — Toyota Corolla | 4 | 2,500 |
-| Oil filter — Honda Civic | 10 | 450 |
-| Timing belt kit — Suzuki Swift | 2 | 8,750 |
-| Spark plugs (set of 4) — Universal | 20 | 320 |
-| Air filter — Mitsubishi Lancer | 6 | 1,200 |
-| Clutch plate — Nissan Sunny | 1 | 15,500 |
-
-### Sample Journal Entry Scenarios
-| Scenario | Debit Account | Credit Account | Amount (LKR) |
-|----------|---------------|----------------|-------------|
-| Pay rent | 5100 Rent Expense | 1010 Commercial Bank | 45,000 |
-| Pay utilities | 5200 Utilities | 1010 Commercial Bank | 12,000 |
-| Owner invests capital | 1010 Commercial Bank | 3000 Owner's Equity | 500,000 |
-| Record sale on credit | 1200 Accounts Receivable | 4000 Sales Revenue | 25,000 |
-| Record COGS | 5000 Cost of Goods Sold | 1000 Cash in Hand | 15,000 |
+*Testing guide version: 2.0 (Complete Coverage)*

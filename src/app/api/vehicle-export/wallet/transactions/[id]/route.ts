@@ -93,16 +93,15 @@ export async function PUT(
                             { accountCode: accounts.creditCode, debit: 0, credit: existingTx.amount, description: 'Customer Deposit Liability' }
                         ]
                     });
+
+                    // Mark as posted successfully ONLY if the GL posting succeeds
+                    await prisma.exportWalletTransaction.update({
+                        where: { id: result.id },
+                        data: { glPostingStatus: 'POSTED' }
+                    });
                 }
             }
 
-            // Mark as posted successfully
-            if (status === 'CLEARED' && existingTx.status === 'PENDING' && existingTx.type === 'DEPOSIT') {
-                await prisma.exportWalletTransaction.update({
-                    where: { id: result.id },
-                    data: { glPostingStatus: 'POSTED' }
-                });
-            }
 
         } catch (error: any) {
             console.error('[SYSTEM ALERT] GL Bridge error (wallet deposit cleared):', {

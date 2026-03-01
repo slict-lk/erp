@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { postToGL, resolveAccountCodes } from '@/lib/accounting/gl-bridge';
+import { recordStockIn } from '@/lib/inventory/inventory-bridge';
 
 // GET /api/vehicle-export/vehicles - List vehicles (Module C)
 export async function GET(request: NextRequest) {
@@ -158,6 +159,26 @@ export async function POST(request: NextRequest) {
         };
 
         const { vehicle, stockNumber } = await createVehicleWithRetry();
+
+        // --- INTEGRATE WITH MASTER INVENTORY MODULE ---
+        const defaultWarehouse = await prisma.invWarehouse.findFirst({ where: { tenantId, isDefault: true } })
+            || await prisma.invWarehouse.findFirst({ where: { tenantId } });
+
+        if (defaultWarehouse) {
+            await recordStockIn('IN', {
+                tenantId,
+                productId: `VEH-${vehicle.id}`,
+                productName: `${body.year} ${body.make} ${body.model} (Chassis: ${chassisNumber || 'Unknown'})`,
+                productCategory: 'Vehicle Export',
+                productPrice: Number(body.purchasePrice || 0) * 1.2, // Rough 20% margin for catalog
+                warehouseId: defaultWarehouse.id,
+                quantity: 1, // Serialized stock
+                unitCost: Number(body.purchasePrice || 0) + Number(body.auctionFee || 0),
+                sourceModule: 'vehicle-export',
+                sourceDocument: vehicle.id,
+                reference: stockNumber
+            }).catch(e => console.error("Failed to sync vehicle inventory inflow:", e));
+        }
 
         try {
             const purchaseAccounts = await resolveAccountCodes(tenantId, 'vehicle-export', 'VEHICLE_PURCHASE');

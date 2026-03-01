@@ -740,6 +740,7 @@ model PurchaseOrderItem {
   purchaseOrderId String
   productId       String
   quantity        Int
+  receivedQuantity Int          @default(0)
   unitPrice       Float
   total           Float
   tenantId        String
@@ -5276,3 +5277,190 @@ model ModuleAccountMapping {
   @@index([tenantId])
   @@index([moduleSlug])
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INVENTORY MODULE
+// Prefixed with "Inv" to avoid naming conflicts with spareparts or POS models.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model InvProduct {
+  id               String   @id @default(cuid())
+  tenantId         String
+  sku              String
+  name             String
+  description      String?
+  type             String   @default("STORABLE") // STORABLE | CONSUMABLE | SERVICE
+  category         String?
+  barcode          String?
+  images           String[] @default([])
+  isActive         Boolean  @default(true)
+  canBeSold        Boolean  @default(true)
+  canBePurchased   Boolean  @default(true)
+  unit             String?  // pcs, kg, litre, m2, etc.
+
+  // Pricing (cost = weighted avg, updated on each receipt)
+  salePrice        Decimal  @default(0)
+  costPrice        Decimal  @default(0)
+
+  // Stock aggregates (maintained by triggers/bridge, not raw SQL)
+  stockQty         Decimal  @default(0)
+  reservedQty      Decimal  @default(0)
+  minStockQty      Decimal  @default(0)
+  maxStockQty      Decimal?
+
+  // Reorder + sourcing
+  defaultSupplierId String?
+  leadTimeDays     Int?
+  notes            String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  supplier         InvSupplier?          @relation(fields: [defaultSupplierId], references: [id])
+  stockLedgers     InvStockLedger[]
+  stockMovements   InvStockMovement[]
+  purchaseOrderLines InvPurchaseOrderLine[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
+  @@index([tenantId, category])
+}
+
+model InvWarehouse {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  code        String
+  address     String?
+  description String?
+  isActive    Boolean  @default(true)
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  stockLedgers   InvStockLedger[]
+  stockMovements InvStockMovement[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+// One row per (product × warehouse) — the live quantity
+model InvStockLedger {
+  id          String   @id @default(cuid())
+  tenantId    String
+  productId   String
+  warehouseId String
+  onHand      Decimal  @default(0)
+  reserved    Decimal  @default(0)
+  updatedAt   DateTime @updatedAt
+
+  product   InvProduct   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse InvWarehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, warehouseId])
+  @@index([tenantId])
+}
+
+// Append-only audit log. Never update existing rows.
+model InvStockMovement {
+  id          String   @id @default(cuid())
+  tenantId    String
+  productId   String
+  warehouseId String?
+
+  type        String   // IN | OUT | TRANSFER | ADJUSTMENT | RETURN | WRITE_OFF
+  direction   Int      // +1 = IN, -1 = OUT
+  quantity    Decimal
+  unitCost    Decimal  @default(0)
+  totalCost   Decimal  @default(0)
+
+  // Cross-module traceability
+  sourceModule   String?  // spareparts | hotel | restaurant | vehicle-export | manufacturing | properties | inventory
+  sourceDocument String?  // ID of the originating record
+  reference      String?  // Human-readable (SP-INV-001, PO-2026-001, etc.)
+  notes          String?
+
+  date           DateTime @default(now())
+  createdAt      DateTime @default(now())
+  glPostingStatus String? // PENDING | POSTED | FAILED | N_A
+
+  product   InvProduct    @relation(fields: [productId], references: [id])
+  warehouse InvWarehouse? @relation(fields: [warehouseId], references: [id])
+
+  @@index([tenantId])
+  @@index([productId])
+  @@index([tenantId, sourceModule])
+  @@index([tenantId, date])
+}
+
+model InvSupplier {
+  id           String   @id @default(cuid())
+  tenantId     String
+  name         String
+  contactName  String?
+  email        String?
+  phone        String?
+  address      String?
+  currency     String   @default("LKR")
+  paymentTerms String?  // NET30 | NET60 | CASH | ADVANCE
+  taxId        String?
+  rating       Int?     // 1-5 stars (computed from PO performance)
+  isActive     Boolean  @default(true)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  products       InvProduct[]
+  purchaseOrders InvPurchaseOrder[]
+
+  @@index([tenantId])
+}
+
+model InvPurchaseOrder {
+  id          String   @id @default(cuid())
+  tenantId    String
+  supplierId  String?
+  poNumber    String
+  status      String   @default("DRAFT") // DRAFT | SENT | CONFIRMED | PARTIAL | RECEIVED | CANCELLED
+
+  currency    String   @default("LKR")
+  subtotal    Decimal  @default(0)
+  taxAmount   Decimal  @default(0)
+  total       Decimal  @default(0)
+
+  notes          String?
+  expectedAt     DateTime?
+  confirmedAt    DateTime?
+  receivedAt     DateTime?
+  glPostingStatus String?  // PENDING | POSTED | FAILED
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  supplier InvSupplier?         @relation(fields: [supplierId], references: [id])
+  lines    InvPurchaseOrderLine[]
+
+  @@unique([tenantId, poNumber])
+  @@index([tenantId])
+  @@index([tenantId, status])
+}
+
+model InvPurchaseOrderLine {
+  id              String   @id @default(cuid())
+  purchaseOrderId String
+  productId       String
+  description     String?
+  quantity        Decimal
+  unitCost        Decimal
+  lineTotal       Decimal
+  taxPct          Decimal  @default(0)
+  receivedQty     Decimal  @default(0)
+
+  purchaseOrder InvPurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       InvProduct       @relation(fields: [productId], references: [id])
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+  @@index([purchaseOrderId, productId])
+}
+

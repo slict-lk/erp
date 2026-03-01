@@ -20,28 +20,42 @@ export async function GET(request: NextRequest) {
     const categoryId = searchParams.get('categoryId');
     const isActive = searchParams.get('isActive');
 
-    const products = await prisma.product.findMany({
-      where: {
-        tenantId: tenant.id,
-        ...(search && {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { sku: { contains: search, mode: 'insensitive' } },
-            { description: { contains: search, mode: 'insensitive' } },
-          ],
-        }),
-        ...(typeParam && { type: typeParam as 'STORABLE' | 'CONSUMABLE' | 'SERVICE' }),
-        ...(categoryId && { category: categoryId }),
-        ...(isActive && { isActive: isActive === 'true' }),
-      },
+    const validTypes = ['STORABLE', 'CONSUMABLE', 'SERVICE'];
+    if (typeParam && !validTypes.includes(typeParam)) {
+      return NextResponse.json({ error: 'Invalid product type filtering' }, { status: 400 });
+    }
+
+    const parsedSkip = parseInt(searchParams.get('skip') || '0', 10);
+    const parsedTake = parseInt(searchParams.get('take') || '50', 10);
+    const skip = Math.max(0, isNaN(parsedSkip) ? 0 : parsedSkip);
+    const take = Math.min(100, Math.max(1, isNaN(parsedTake) ? 50 : parsedTake));
+
+    const whereClause: any = {
+      tenantId: tenant.id,
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { sku: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+      ...(typeParam && { type: typeParam as 'STORABLE' | 'CONSUMABLE' | 'SERVICE' }),
+      ...(categoryId && { category: categoryId }),
+      ...(isActive && { isActive: isActive === 'true' }),
+    };
+
+    const count = await prisma.invProduct.count({ where: whereClause });
+    const products = await prisma.invProduct.findMany({
+      where: whereClause,
       include: {
-        stockMovements: true,
-        invoiceLines: true,
-      } as Prisma.ProductFindManyArgs['include'],
+        stockLedgers: true
+      },
+      skip,
+      take,
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json(products);
+    return NextResponse.json({ data: products, count, skip, take });
   } catch (error: any) {
     if (error.message === 'Forbidden: Insufficient Permissions') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -62,7 +76,14 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const product = await prisma.product.create({
+    if (!body.name || typeof body.name !== 'string' || body.name.trim() === '') {
+      return NextResponse.json({ error: 'Product name is required' }, { status: 400 });
+    }
+    if (!body.sku || typeof body.sku !== 'string' || body.sku.trim() === '') {
+      return NextResponse.json({ error: 'Product SKU is required' }, { status: 400 });
+    }
+
+    const product = await prisma.invProduct.create({
       data: {
         sku: body.sku,
         name: body.name,

@@ -16,10 +16,13 @@ export async function getBOMs(tenantId: string) {
 }
 
 export async function createBOM(data: Partial<BillOfMaterials> & { tenantId: string }) {
+  if (!data.code || !data.productId) {
+    throw new Error('Code and productId are required to create a BOM');
+  }
   return await client.billOfMaterials.create({
     data: {
-      code: data.code!,
-      productId: data.productId!,
+      code: data.code,
+      productId: data.productId,
       quantity: data.quantity || 1,
       type: data.type || 'MANUFACTURE',
       tenantId: data.tenantId,
@@ -48,13 +51,21 @@ export async function getWorkCenters(tenantId: string) {
 }
 
 export async function createWorkCenter(data: Partial<WorkCenter> & { tenantId: string }) {
-  return {
-    id: `wc_${Date.now()}`,
-    name: data.name!,
-    code: data.code!,
-    capacity: data.capacity || 1,
-    efficiency: data.efficiency || 100,
-  };
+  if (!data.name || !data.name.trim() || !data.code || !data.code.trim()) {
+    throw new Error('Name and code are required to create a Work Center');
+  }
+  const capacity = data.capacity || 1;
+  const efficiency = data.efficiency || 100;
+
+  return await client.workCenter.create({
+    data: {
+      tenantId: data.tenantId,
+      name: data.name!,
+      code: data.code!,
+      capacity,
+      efficiency,
+    }
+  });
 }
 
 // Manufacturing Orders
@@ -95,7 +106,69 @@ export async function updateManufacturingOrder(
   data: Partial<ManufacturingOrder>,
   tenantId: string
 ) {
-  return null;
+  const order = await client.manufacturingOrder.findFirst({
+    where: { id, tenantId },
+    include: { bom: { include: { components: true } }, product: true }
+  });
+
+  if (!order) throw new Error('Manufacturing order not found');
+
+  if (data.status !== undefined) {
+    await client.manufacturingOrder.update({
+      where: { id },
+      data: {
+        status: data.status,
+        endDate: data.status === 'DONE' ? new Date() : undefined
+      }
+    });
+  }
+
+  // Refetch to reflect exact latest DB state 
+  const updatedOrder = await client.manufacturingOrder.findUnique({
+    where: { id },
+    include: { bom: { include: { components: true } }, product: true }
+  });
+
+  if (!updatedOrder) {
+    throw new Error(`Manufacturing order ${id} not found after update`);
+  }
+
+  // --- INTEGRATE WITH MASTER INVENTORY MODULE ---
+  if (data.status === 'DONE' && order.status !== 'DONE') {
+    const { recordStockIn, recordStockOut } = await import('@/lib/inventory/inventory-bridge');
+
+    const defaultWarehouse = await client.invWarehouse.findFirst({ where: { tenantId, isDefault: true } })
+      || await client.invWarehouse.findFirst({ where: { tenantId } });
+
+    if (defaultWarehouse) {
+      let rawCostTotal = Number(order.product?.costPrice || 0);
+
+      if (order.bom) {
+        const components = (order.bom as any).components;
+        if (Array.isArray(components) && components.length > 0) {
+          rawCostTotal = components.reduce((sum: number, comp: any) => {
+            return sum + ((comp.unitCost || 0) * (comp.quantity || 0));
+          }, 0);
+        }
+      }
+
+      // 2. Add finished goods to inventory
+      await recordStockIn('IN', {
+        tenantId,
+        productId: order.productId,
+        productName: order.product?.name || `Manufactured Product ${order.productId}`,
+        productCategory: 'Manufactured Goods',
+        warehouseId: defaultWarehouse.id,
+        quantity: Number(order.quantity),
+        unitCost: rawCostTotal, // the cost of production
+        sourceModule: 'manufacturing',
+        sourceDocument: order.id,
+        reference: `MO-${order.reference || order.id.substring(0, 6)}`
+      }); // Propagate errors upwards
+    }
+  }
+
+  return updatedOrder;
 }
 
 // Production Analytics

@@ -10,18 +10,17 @@ export async function GET(request: NextRequest) {
   try {
     const tenant = await getOrCreateDefaultTenant();
 
-    const warehouses = await prisma.warehouse.findMany({
+    const warehouses = await prisma.invWarehouse.findMany({
       where: {
         tenantId: tenant.id,
       },
       include: {
-        stockMoves: {
+        stockMovements: {
           include: {
             product: true,
           },
         },
-        posConfigs: true,
-      } as Prisma.WarehouseFindManyArgs['include'],
+      },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -38,7 +37,11 @@ export async function POST(request: NextRequest) {
     const tenant = await getOrCreateDefaultTenant();
     const body = await request.json();
 
-    const warehouse = await prisma.warehouse.create({
+    if (!body.name || !body.code) {
+      return NextResponse.json({ error: 'Warehouse name and code are required' }, { status: 400 });
+    }
+
+    const warehouse = await prisma.invWarehouse.create({
       data: {
         name: body.name,
         code: body.code,

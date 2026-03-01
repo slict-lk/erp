@@ -1,208 +1,171 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { StockMovementList } from '@/components/inventory/StockMovementList';
-import { StockMovementForm } from '@/components/inventory/StockMovementForm';
+import { useState, useEffect, useMemo } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
-
-interface StockMovement {
-  id: string;
-  productId: string;
-  product?: {
-    id: string;
-    name: string;
-    sku: string;
-  };
-  warehouseId: string;
-  warehouse?: {
-    id: string;
-    name: string;
-    code: string;
-  };
-  toWarehouseId?: string;
-  toWarehouse?: {
-    id: string;
-    name: string;
-    code: string;
-  };
-  type: 'IN' | 'OUT' | 'ADJUSTMENT' | 'TRANSFER';
-  quantity: number;
-  reference?: string;
-  reason?: string;
-  movementDate: Date;
-  createdAt: Date;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  sku: string;
-  qtyAvailable: number;
-}
-
-interface Warehouse {
-  id: string;
-  name: string;
-  code: string;
-}
-
-type ViewMode = 'list' | 'create' | 'view';
+import { Input } from '@/components/ui/input';
+import { Search, History, ArrowDownToLine, ArrowUpFromLine, Layers, MapPin } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
+import { format } from 'date-fns';
 
 export default function StockMovementsPage() {
-  const [movements, setMovements] = useState<StockMovement[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [selectedMovement, setSelectedMovement] = useState<StockMovement | null>(null);
+  const [movements, setMovements] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadMovements();
-    loadProducts();
-    loadWarehouses();
+    loadData();
   }, []);
 
-  const loadMovements = async () => {
+  const loadData = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      const response = await fetch('/api/inventory/movements');
-      if (response.ok) {
-        const data = await response.json();
-        setMovements(data);
+      const res = await fetch('/api/inventory/stock');
+      if (res.ok) {
+        setMovements(await res.json());
+      } else {
+        setError(`Failed to load movements: ${res.statusText}`);
       }
-    } catch (error) {
-      console.error('Failed to load stock movements:', error);
+    } catch (e: any) {
+      console.error(e);
+      setError(e.message || 'Network error');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const loadProducts = async () => {
-    try {
-      const response = await fetch('/api/inventory/products');
-      if (response.ok) {
-        const data = await response.json();
-        setProducts(data);
-      }
-    } catch (error) {
-      console.error('Failed to load products:', error);
-    }
-  };
-
-  const loadWarehouses = async () => {
-    try {
-      const response = await fetch('/api/inventory/warehouses');
-      if (response.ok) {
-        const data = await response.json();
-        setWarehouses(data);
-      }
-    } catch (error) {
-      console.error('Failed to load warehouses:', error);
-    }
-  };
-
-  const handleCreateMovement = async (data: any) => {
-    try {
-      const response = await fetch('/api/inventory/movements', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-
-      if (response.ok) {
-        await loadMovements();
-        await loadProducts(); // Refresh products to get updated quantities
-        setViewMode('list');
-      }
-    } catch (error) {
-      console.error('Error creating stock movement:', error);
-      alert('Failed to create stock movement');
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">Loading stock movements...</div>
-        </div>
-      </div>
+  const filteredMovements = useMemo(() => {
+    if (!searchTerm) return movements;
+    const lower = searchTerm.toLowerCase();
+    return movements.filter(m =>
+      m.product?.name?.toLowerCase().includes(lower) ||
+      m.product?.sku?.toLowerCase().includes(lower) ||
+      m.sourceModule?.toLowerCase().includes(lower) ||
+      m.reference?.toLowerCase().includes(lower) ||
+      m.type?.toLowerCase().includes(lower)
     );
-  }
+  }, [movements, searchTerm]);
 
   return (
-    <div className="p-6">
-      {viewMode === 'list' ? (
-        <StockMovementList
-          movements={movements}
-          onCreateNew={() => setViewMode('create')}
-          onView={(movement) => {
-            setSelectedMovement(movement);
-            setViewMode('view');
-          }}
-        />
-      ) : (
-        <div className="max-w-4xl mx-auto">
-          <div className="mb-6">
-            <Button variant="outline" onClick={() => setViewMode('list')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Stock Movements
-            </Button>
-          </div>
-          <h1 className="text-3xl font-bold mb-6">
-            {viewMode === 'create' ? 'Record Stock Movement' : 'View Stock Movement'}
+    <div className="p-6 md:p-8 space-y-8 max-w-[1600px] mx-auto min-h-screen bg-gray-50/30">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
+            <History className="h-8 w-8 text-indigo-600" />
+            Stock Movement Audit Log
           </h1>
-          {viewMode === 'create' && (
-            <StockMovementForm
-              products={products}
-              warehouses={warehouses}
-              onSubmit={handleCreateMovement}
-              onCancel={() => setViewMode('list')}
-            />
-          )}
-          {viewMode === 'view' && selectedMovement && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold mb-4">Movement Details</h2>
-              <div className="space-y-3">
-                <div>
-                  <span className="font-medium">Type:</span> {selectedMovement.type}
-                </div>
-                <div>
-                  <span className="font-medium">Product:</span>{' '}
-                  {selectedMovement.product?.name} ({selectedMovement.product?.sku})
-                </div>
-                <div>
-                  <span className="font-medium">Quantity:</span> {selectedMovement.quantity}
-                </div>
-                <div>
-                  <span className="font-medium">Warehouse:</span>{' '}
-                  {selectedMovement.warehouse?.name}
-                </div>
-                {selectedMovement.toWarehouse && (
-                  <div>
-                    <span className="font-medium">To Warehouse:</span>{' '}
-                    {selectedMovement.toWarehouse.name}
-                  </div>
-                )}
-                {selectedMovement.reference && (
-                  <div>
-                    <span className="font-medium">Reference:</span> {selectedMovement.reference}
-                  </div>
-                )}
-                {selectedMovement.reason && (
-                  <div>
-                    <span className="font-medium">Reason:</span> {selectedMovement.reason}
-                  </div>
-                )}
-                <div>
-                  <span className="font-medium">Date:</span>{' '}
-                  {new Date(selectedMovement.movementDate).toLocaleDateString()}
-                </div>
-              </div>
+          <p className="text-gray-500 mt-2">Chronological tracking of every global inventory adjustment, inbound receipt, and allocation.</p>
+        </div>
+        <div className="relative w-full md:w-96">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Filter by product, SKU, reference, module, or type..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 w-full bg-white border-gray-200"
+          />
+        </div>
+      </div>
+
+      <Card className="shadow-sm border-gray-100">
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="h-64 flex items-center justify-center" role="status" aria-live="polite">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+              <span className="sr-only">Loading movements...</span>
+            </div>
+          ) : error ? (
+            <div className="h-64 flex flex-col items-center justify-center space-y-4">
+              <p className="text-rose-500">{error}</p>
+              <Button onClick={loadData} variant="outline">Retry</Button>
+            </div>
+          ) : (
+            <div className="relative overflow-x-auto w-full">
+              <Table>
+                <TableHeader className="bg-gray-50/50">
+                  <TableRow>
+                    <TableHead>Time & Date</TableHead>
+                    <TableHead>Direction</TableHead>
+                    <TableHead className="w-[300px]">Asset Profile</TableHead>
+                    <TableHead>Event Type</TableHead>
+                    <TableHead className="text-center">Integrations</TableHead>
+                    <TableHead className="text-right">Reference</TableHead>
+                    <TableHead className="text-right">Impact</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="bg-white">
+                  {filteredMovements.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="h-48 text-center text-gray-500">
+                        <div className="flex flex-col items-center justify-center space-y-2">
+                          <Layers className="h-10 w-10 text-gray-300" />
+                          <p>No valid stock logs mapped to those filters.</p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredMovements.map((m) => {
+                    const isOut = Number(m.direction) < 0;
+                    return (
+                      <TableRow key={m.id} className="hover:bg-gray-50/50 transition-colors">
+                        <TableCell className="text-gray-600 text-sm whitespace-nowrap">
+                          {(() => {
+                            const d = new Date(m.date);
+                            if (isNaN(d.getTime())) return <span className="text-gray-400">Invalid Date</span>;
+                            return (
+                              <>
+                                {format(d, 'MMM d, yyyy')}<br />
+                                <span className="text-xs text-gray-400">{format(d, 'h:mm:ss a')}</span>
+                              </>
+                            );
+                          })()}
+                        </TableCell>
+                        <TableCell>
+                          <div className={`flex items-center justify-center w-8 h-8 rounded-full ${isOut ? 'bg-rose-50' : 'bg-emerald-50'}`}>
+                            {isOut ? <ArrowUpFromLine className="h-4 w-4 text-rose-500" /> : <ArrowDownToLine className="h-4 w-4 text-emerald-500" />}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <span className="font-semibold text-gray-900 block">{m.product?.name || 'Unknown'}</span>
+                            <span className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                              <MapPin className="h-3 w-3" /> {m.warehouse?.name || 'Lost Sector'}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-gray-50 text-gray-700">
+                            {m.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 uppercase tracking-widest text-[10px]">
+                            {m.sourceModule}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right text-gray-500 font-mono text-xs">
+                          {m.reference || '—'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className={`font-bold text-lg ${isOut ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            {isOut ? '' : '+'}{isNaN(Number(m.quantity)) || isNaN(Number(m.direction)) ? '-' : (Number(m.quantity) * Number(m.direction))}
+                          </div>
+                          <div className="text-xs text-gray-400 font-medium">
+                            @ {isNaN(Number(m.unitCost)) ? '-' : formatCurrency(Number(m.unitCost))}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
             </div>
           )}
-        </div>
-      )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

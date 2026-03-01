@@ -1,6 +1,8 @@
 // Spare Parts Shop Module API Functions
 // Following Healthcare module pattern
 import { prisma } from '@/lib/prisma';
+import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
+import { recordStockOut, recordStockIn } from '@/lib/inventory/inventory-bridge';
 import { postToGL, reverseGLEntry, resolveAccountCodes } from '@/lib/accounting/gl-bridge';
 import type {
     CreateCustomerInput,
@@ -443,6 +445,29 @@ export async function confirmInvoice(id: string, tenantId: string, appliedPromot
             data: { status: 'CONFIRMED' }
         });
     });
+
+    // --- INTEGRATE WITH MASTER INVENTORY MODULE ---
+    // Fetch a default warehouse if none specified. In a real scenario, the POS might have a mapped warehouse.
+    const defaultWarehouse = await prisma.invWarehouse.findFirst({ where: { tenantId, isDefault: true } })
+        || await prisma.invWarehouse.findFirst({ where: { tenantId } });
+
+    if (defaultWarehouse) {
+        for (const item of invoice.items) {
+            await recordStockOut('OUT', {
+                tenantId,
+                productId: item.productId, // Use original sparepart ID to seamlessly sync
+                productName: item.productName || 'Unknown Spare Part',
+                productCategory: 'Spareparts',
+                productPrice: Number(item.unitPrice),
+                warehouseId: defaultWarehouse.id,
+                quantity: Number(item.quantity),
+                unitCost: Number(item.costPrice || item.unitPrice),
+                sourceModule: 'spareparts',
+                sourceDocument: invoice.id,
+                reference: invoice.invoiceNumber || `INV-${invoice.id.substring(0, 8)}`
+            }).catch(e => console.error("Failed to sync inventory outflow:", e));
+        }
+    }
 
     try {
         const accounts = await resolveAccountCodes(tenantId, 'spareparts', 'SALE');

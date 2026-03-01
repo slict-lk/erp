@@ -61,7 +61,9 @@ import {
   UserPlus,
   Activity,
   TrendingUp,
-  Briefcase
+  Briefcase,
+  Tags,
+  AlertTriangle
 } from 'lucide-react';
 import { useModulePermissions } from '@/hooks/useModulePermissions';
 import type { LucideIcon } from 'lucide-react';
@@ -140,12 +142,15 @@ const navigation: NavigationItem[] = [
     href: '/inventory',
     icon: Package,
     children: [
-      { name: 'Overview', href: '/inventory', moduleId: 'inventory' },
-      { name: 'Products', href: '/inventory/products', moduleId: 'inventory' },
-      { name: 'Categories', href: '/inventory/categories', moduleId: 'inventory' },
-      { name: 'Warehouses', href: '/inventory/warehouses', moduleId: 'inventory' },
-      { name: 'Movements', href: '/inventory/movements', moduleId: 'inventory' },
-      { name: 'Purchase Orders', href: '/inventory/purchase-orders', moduleId: 'inventory' },
+      { name: 'Overview', href: '/inventory', icon: LayoutDashboard, moduleId: 'inventory' },
+      { name: 'Products', href: '/inventory/products', icon: Package, moduleId: 'inventory' },
+      { name: 'Categories', href: '/inventory/categories', icon: Tags, moduleId: 'inventory' },
+      { name: 'Warehouses', href: '/inventory/warehouses', icon: Building2, moduleId: 'inventory' },
+      { name: 'Movements', href: '/inventory/movements', icon: Activity, moduleId: 'inventory' },
+      { name: 'Purchase Orders', href: '/inventory/purchase-orders', icon: Truck, moduleId: 'inventory' },
+      { name: 'Suppliers', href: '/inventory/suppliers', icon: Users, moduleId: 'inventory' },
+      { name: 'Reorder Alerts', href: '/inventory/alerts', icon: AlertTriangle, moduleId: 'inventory' },
+      { name: 'Reports', href: '/inventory/reports', icon: BarChart3, moduleId: 'inventory' },
     ],
   },
   {

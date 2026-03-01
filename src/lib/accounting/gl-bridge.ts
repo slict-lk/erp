@@ -88,7 +88,7 @@ const MODULE_REF_PREFIX: Record<string, string> = {
  *  - Prevents duplicate entries via sourceDocumentId + sourceDocumentType idempotency
  *  - Handles currency conversion to base currency
  */
-export async function postToGL(request: GLPostingRequest): Promise<GLPostingResult> {
+export async function postToGL(request: GLPostingRequest, txClient?: any): Promise<GLPostingResult> {
     try {
         // 1. Validate debit/credit balance
         const totalDebit = request.lines.reduce((sum, l) => sum + l.debit, 0);
@@ -105,7 +105,7 @@ export async function postToGL(request: GLPostingRequest): Promise<GLPostingResu
             return { success: false, error: 'No journal lines provided' };
         }
 
-        const result = await prisma.$transaction(async (tx) => {
+        const work = async (tx: any) => {
             // 2. Idempotency check — prevent duplicate GL entries for the same source document + event
             const existing = await tx.journalEntry.findFirst({
                 where: {
@@ -148,7 +148,7 @@ export async function postToGL(request: GLPostingRequest): Promise<GLPostingResu
                 }
             });
 
-            const accountMap = new Map(accounts.map(a => [a.code, a]));
+            const accountMap = new Map<string, any>(accounts.map((a: any) => [a.code, a]));
 
             // Validate all accounts exist
             for (const code of accountCodes) {
@@ -198,7 +198,14 @@ export async function postToGL(request: GLPostingRequest): Promise<GLPostingResu
             });
 
             return { journalEntryId: journalEntry.id, alreadyExists: false };
-        });
+        };
+
+        let result;
+        if (txClient) {
+            result = await work(txClient);
+        } else {
+            result = await prisma.$transaction(work);
+        }
 
         return {
             success: true,
@@ -292,9 +299,11 @@ export async function reverseGLEntry(
  */
 export async function getModuleMappings(
     tenantId: string,
-    moduleSlug: string
+    moduleSlug: string,
+    txClient?: any
 ): Promise<Map<string, { debitCode: string; creditCode: string }>> {
-    const mappings = await prisma.moduleAccountMapping.findMany({
+    const client = txClient || prisma;
+    const mappings = await client.moduleAccountMapping.findMany({
         where: { tenantId, moduleSlug, isActive: true },
         include: {
             debitAccount: { select: { code: true } },
@@ -393,10 +402,11 @@ export const DEFAULT_ACCOUNT_CODES: Record<string, Record<string, { debit: strin
 export async function resolveAccountCodes(
     tenantId: string,
     moduleSlug: string,
-    eventType: string
+    eventType: string,
+    txClient?: any
 ): Promise<{ debitCode: string; creditCode: string } | null> {
     // 1. Check custom mappings
-    const mappings = await getModuleMappings(tenantId, moduleSlug);
+    const mappings = await getModuleMappings(tenantId, moduleSlug, txClient);
     const custom = mappings.get(eventType);
     if (custom) return custom;
 

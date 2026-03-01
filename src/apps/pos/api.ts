@@ -1,9 +1,16 @@
 // Point of Sale Module API Functions
 import { prisma } from '@/lib/prisma';
 import { postToGL, resolveAccountCodes } from '@/lib/accounting/gl-bridge';
-import type { POSSession, POSOrder, POSConfig } from './types';
+import { recordStockOut } from '@/lib/inventory/inventory-bridge';
+import type { POSOrder, POSSession, POSConfig } from './types';
 
 const client = prisma as any;
+
+/**
+ * Default cost margin used when specific product or tenant cost margin is missing.
+ * Represents a 40% margin on the sale price.
+ */
+const DEFAULT_COST_MARGIN = 0.4;
 
 // POS Configuration
 export async function getPOSConfigs(tenantId: string) {
@@ -154,68 +161,97 @@ export async function getPOSOrders(tenantId: string, _sessionId?: string) {
 export async function createPOSOrder(data: any & { tenantId: string }) {
   const total = Number(data.total) || 0;
 
-  const resultOrder = await client.pOSOrder.create({
-    data: {
-      orderNumber: data.orderNumber || `POS-${Date.now()}`,
-      customerId: data.customerId,
-      subtotal: Number(data.subtotal) || total,
-      tax: Number(data.tax) || 0,
-      discount: Number(data.discount) || 0,
-      total,
-      paymentMethod: data.paymentMethod || 'CASH',
-      status: data.status || 'PENDING',
-      notes: data.notes || '',
-      tenantId: data.tenantId,
-      items: {
-        create: (data.items || []).map((item: any) => ({
-          productId: item.productId,
-          quantity: Math.round(Number(item.quantity)) || 1,
-          unitPrice: Number(item.unitPrice),
-          total: Number(item.total),
-          tenantId: data.tenantId,
-        })),
-      },
-    },
-    include: {
-      customer: true,
-      items: {
-        include: {
-          product: true
-        }
-      }
-    },
+  const tenantConfig = await client.tenant.findUnique({
+    where: { id: data.tenantId },
+    select: { settings: true }
   });
+  const posCostMargin = tenantConfig?.settings?.posCostMargin || DEFAULT_COST_MARGIN;
 
-  // --- GL POSTING ---
-  try {
-    const isCard = data.paymentMethod?.toUpperCase().includes('CARD');
-    const eventType = isCard ? 'SALE_CARD' : 'SALE_CASH';
-    const accounts = await resolveAccountCodes(data.tenantId, 'pos', eventType);
+  const computeUnitCost = (item: any, defaultMargin: number) => {
+    return Number(item.product?.costPrice ?? item.product?.cost ?? (Number(item.product?.price ?? item.unitPrice) * (item.product?.costMargin ?? posCostMargin ?? defaultMargin)));
+  };
+
+  return await client.$transaction(async (tx: any) => {
+    const resultOrder = await tx.pOSOrder.create({
+      data: {
+        orderNumber: data.orderNumber || `POS - ${Date.now()}`,
+        customerId: data.customerId,
+        subtotal: Number(data.subtotal) || total,
+        tax: Number(data.tax) || 0,
+        discount: Number(data.discount) || 0,
+        total,
+        paymentMethod: data.paymentMethod || 'CASH',
+        status: data.status || 'PENDING',
+        notes: data.notes || '',
+        tenantId: data.tenantId,
+        items: {
+          create: (data.items || []).map((item: any) => ({
+            productId: item.productId,
+            quantity: Math.round(Number(item.quantity)) || 1,
+            unitPrice: Number(item.unitPrice),
+            total: Number(item.total),
+            tenantId: data.tenantId,
+          })),
+        },
+      },
+      include: {
+        customer: true,
+        items: {
+          include: {
+            product: true
+          }
+        }
+      },
+    });
 
     const isCompletedOrPaid = resultOrder.status === 'COMPLETED' || resultOrder.status === 'PAID';
 
-    // We assume completed POS orders are instantly paid and posted.
-    if (accounts && resultOrder.total > 0 && isCompletedOrPaid) {
-      await postToGL({
-        tenantId: data.tenantId,
-        sourceModule: 'pos',
-        sourceDocumentId: resultOrder.id,
-        sourceDocumentType: 'POSOrder',
-        eventType,
-        reference: `POS-SALE-${resultOrder.orderNumber}`,
-        description: `POS Checkout - ${resultOrder.orderNumber}`,
-        date: new Date(),
-        lines: [
-          { accountCode: accounts.debitCode, debit: resultOrder.total, credit: 0, description: `POS Receipt (${data.paymentMethod || 'CASH'})` },
-          { accountCode: accounts.creditCode, debit: 0, credit: resultOrder.total, description: 'POS Sales Revenue' }
-        ]
-      });
-    }
-  } catch (error) {
-    console.error('GL Bridge error (pos sale):', error);
-  }
+    if (isCompletedOrPaid) {
+      const defaultWarehouse = await tx.invWarehouse.findFirst({ where: { tenantId: data.tenantId, isDefault: true } })
+        || await tx.invWarehouse.findFirst({ where: { tenantId: data.tenantId } });
 
-  return resultOrder;
+      if (defaultWarehouse) {
+        for (const item of resultOrder.items) {
+          const cost = computeUnitCost(item, DEFAULT_COST_MARGIN);
+          await recordStockOut('OUT', {
+            tenantId: data.tenantId,
+            productId: item.productId,
+            productName: item.product?.name || `POS Item ${item.productId}`,
+            productCategory: item.product?.categoryId || 'POS/Restaurant',
+            productPrice: Number(item.unitPrice),
+            warehouseId: defaultWarehouse.id,
+            quantity: Number(item.quantity),
+            unitCost: cost,
+            sourceModule: 'pos',
+            sourceDocument: resultOrder.id,
+            reference: `POS - ${resultOrder.orderNumber}`
+          }, tx);
+        }
+
+        const isCard = data.paymentMethod?.toUpperCase().includes('CARD');
+        const eventType = isCard ? 'SALE_CARD' : 'SALE_CASH';
+        const accounts = await resolveAccountCodes(data.tenantId, 'pos', eventType, tx);
+
+        if (accounts && resultOrder.total > 0 && isCompletedOrPaid) {
+          await postToGL({
+            tenantId: data.tenantId,
+            sourceModule: 'pos',
+            sourceDocumentId: resultOrder.id,
+            sourceDocumentType: 'POSOrder',
+            eventType,
+            reference: `POS - SALE - ${resultOrder.orderNumber}`,
+            description: `POS Checkout - ${resultOrder.orderNumber}`,
+            date: new Date(),
+            lines: [
+              { accountCode: accounts.debitCode, debit: resultOrder.total, credit: 0, description: `POS Receipt(${data.paymentMethod || 'CASH'})` },
+              { accountCode: accounts.creditCode, debit: 0, credit: resultOrder.total, description: 'POS Sales Revenue' }
+            ]
+          }, tx);
+        }
+      }
+    }
+    return resultOrder;
+  });
 }
 
 // Cash Register
@@ -285,7 +321,7 @@ export async function getPOSAnalytics(tenantId: string, startDate: Date, endDate
 export async function generateReceipt(orderId: string, tenantId: string) {
   return {
     orderId,
-    receiptNumber: `RCP-${Date.now()}`,
+    receiptNumber: `RCP - ${Date.now()}`,
     html: '<div>Receipt HTML</div>',
     printData: {},
   };
