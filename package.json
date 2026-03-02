@@ -131,6 +131,7 @@
     "zustand": "^4.5.0",
     "dotenv": "^17.2.3",
     "pg": "^8.16.3",
+    "@types/pg": "^8.18.0",
     "prisma": "^7.4.2"
   },
   "devDependencies": {
@@ -141,7 +142,6 @@
     "@types/dotenv": "^8.2.3",
     "@types/jest": "^30.0.0",
     "@types/jspdf": "^2.0.0",
-    "@types/pg": "^8.18.0",
     "@typescript-eslint/eslint-plugin": "^7.8.0",
     "@typescript-eslint/parser": "^7.8.0",
     "baseline-browser-mapping": "^2.9.4",
