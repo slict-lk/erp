@@ -156,21 +156,28 @@ export async function updateManufacturingOrder(
       if (order.bom) {
         const components = (order.bom as any).components;
         if (Array.isArray(components) && components.length > 0) {
+          const consumeErrors: string[] = [];
           for (const comp of components) {
-            await recordStockOut('OUT', {
-              tenantId,
-              productId: comp.productId,
-              productName: comp.productName || `BOM Component ${comp.productId}`,
-              productCategory: 'Raw Materials',
-              productPrice: Number(comp.unitCost ?? 0),
-              warehouseId: defaultWarehouse.id,
-              quantity: Number(comp.quantity ?? 0) * Number(order.quantity),
-              unitCost: Number(comp.unitCost ?? 0),
-              sourceModule: 'manufacturing',
-              sourceDocument: order.id,
-              reference: `MO-CONSUME-${order.reference || order.id.substring(0, 6)}`,
-              allowNegative: true
-            }).catch(e => console.error(`Failed to consume component ${comp.productId}:`, e));
+            try {
+              await recordStockOut('OUT', {
+                tenantId,
+                productId: comp.productId,
+                productName: comp.productName || `BOM Component ${comp.productId}`,
+                productCategory: 'Raw Materials',
+                productPrice: Number(comp.unitCost ?? 0),
+                warehouseId: defaultWarehouse.id,
+                quantity: Number(comp.quantity ?? 0) * Number(order.quantity),
+                unitCost: Number(comp.unitCost ?? 0),
+                sourceModule: 'manufacturing',
+                sourceDocument: order.id,
+                reference: `MO-CONSUME-${order.reference || order.id.substring(0, 6)}`,
+              });
+            } catch (e: any) {
+              consumeErrors.push(`Component ${comp.productId}: ${e.message || 'unknown error'}`);
+            }
+          }
+          if (consumeErrors.length > 0) {
+            throw new Error(`Failed to consume BOM components: ${consumeErrors.join('; ')}`);
           }
         }
       }

@@ -105,7 +105,7 @@ export default function SuppliersPage() {
                     <h1 className="text-3xl font-bold tracking-tight text-gray-900">Procurement Partners</h1>
                     <p className="text-gray-500">Manage vendor relationships, supply chains, and contact directories.</p>
                 </div>
-                {(canEdit || canCreate) && (
+                {canCreate && (
                     <Button onClick={() => openEditSheet()} className="bg-indigo-600 hover:bg-indigo-700">
                         <PlusCircle className="h-4 w-4 mr-2" />
                         Onboard Vendor

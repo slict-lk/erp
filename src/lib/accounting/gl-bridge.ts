@@ -107,6 +107,8 @@ export async function postToGL(request: GLPostingRequest, txClient?: any): Promi
 
         const work = async (tx: any) => {
             // 2. Idempotency check — prevent duplicate GL entries for the same source document + event
+            //    We prefix descriptions with [EVENT_TYPE] on creation so this check is reliable.
+            const eventTag = `[${request.eventType}]`;
             const existing = await tx.journalEntry.findFirst({
                 where: {
                     tenantId: request.tenantId,
@@ -115,7 +117,7 @@ export async function postToGL(request: GLPostingRequest, txClient?: any): Promi
                     sourceModule: request.sourceModule,
                     // Include eventType in idempotency check so the same document
                     // can post different event types (e.g., VEHICLE_PURCHASE and AUCTION_FEE)
-                    description: { contains: request.eventType },
+                    description: { startsWith: eventTag },
                     status: 'POSTED',
                 }
             });
@@ -170,7 +172,7 @@ export async function postToGL(request: GLPostingRequest, txClient?: any): Promi
                     tenantId: request.tenantId,
                     periodId,
                     reference,
-                    description: request.description,
+                    description: `[${request.eventType}] ${request.description}`,
                     entryDate: request.date,
                     status: 'POSTED',
                     sourceModule: request.sourceModule,

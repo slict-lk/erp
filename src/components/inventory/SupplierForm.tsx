@@ -52,10 +52,16 @@ export function SupplierForm({ initialData, onSubmit, onCancel }: SupplierFormPr
         },
     });
 
+    const [submitError, setSubmitError] = useState<string | null>(null);
+
     const onFormSubmit = async (data: SupplierFormData) => {
         setIsSubmitting(true);
+        setSubmitError(null);
         try {
             await onSubmit(data);
+        } catch (err: any) {
+            const message = err?.message || 'Failed to save supplier. Please try again.';
+            setSubmitError(message);
         } finally {
             setIsSubmitting(false);
         }
@@ -63,6 +69,11 @@ export function SupplierForm({ initialData, onSubmit, onCancel }: SupplierFormPr
 
     return (
         <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
+            {submitError && (
+                <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+                    {submitError}
+                </div>
+            )}
             <div className="space-y-4">
                 {/* Basic Information */}
                 <div className="space-y-2">

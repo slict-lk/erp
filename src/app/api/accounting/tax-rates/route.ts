@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
                 tenantId: tenant.id,
                 code: body.code,
                 name: body.name,
-                rate: body.rate,
+                rate: parsedRate,
                 type: body.type as TaxType || 'STANDARD',
                 isCompound: body.isCompound || false,
                 sequenceOrder: body.sequenceOrder || 0,

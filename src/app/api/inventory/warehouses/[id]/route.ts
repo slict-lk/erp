@@ -53,7 +53,12 @@ export async function PUT(
     try {
         const params = await context.params;
         const tenant = await getOrCreateDefaultTenant();
-        const body = await request.json();
+        let body: any;
+        try {
+            body = await request.json();
+        } catch {
+            return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
+        }
 
         const updateData: any = {};
         if (body.name !== undefined) updateData.name = body.name;

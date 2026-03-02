@@ -178,7 +178,7 @@ export default function InventoryReportsPage() {
                                             <TableRow key={i}>
                                                 <TableCell className="font-medium text-gray-900">{row.productName}</TableCell>
                                                 <TableCell className="text-right text-gray-600">{formatCurrency(row.cogs)}</TableCell>
-                                                <TableCell className="text-right font-bold text-indigo-600">{typeof row.turnoverRatio === 'number' ? row.turnoverRatio.toFixed(2) : '-'}x</TableCell>
+                                                <TableCell className="text-right font-bold text-indigo-600">{typeof row.turnoverRatio === 'number' ? row.turnoverRatio.toFixed(2) + 'x' : '-'}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>

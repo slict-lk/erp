@@ -28,11 +28,13 @@ export default function CreatePurchaseOrderPage() {
     const [items, setItems] = useState<any[]>([]);
 
     useEffect(() => {
+        if (!canCreate) return;
+        const controller = new AbortController();
         const loadInitialData = async () => {
             try {
                 const [suppRes, prodRes] = await Promise.all([
-                    fetch('/api/inventory/suppliers'),
-                    fetch('/api/inventory/products')
+                    fetch('/api/inventory/suppliers', { signal: controller.signal }),
+                    fetch('/api/inventory/products', { signal: controller.signal })
                 ]);
                 if (suppRes.ok) {
                     const data = await suppRes.json();
@@ -42,14 +44,15 @@ export default function CreatePurchaseOrderPage() {
                     const pData = await prodRes.json();
                     setProducts(pData.data || pData || []);
                 }
-            } catch (err) {
-                console.error(err);
+            } catch (err: any) {
+                if (err?.name !== 'AbortError') console.error(err);
             } finally {
                 setIsLoading(false);
             }
         };
         loadInitialData();
-    }, []);
+        return () => controller.abort();
+    }, [canCreate]);
 
     const handleAddItem = () => {
         setItems([...items, { id: crypto.randomUUID(), productId: '', quantity: 1, unitPrice: 0 }]);
@@ -256,7 +259,7 @@ export default function CreatePurchaseOrderPage() {
                                         <Input type="number" min="1" value={item.quantity} onChange={(e) => handleUpdateItem(index, 'quantity', e.target.value)} className="text-right" />
                                     </TableCell>
                                     <TableCell>
-                                        <Input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(e) => handleUpdateItem(index, 'unitPrice', e.target.value)} className="text-right" />
+                                        <Input type="number" min="0.01" step="0.01" value={item.unitPrice} onChange={(e) => handleUpdateItem(index, 'unitPrice', e.target.value)} className="text-right" />
                                     </TableCell>
                                     <TableCell className="text-right font-bold text-gray-900 border-r border-gray-100 bg-gray-50/30">
                                         {formatCurrency(Number(item.quantity) * Number(item.unitPrice))}

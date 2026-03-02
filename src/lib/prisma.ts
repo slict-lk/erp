@@ -23,16 +23,16 @@ const createPrismaClient = () => {
 
   // SSL Configuration for Aiven / Managed Postgres
   const sslConfig: any = {
-    rejectUnauthorized: process.env.DISABLE_SSL_VERIFY === 'true' ? false : true,
+    rejectUnauthorized: true, // Default: verify certificates
   };
+
+  if (process.env.DISABLE_SSL_VERIFY === 'true') {
+    sslConfig.rejectUnauthorized = false;
+  }
 
   if (process.env.AIVEN_CA_CERT) {
     sslConfig.ca = process.env.AIVEN_CA_CERT;
     sslConfig.rejectUnauthorized = true; // Force verify if CA is provided
-  } else if (!process.env.DISABLE_SSL_VERIFY) {
-    // Default to rejectUnauthorized: false ONLY if no cert AND no explicit toggle
-    // to match existing behavior while allowing future lockdown.
-    sslConfig.rejectUnauthorized = false;
   }
 
   // Create a pg Pool with conservative settings for Aiven / serverless

@@ -56,8 +56,8 @@ export async function PATCH(
                 console.error('GL Bridge error (expense approval):', error);
                 // Mark expense GL status as failed so retries can be performed
                 await prisma.expense.update({
-                    where: { id: expense.id },
-                    data: { notes: `${expense.notes || ''}\n[GL POSTING FAILED: ${error instanceof Error ? error.message : 'Unknown error'}]` }
+                    where: { id: expense.id, tenantId: expense.tenantId },
+                    data: { notes: `${(expense.notes || '').substring(0, 500)}\n[GL POSTING FAILED]` }
                 }).catch(e => console.error('Failed to update expense GL note:', e));
             }
         }

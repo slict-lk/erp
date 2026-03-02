@@ -66,7 +66,7 @@ export async function PUT(
             },
             data: {
                 status: body.status !== undefined ? body.status : existingPo.status,
-                expectedAt: body.expectedAt ? new Date(body.expectedAt) : existingPo.expectedAt,
+                expectedAt: body.expectedAt !== undefined ? (body.expectedAt === null ? null : new Date(body.expectedAt)) : existingPo.expectedAt,
                 notes: body.notes !== undefined ? body.notes : existingPo.notes
             }
         });

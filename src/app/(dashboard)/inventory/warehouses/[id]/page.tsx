@@ -31,9 +31,11 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
             } else {
                 const errText = await res.text().catch(() => res.statusText);
                 console.error(`Failed to load warehouse (${res.status}):`, errText);
+                setWarehouse(null);
             }
         } catch (e) {
             console.error('Failed to load warehouse:', e);
+            setWarehouse(null);
         } finally {
             setIsLoading(false);
         }

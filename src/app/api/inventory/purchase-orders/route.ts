@@ -80,6 +80,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'supplierId is required' }, { status: 400 });
     }
 
+    // Verify supplier exists within tenant
+    const supplier = await prisma.vendor.findFirst({
+      where: { id: supplierId, tenantId: tenant.id }
+    });
+    if (!supplier) {
+      return NextResponse.json({ error: 'Supplier not found' }, { status: 400 });
+    }
+
     const subtotal = !isNaN(Number(body.subtotal)) ? Number(body.subtotal) : 0;
     const tax = !isNaN(Number(body.tax)) ? Number(body.tax) : 0;
     const total = !isNaN(Number(body.total)) ? Number(body.total) : 0;
@@ -89,7 +97,12 @@ export async function POST(request: NextRequest) {
         poNumber: body.poNumber || body.orderNumber || `PO-${Date.now()}`,
         status: body.status || 'DRAFT',
         supplierId: supplierId,
-        expectedAt: body.expectedAt || body.expectedDate ? new Date(body.expectedAt || body.expectedDate) : null,
+        expectedAt: (() => {
+          const raw = body.expectedAt || body.expectedDate;
+          if (!raw) return null;
+          const d = new Date(raw);
+          return !isNaN(d.getTime()) ? d : null;
+        })(),
         subtotal,
         taxAmount: tax,
         total,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
     ArrowRightLeft,
     Search,
@@ -28,6 +28,15 @@ export default function BankReconciliationPage() {
     const [loading, setLoading] = useState(true);
 
     const [isUploading, setIsUploading] = useState(false);
+    const mockTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (mockTimeoutRef.current) {
+                clearTimeout(mockTimeoutRef.current);
+            }
+        };
+    }, []);
 
     useEffect(() => {
         const timeoutId = setTimeout(() => setLoading(false), 1000);
@@ -61,11 +70,10 @@ export default function BankReconciliationPage() {
             toast.success('Statement uploaded successfully', { id: toastId });
 
             // Mocking a successful upload parsing
-            const mockTimeoutId = setTimeout(() => {
+            mockTimeoutRef.current = setTimeout(() => {
                 toast.success('Parsed 12 transactions from statement');
+                mockTimeoutRef.current = null;
             }, 1500);
-            // Store for potential cleanup (component-level)
-            (window as any).__bankRecMockTimeout = mockTimeoutId;
 
         } catch (error: any) {
             console.error('Upload Error:', error);

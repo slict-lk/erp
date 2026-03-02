@@ -62,7 +62,7 @@ export default function WarehousesPage() {
         await loadWarehouses();
         setIsSheetOpen(false);
       } else {
-        toast.error('Failed to construct warehouse');
+        toast.error('Failed to create warehouse');
       }
     } catch (error: any) {
       console.error('Error creating warehouse:', error);
@@ -83,7 +83,7 @@ export default function WarehousesPage() {
         await loadWarehouses();
         setIsSheetOpen(false);
       } else {
-        toast.error('Failed to retrofit warehouse');
+        toast.error('Failed to update warehouse');
       }
     } catch (error: any) {
       console.error('Error updating warehouse:', error);
@@ -170,7 +170,6 @@ export default function WarehousesPage() {
       {isLoading ? (
         <div className="h-64 flex items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" role="status" aria-label="Loading warehouses" />
-          <span className="sr-only">Loading warehouses</span>
         </div>
       ) : error ? (
         <div className="h-64 flex flex-col items-center justify-center space-y-4">

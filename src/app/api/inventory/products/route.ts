@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
         stockQty: body.stockQty ?? body.qtyAvailable ?? 0,
         minStockQty: body.minStockQty ?? 0,
         barcode: body.barcode,
-        categoryId: body.categoryId || body.category,
+        categoryId: body.categoryId ?? body.category,
         isActive: body.isActive !== false,
         images: body.images || [],
         tenantId: tenant.id,

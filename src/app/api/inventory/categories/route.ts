@@ -102,8 +102,11 @@ export async function POST(request: NextRequest) {
     const tenant = await getOrCreateDefaultTenant();
     const body = await request.json();
 
+    // Normalize parentId: treat 'null' string and empty as null
+    const parentId = (!body.parentId || body.parentId === 'null') ? null : body.parentId;
+
     // Application-level uniqueness check for root categories (parentId is null)
-    if (!body.parentId || body.parentId === 'null') {
+    if (!parentId) {
       const existing = await prisma.invCategory.findFirst({
         where: {
           tenantId: tenant.id,
@@ -129,7 +132,7 @@ export async function POST(request: NextRequest) {
       where: {
         tenantId: tenant.id,
         name: body.name,
-        parentId: body.parentId || null,
+        parentId: parentId,
       },
     });
 
@@ -141,9 +144,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Prevent circular references
-    if (body.parentId) {
+    if (parentId) {
       const parentCategory = await prisma.invCategory.findUnique({
-        where: { id: body.parentId },
+        where: { id: parentId },
       });
 
       if (!parentCategory) {
@@ -156,7 +159,7 @@ export async function POST(request: NextRequest) {
       // Check if this would create a circular reference
       let currentParent = parentCategory;
       while (currentParent.parentId) {
-        if (currentParent.parentId === body.parentId) {
+        if (currentParent.parentId === parentId) {
           return NextResponse.json(
             { error: 'Cannot create circular category hierarchy' },
             { status: 400 }
@@ -174,7 +177,7 @@ export async function POST(request: NextRequest) {
       data: {
         name: body.name,
         description: body.description,
-        parentId: body.parentId || null,
+        parentId: parentId,
         tenantId: tenant.id,
       },
       include: {

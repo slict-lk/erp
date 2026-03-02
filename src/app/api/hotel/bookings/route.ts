@@ -83,9 +83,9 @@ export async function POST(request: NextRequest) {
                 checkIn: start,
                 checkOut: end,
                 nights: diffDays,
-                totalAmount: Number(totalAmount) ?? 0,
+                totalAmount: Number.isFinite(Number(totalAmount)) ? Number(totalAmount) : 0,
                 status: status || 'CONFIRMED',
-                depositAmount: Number(depositAmount) ?? 0,
+                depositAmount: Number.isFinite(Number(depositAmount)) ? Number(depositAmount) : 0,
                 guests: 1, // Default
             },
             include: {

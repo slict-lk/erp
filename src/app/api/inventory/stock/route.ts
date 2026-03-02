@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       productId: body.productId,
       warehouseId: body.warehouseId,
       quantity,
-      unitCost: Number(body.unitCost ?? 0),
+      unitCost: (() => { const uc = Number(body.unitCost ?? 0); return Number.isFinite(uc) ? uc : 0; })(),
       sourceModule: 'inventory',
       sourceDocument: body.sourceDocument || 'manual',
       reference: body.reference || `STK-${Date.now()}`,

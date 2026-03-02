@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
                 unitPrice: Number(l.unitPrice) || 0,
                 tax: Number(l.tax) || 0,
                 discount: Number(l.discount) || 0,
-                total: Number(l.total) || ((Number(l.quantity) * Number(l.unitPrice)) + (Number(l.tax) || 0) - (Number(l.discount) || 0)),
+                total: (() => { const base = Number(l.quantity) * Number(l.unitPrice); const taxAmt = Number(l.tax) ? base * Number(l.tax) / 100 : 0; return Number(l.total) || (base + taxAmt - (Number(l.discount) || 0)); })(),
                 ...(l.productId && { productId: l.productId }),
               })),
             },

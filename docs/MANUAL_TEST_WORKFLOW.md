@@ -346,7 +346,7 @@ The Payments tab is a **standalone log of all money movement** — both received
 
 ---
 
-#### Payment B — Supplier advance payment
+#### Payment A — Supplier advance payment
 
 | Field | Value |
 |---|---|

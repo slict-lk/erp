@@ -31,6 +31,9 @@ export async function POST(request: Request) {
         const moduleSlug = body?.moduleSlug;
 
         if (moduleSlug) {
+            if (typeof moduleSlug !== 'string') {
+                return NextResponse.json({ error: 'moduleSlug must be a string' }, { status: 400 });
+            }
             const result = await seedModuleAccounts(tenantId, moduleSlug);
             return NextResponse.json({
                 message: `Seeded accounts for ${moduleSlug}`,

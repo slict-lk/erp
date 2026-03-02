@@ -142,7 +142,7 @@ export default function PurchaseOrdersPage() {
                                                     <div className="p-2 bg-indigo-50 rounded-lg shrink-0 border border-indigo-100">
                                                         <ShoppingCart className="h-4 w-4 text-indigo-600" />
                                                     </div>
-                                                    <span className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">{o.poNumber}</span>
+                                                    <span className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">{o.poNumber ?? '-'}</span>
                                                 </div>
                                             </TableCell>
                                             <TableCell>
@@ -166,7 +166,7 @@ export default function PurchaseOrdersPage() {
                                             <TableCell className="text-right text-gray-500">
                                                 <div className="flex items-center justify-end gap-1.5 text-sm">
                                                     <Calendar className="h-3.5 w-3.5" />
-                                                    {new Date(o.createdAt).toLocaleDateString()}
+                                                    {(() => { const d = new Date(o.createdAt); return !isNaN(d.getTime()) ? d.toLocaleDateString() : '-'; })()}
                                                 </div>
                                             </TableCell>
                                             <TableCell>

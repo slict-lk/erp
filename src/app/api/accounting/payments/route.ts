@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
         throw new Error('NOT_FOUND:Related invoice not found');
       }
 
-      if (body.amount > Number(relatedInvoice.amountDue)) {
+      if (amountNum > Number(relatedInvoice.amountDue)) {
         throw new Error('VALIDATION:Payment amount cannot exceed invoice amount due');
       }
 
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       const newPayment = await tx.payment.create({
         data: {
           invoiceId: body.invoiceId,
-          amount: body.amount,
+          amount: amountNum,
           status: body.status || 'CLEARED',
           method: body.method || 'CASH',
           currencyCode: body.currencyCode || 'LKR',

@@ -596,7 +596,14 @@ export async function cancelInvoice(id: string, reason: string, tenantId: string
                     sourceModule: 'spareparts',
                     sourceDocument: invoice.id,
                     reference: `SP-CAN-${invoice.invoiceNumber || invoice.id.substring(0, 8)}`,
-                }).catch(e => console.error('Failed to reverse inventory on cancel:', e));
+                }).catch(async (e) => {
+                    // Compensate: revert the sparePart stock increment
+                    console.error('Failed to reverse inventory on cancel:', e);
+                    await (prisma as any).sparePart.update({
+                        where: { id: item.productId },
+                        data: { stockQty: { decrement: Number(item.quantity) } }
+                    }).catch((compErr: any) => console.error('Compensation rollback failed:', compErr));
+                });
             }
         }
     }

@@ -70,7 +70,7 @@ export function ProductForm({ initialData, categories = [], onSubmit, onCancel }
       name: initialData?.name || '',
       description: initialData?.description || '',
       type: initialData?.type || 'STORABLE',
-      categoryId: initialData?.categoryId || '',
+      categoryId: initialData?.categoryId || undefined,
       listPrice: initialData?.listPrice || 0,
       costPrice: initialData?.costPrice || 0,
       qtyAvailable: initialData?.qtyAvailable || 0,

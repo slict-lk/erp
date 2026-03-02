@@ -110,11 +110,11 @@ export async function closePOSSession(
     }
 
     let totalSales = 0;
-    let expectedCash = Number(session.openingCash) ?? 0;
+    let expectedCash = (() => { const v = Number(session.openingCash); return Number.isFinite(v) ? v : 0; })();
     const orderCount = session.orders.length;
 
     for (const order of session.orders) {
-      totalSales += Number(order.totalAmount) ?? 0;
+      totalSales += (() => { const v = Number(order.totalAmount); return Number.isFinite(v) ? v : 0; })();
       for (const pay of order.payments) {
         if (pay.method === 'CASH') {
           expectedCash += Number(pay.amount) || 0;

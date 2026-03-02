@@ -47,12 +47,17 @@ export function StockTransferModal({ isOpen, onClose, onSuccess }: StockTransfer
             if (prodRes.ok) {
                 const prodData = await prodRes.json();
                 setProducts(prodData.data || prodData);
+            } else {
+                toast.error('Failed to load products');
             }
             if (whRes.ok) {
                 setWarehouses(await whRes.json());
+            } else {
+                toast.error('Failed to load warehouses');
             }
         } catch (error) {
             console.error('Failed to load dependencies', error);
+            toast.error('Could not load form data. Please close and try again.');
         }
     };
 

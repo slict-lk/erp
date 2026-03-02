@@ -212,8 +212,16 @@ export default function PaymentsPage() {
               ...selectedPayment,
               paymentDate: (() => {
                 const pd = selectedPayment.paymentDate;
-                if (!pd) return undefined;
-                return (pd instanceof Date ? pd : new Date(pd)).toISOString().split('T')[0];
+                if (pd == null) return undefined;
+                if (typeof pd === 'string') {
+                  const ms = Date.parse(pd);
+                  return Number.isFinite(ms) ? new Date(ms).toISOString().split('T')[0] : undefined;
+                }
+                if (pd instanceof Date && !isNaN(pd.getTime())) {
+                  return pd.toISOString().split('T')[0];
+                }
+                const d = new Date(pd as any);
+                return !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : undefined;
               })()
             } : undefined}
             customers={customers}
