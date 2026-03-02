@@ -12,6 +12,7 @@ import {
     Receipt
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -98,10 +99,12 @@ export default function ChartOfAccountsPage() {
                 });
                 fetchAccounts();
             } else {
-                alert("Failed to create account");
+                const errData = await res.json().catch(() => ({}));
+                toast.error(errData.error || 'Failed to create account');
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            toast.error(err.message || 'An unexpected error occurred');
         } finally {
             setSubmitting(false);
         }
@@ -130,7 +133,7 @@ export default function ChartOfAccountsPage() {
     };
 
     const filteredAccounts = accounts.filter(a =>
-        !search || a.code.toLowerCase().includes(search.toLowerCase()) || a.name.toLowerCase().includes(search.toLowerCase())
+        !search || (a.code ?? '').toLowerCase().includes(search.toLowerCase()) || (a.name ?? '').toLowerCase().includes(search.toLowerCase())
     );
 
     return (

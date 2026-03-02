@@ -87,16 +87,18 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'A journal entry must have at least 2 lines (one debit, one credit)' }, { status: 400 });
         }
 
-        let totalDebits = 0;
-        let totalCredits = 0;
+        let debitCents = 0;
+        let creditCents = 0;
 
         for (const line of body.lines) {
-            totalDebits += Number(line.debit || 0);
-            totalCredits += Number(line.credit || 0);
+            debitCents += Math.round(Number(line.debit || 0) * 100);
+            creditCents += Math.round(Number(line.credit || 0) * 100);
         }
 
-        // Check for equality (using a small epsilon for floating point issues)
-        if (Math.abs(totalDebits - totalCredits) > 0.01) {
+        // Check for equality in integer cents
+        if (debitCents !== creditCents) {
+            const totalDebits = debitCents / 100;
+            const totalCredits = creditCents / 100;
             return NextResponse.json({
                 error: `Journal entry must be balanced. Total Debits (${totalDebits}) do not equal Total Credits (${totalCredits})`
             }, { status: 400 });

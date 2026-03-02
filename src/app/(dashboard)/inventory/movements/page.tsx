@@ -9,12 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Search, History, ArrowDownToLine, ArrowUpFromLine, Layers, MapPin } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
+import { StockTransferModal } from '@/components/inventory/StockTransferModal';
 
 export default function StockMovementsPage() {
   const [movements, setMovements] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -60,14 +62,20 @@ export default function StockMovementsPage() {
           </h1>
           <p className="text-gray-500 mt-2">Chronological tracking of every global inventory adjustment, inbound receipt, and allocation.</p>
         </div>
-        <div className="relative w-full md:w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Filter by product, SKU, reference, module, or type..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 w-full bg-white border-gray-200"
-          />
+        <div className="flex gap-4 items-center">
+          <div className="relative w-full md:w-96">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Filter by product, SKU, reference, module, or type..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 w-full bg-white border-gray-200"
+            />
+          </div>
+          {/* We assume any logged-in user can transfer for demo purposes, or we could add a `canEdit` check */}
+          <Button onClick={() => setIsTransferModalOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 whitespace-nowrap">
+            Transfer Stock
+          </Button>
         </div>
       </div>
 
@@ -108,7 +116,10 @@ export default function StockMovementsPage() {
                       </TableCell>
                     </TableRow>
                   ) : filteredMovements.map((m) => {
-                    const isOut = Number(m.direction) < 0;
+                    const dirNum = Number(m.direction);
+                    const isDirectionMissing = m.direction == null || isNaN(dirNum);
+                    const isOut = !isDirectionMissing && dirNum < 0;
+                    const isUnknown = isDirectionMissing;
                     return (
                       <TableRow key={m.id} className="hover:bg-gray-50/50 transition-colors">
                         <TableCell className="text-gray-600 text-sm whitespace-nowrap">
@@ -166,6 +177,14 @@ export default function StockMovementsPage() {
           )}
         </CardContent>
       </Card>
+
+      <StockTransferModal
+        isOpen={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        onSuccess={() => {
+          loadData();
+        }}
+      />
     </div>
   );
 }

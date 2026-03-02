@@ -17,6 +17,7 @@ interface StockAdjustmentParams {
     reference?: string;
     notes?: string;
     date?: Date;
+    allowNegative?: boolean;
 }
 
 /**
@@ -37,7 +38,7 @@ export async function checkStockAvailability(
         }
     });
 
-    const onHand = Number(ledger?.onHand || 0);
+    const onHand = Number(ledger?.onHand ?? 0);
     return {
         available: onHand >= quantityRequired,
         onHand
@@ -56,7 +57,7 @@ export async function checkGlobalStockAvailability(
         where: { id: productId }
     });
 
-    const onHand = Number(product?.stockQty || 0);
+    const onHand = Number(product?.stockQty ?? 0);
     return {
         available: onHand >= quantityRequired,
         onHand
@@ -83,12 +84,29 @@ async function processStockMovement(
 
     const work = async (tx: any) => {
         // 1. Double check product exists, or create it if missing (Seamless cross-module sync)
-        let product = await tx.invProduct.findUnique({
-            where: { id: productId }
+        let product = await tx.invProduct.findFirst({
+            where: { id: productId, tenantId }
         });
 
         if (!product) {
             if (!productName) throw new Error(`Product not found in Inventory and no name provided to auto-sync: ${productId}`);
+
+            // Lookup category by name or create a default if it doesn't exist
+            let categoryId: string | null = null;
+            if (productCategory) {
+                const category = await tx.invCategory.findFirst({
+                    where: {
+                        tenantId,
+                        name: { equals: productCategory, mode: 'insensitive' }
+                    }
+                });
+
+                if (category) {
+                    categoryId = category.id;
+                } else {
+                    console.warn(`[InventoryBridge] Category "${productCategory}" not found for product ${productId}. Defaulting to null.`);
+                }
+            }
 
             // Auto-sync into Inventory Master Catalog
             product = await tx.invProduct.create({
@@ -97,9 +115,9 @@ async function processStockMovement(
                     tenantId,
                     sku: `${sourceModule.toUpperCase().substring(0, 3)}-${productId.substring(0, 6)}`,
                     name: productName,
-                    category: productCategory || sourceModule,
-                    salePrice: productPrice || 0,
-                    costPrice: unitCost || 0,
+                    categoryId,
+                  salePrice: productPrice ?? 0,
+                  costPrice: unitCost ?? 0,
                     type: 'STORABLE',
                     isActive: true,
                 }
@@ -149,10 +167,11 @@ async function processStockMovement(
             }
         });
 
-        if (Number(ledger.onHand) < 0) {
-            // Optional: You could allow negative stock depending on business rules.
-            // But usually, an ERP strictly prevents it.
-            throw new Error(`Insufficient stock in warehouse ${warehouseId} for product ${productId}`);
+        if (Number(ledger.onHand) < 0 && !params.allowNegative) {
+            // If the source module has already permitted the transaction (e.g., POS sold it),
+            // we should not completely block the sync unless strictly enforced.
+            // For now, if allowNegative is false, we throw.
+            throw new Error(`Insufficient stock in warehouse ${warehouseId} for product ${productId}. Current Balance: ${Number(ledger.onHand)}`);
         }
 
         // 4. Update the aggregate stockQty on the Product

@@ -42,8 +42,15 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    if (!body.invoiceId || !body.amount || body.amount <= 0) {
+    if (!body.invoiceId || !body.amount) {
       return NextResponse.json({ error: 'Valid invoiceId and amount are required' }, { status: 400 });
+    }
+    const amountNum = Number(body.amount);
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+      return NextResponse.json({ error: 'Amount must be a positive finite number' }, { status: 400 });
+    }
+    if (!body.periodId || typeof body.periodId !== 'string' || body.periodId.trim().length === 0) {
+      return NextResponse.json({ error: 'Valid periodId is required' }, { status: 400 });
     }
 
     // Base validation for period locking
@@ -104,7 +111,7 @@ export async function POST(request: NextRequest) {
       });
 
       // Update status to PAID if fully paid
-      if (updatedInvoice.amountDue <= 0.01) { // EPSILON for float safely
+      if (Number(updatedInvoice.amountDue) <= 0.01) { // EPSILON for float safely
         await tx.invoice.update({
           where: { id: body.invoiceId },
           data: { status: 'PAID' }

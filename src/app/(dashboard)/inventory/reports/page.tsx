@@ -141,7 +141,7 @@ export default function InventoryReportsPage() {
                                             return (
                                                 <TableRow key={i}>
                                                     <TableCell className="font-medium text-gray-900">{row.productName}</TableCell>
-                                                    <TableCell className="text-right text-gray-600">{(row.percentOfTotalValue).toFixed(2)}%</TableCell>
+                                                    <TableCell className="text-right text-gray-600">{(typeof row.percentOfTotalValue === 'number' ? row.percentOfTotalValue : 0).toFixed(2)}%</TableCell>
                                                     <TableCell className="text-center">
                                                         <Badge className={c === 'A' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : c === 'B' ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}>
                                                             Tier {c}
@@ -178,7 +178,7 @@ export default function InventoryReportsPage() {
                                             <TableRow key={i}>
                                                 <TableCell className="font-medium text-gray-900">{row.productName}</TableCell>
                                                 <TableCell className="text-right text-gray-600">{formatCurrency(row.cogs)}</TableCell>
-                                                <TableCell className="text-right font-bold text-indigo-600">{row.turnoverRatio.toFixed(2)}x</TableCell>
+                                                <TableCell className="text-right font-bold text-indigo-600">{typeof row.turnoverRatio === 'number' ? row.turnoverRatio.toFixed(2) : '-'}x</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { WarehouseForm } from '@/components/inventory/WarehouseForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Building2, Search, MapPin, Phone, Mail, PlusCircle, Pencil, Trash2, Warehouse } from 'lucide-react';
 import { useModuleAccess } from '@/hooks/useModulePermissions';
+import { toast } from 'sonner';
 
 export default function WarehousesPage() {
   const [warehouses, setWarehouses] = useState<any[]>([]);
@@ -43,9 +44,9 @@ export default function WarehousesPage() {
 
   const filteredWarehouses = useMemo(() => {
     return warehouses.filter((w) =>
-      w.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      w.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      w.city?.toLowerCase().includes(searchTerm.toLowerCase())
+      (w.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (w.code ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (w.city ?? '').toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [warehouses, searchTerm]);
 
@@ -61,10 +62,11 @@ export default function WarehousesPage() {
         await loadWarehouses();
         setIsSheetOpen(false);
       } else {
-        alert('Failed to construct warehouse');
+        toast.error('Failed to construct warehouse');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating warehouse:', error);
+      toast.error(error.message || 'Error creating warehouse');
     }
   };
 
@@ -81,10 +83,11 @@ export default function WarehousesPage() {
         await loadWarehouses();
         setIsSheetOpen(false);
       } else {
-        alert('Failed to retrofit warehouse');
+        toast.error('Failed to retrofit warehouse');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating warehouse:', error);
+      toast.error(error.message || 'Error updating warehouse');
     }
   };
 
@@ -104,9 +107,34 @@ export default function WarehousesPage() {
     }
   };
 
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
   const openSheet = (warehouse?: any) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
     setSelectedWarehouse(warehouse || null);
     setIsSheetOpen(true);
+  };
+
+  const closeSheet = () => {
+    setIsSheetOpen(false);
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
+      setSelectedWarehouse(null);
+      timeoutRef.current = null;
+    }, 300);
   };
 
   return (
@@ -141,7 +169,8 @@ export default function WarehousesPage() {
 
       {isLoading ? (
         <div className="h-64 flex items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" role="status" aria-label="Loading warehouses" />
+          <span className="sr-only">Loading warehouses</span>
         </div>
       ) : error ? (
         <div className="h-64 flex flex-col items-center justify-center space-y-4">
@@ -202,12 +231,12 @@ export default function WarehousesPage() {
               </CardContent>
 
               {canEdit && (
-                <CardFooter className="p-4 bg-gray-50/50 border-t border-gray-100 flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <CardFooter className="p-4 bg-gray-50/50 border-t border-gray-100 flex justify-end gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                   <Button variant="outline" size="sm" className="h-8 shadow-sm" onClick={() => openSheet(wh)}>
                     <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
                   </Button>
                   {canDelete && (
-                    <Button variant="outline" size="sm" className="h-8 shadow-sm hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200" onClick={() => handleDeleteWarehouse(wh.id)}>
+                    <Button variant="outline" size="sm" className="h-8 shadow-sm hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200" onClick={() => handleDeleteWarehouse(wh.id)} aria-label="Delete warehouse">
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
@@ -218,7 +247,10 @@ export default function WarehousesPage() {
         </div>
       )}
 
-      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+      <Sheet open={isSheetOpen} onOpenChange={(open) => {
+        if (!open) closeSheet();
+        else setIsSheetOpen(true);
+      }}>
         <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto bg-gray-50 sm:rounded-l-2xl border-l border-gray-200">
           <SheetHeader className="pb-6 mb-6 border-b border-gray-200">
             <SheetTitle className="text-xl font-bold flex items-center gap-2 text-gray-900">
@@ -231,7 +263,7 @@ export default function WarehousesPage() {
             <WarehouseForm
               initialData={selectedWarehouse || undefined}
               onSubmit={selectedWarehouse ? handleUpdateWarehouse : handleCreateWarehouse}
-              onCancel={() => setIsSheetOpen(false)}
+              onCancel={closeSheet}
             />
           </div>
         </SheetContent>

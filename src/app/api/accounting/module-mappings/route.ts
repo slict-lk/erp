@@ -51,7 +51,12 @@ export async function PUT(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
 
-        const body = await request.json();
+        let body: any;
+        try {
+            body = await request.json();
+        } catch {
+            return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
+        }
         const tenantId = session.user.tenantId;
 
         if (!body.moduleSlug || !body.eventType || !body.debitAccountId || !body.creditAccountId) {

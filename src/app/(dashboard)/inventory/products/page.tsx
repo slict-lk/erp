@@ -37,10 +37,14 @@ export default function ProductsPage() {
       if (prodRes.ok) {
         const result = await prodRes.json();
         setProducts(result.data || result || []);
+      } else {
+        console.error('Failed to load products:', prodRes.statusText);
       }
       if (catRes.ok) {
         const catResult = await catRes.json();
         setCategories(catResult.data || []);
+      } else {
+        console.error('Failed to load categories:', catRes.statusText);
       }
     } catch (error) {
       console.error('Failed to load catalog data:', error);
@@ -51,8 +55,8 @@ export default function ProductsPage() {
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.sku.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = (p.name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.sku ?? '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchesType = filterType === 'ALL' || p.type === filterType;
       return matchesSearch && matchesType;
     });
@@ -217,8 +221,8 @@ export default function ProductsPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${typeConfig[p.type]?.color}`}>
-                          {typeConfig[p.type]?.label}
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${typeConfig[p.type]?.color || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                          {typeConfig[p.type]?.label || 'Unknown'}
                         </span>
                       </TableCell>
                       <TableCell className="text-right font-medium text-gray-600">

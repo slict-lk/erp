@@ -29,6 +29,20 @@ declare module 'next-auth' {
     trialEnd?: string | null;
     plan?: string;
   }
+
+  interface AdapterUser extends User {
+    id: string;
+    email: string;
+    emailVerified: Date | null;
+  }
+}
+
+declare module '@auth/core/types' {
+  interface AdapterUser {
+    role: string | null;
+    isSuperAdmin: boolean;
+    tenantId: string;
+  }
 }
 
 declare module 'next-auth/jwt' {

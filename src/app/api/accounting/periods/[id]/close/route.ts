@@ -54,6 +54,10 @@ export async function PATCH(
         return NextResponse.json(updatedPeriod);
     } catch (error: any) {
         console.error('Error closing period:', error);
+        // Return 400 for business-rule violations
+        if (error?.message?.includes('Cannot close period')) {
+            return NextResponse.json({ error: error.message }, { status: 400 });
+        }
         return NextResponse.json({ error: 'Failed to close period' }, { status: 500 });
     }
 }

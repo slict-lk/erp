@@ -56,7 +56,6 @@ export async function GET(request: NextRequest) {
         const expenses = new Map();
 
         for (const line of journalLines) {
-            const netAmount = line.debit - line.credit; // raw net
             // Revenue accounts usually have CREDIT normal balances, so credit increases it.
             // Expense accounts usually have DEBIT normal balances, so debit increases it.
 

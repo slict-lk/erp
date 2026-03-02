@@ -58,6 +58,9 @@ export async function POST(request: NextRequest) {
         if (typeof body.year !== 'number' || typeof body.month !== 'number') {
             return NextResponse.json({ error: 'Year and month must be numbers' }, { status: 400 });
         }
+        if (!Number.isInteger(body.month) || body.month < 1 || body.month > 12) {
+            return NextResponse.json({ error: 'Month must be an integer between 1 and 12' }, { status: 400 });
+        }
 
         // Check if period already exists for this year/month
         const existing = await prisma.accountingPeriod.findUnique({
@@ -77,14 +80,23 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        const parsedStartDate = new Date(body.startDate);
+        const parsedEndDate = new Date(body.endDate);
+        if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
+            return NextResponse.json({ error: 'startDate and endDate must be valid dates' }, { status: 400 });
+        }
+        if (parsedStartDate > parsedEndDate) {
+            return NextResponse.json({ error: 'startDate must be before or equal to endDate' }, { status: 400 });
+        }
+
         const period = await prisma.accountingPeriod.create({
             data: {
                 tenantId,
                 name: body.name || `${body.year}-${String(body.month).padStart(2, '0')}`,
                 year: body.year,
                 month: body.month,
-                startDate: new Date(body.startDate),
-                endDate: new Date(body.endDate),
+                startDate: parsedStartDate,
+                endDate: parsedEndDate,
                 status: 'OPEN',
             },
         });

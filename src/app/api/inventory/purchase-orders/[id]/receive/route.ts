@@ -18,9 +18,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
             return NextResponse.json({ error: 'Invalid payload. Requires destinationWarehouseId and linesToReceive array.' }, { status: 400 });
         }
 
-        const order = await prisma.purchaseOrder.findUnique({
+        const order = await prisma.invPurchaseOrder.findUnique({
             where: { id: params.id, tenantId: tenant.id },
-            include: { items: true }
+            include: { lines: true }
         });
 
         if (!order) {
@@ -31,13 +31,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
             return NextResponse.json({ error: `Cannot receive stock for order in ${order.status} status` }, { status: 400 });
         }
 
-        // Doing bridge calls outside a Prisma transaction to avoid nested tx deadlocks on Prisma:
+        // Check ALL order lines for fully-received status, not just lines in this batch
         let allFullyReceived = true;
         const successfullyReceivedLines = [];
 
         try {
             for (const rLine of linesToReceive) {
-                const dbLine = order.items.find(l => l.id === rLine.lineId);
+                const dbLine = order.lines.find(l => l.id === rLine.lineId);
                 if (!dbLine) continue;
 
                 const receiveQty = Number(rLine.quantity);
@@ -46,23 +46,23 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
                     continue;
                 }
 
-                const cumulative = ((dbLine as any).receivedQuantity || 0) + receiveQty;
-                if (cumulative < dbLine.quantity) {
+                const cumulative = Number((dbLine as any).receivedQty || 0) + receiveQty;
+                if (cumulative < Number(dbLine.quantity)) {
                     allFullyReceived = false;
                 }
 
-                const cappedCumulative = Math.min(cumulative, dbLine.quantity);
-                const actualReceivedThisTime = cappedCumulative - ((dbLine as any).receivedQuantity || 0);
+                const cappedCumulative = Math.min(cumulative, Number(dbLine.quantity));
+                const actualReceivedThisTime = cappedCumulative - Number((dbLine as any).receivedQty || 0);
 
                 if (actualReceivedThisTime <= 0) {
                     continue;
                 }
 
                 // Update DB Line immediately
-                const prevReceivedQuantity = ((dbLine as any).receivedQuantity || 0);
-                await (prisma.purchaseOrderItem as any).update({
+                const prevReceivedQuantity = Number((dbLine as any).receivedQty || 0);
+                await (prisma.invPurchaseOrderLine as any).update({
                     where: { id: dbLine.id },
-                    data: { receivedQuantity: cappedCumulative }
+                    data: { receivedQty: cappedCumulative }
                 });
 
                 // Call bridge
@@ -71,10 +71,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
                     productId: dbLine.productId,
                     warehouseId: destinationWarehouseId,
                     quantity: actualReceivedThisTime,
-                    unitCost: Number(dbLine.unitPrice), // Crucial for moving average recalculation
+                    unitCost: Number(dbLine.unitCost), // Crucial for moving average recalculation
                     sourceModule: 'inventory',
                     sourceDocument: order.id,
-                    reference: order.orderNumber,
+                    reference: order.poNumber,
                     notes: `PO Receipt`
                 });
 
@@ -82,9 +82,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
                     id: dbLine.id, // Capture id
                     productId: dbLine.productId,
                     quantity: actualReceivedThisTime,
-                    receivedQuantity: cappedCumulative,
-                    prevReceivedQuantity, // Capture old val
-                    unitCost: Number(dbLine.unitPrice)
+                    receivedQty: cappedCumulative,
+                    prevReceivedQty: prevReceivedQuantity, // Capture old val
+                    unitCost: Number(dbLine.unitCost)
                 });
             }
         } catch (error) {
@@ -103,13 +103,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
                             unitCost: line.unitCost,
                             sourceModule: 'inventory',
                             sourceDocument: order.id,
-                            reference: `ROLLBACK-${order.orderNumber}`
+                            reference: `ROLLBACK-${order.poNumber}`
                         });
 
-                        // Revert receivedQuantity
-                        await (prisma.purchaseOrderItem as any).update({
+                        // Revert receivedQty
+                        await (prisma.invPurchaseOrderLine as any).update({
                             where: { id: line.id },
-                            data: { receivedQuantity: line.prevReceivedQuantity }
+                            data: { receivedQty: line.prevReceivedQty }
                         });
 
                         success = true;
@@ -129,12 +129,20 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
             throw new Error('Transaction failed and was rolled back');
         }
 
-        // Update main order status
+        // Re-check ALL lines to determine if fully received
+        const refreshedOrder = await prisma.invPurchaseOrder.findUnique({
+            where: { id: order.id },
+            include: { lines: true }
+        });
+        allFullyReceived = refreshedOrder!.lines.every(
+            (l: any) => Number(l.receivedQty || 0) >= Number(l.quantity)
+        );
         const newStatus = allFullyReceived ? 'RECEIVED' : 'PARTIAL';
-        const updatedOrder = await prisma.purchaseOrder.update({
+        const updatedOrder = await prisma.invPurchaseOrder.update({
             where: { id: order.id },
             data: {
-                status: newStatus
+                status: newStatus,
+                receivedAt: newStatus === 'RECEIVED' ? new Date() : undefined
             }
         });
 

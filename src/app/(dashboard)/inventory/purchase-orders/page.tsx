@@ -45,8 +45,8 @@ export default function PurchaseOrdersPage() {
     const filteredOrders = useMemo(() => {
         return orders.filter((o) => {
             const matchesSearch =
-                o.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                o.vendor?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+                o.poNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                o.supplier?.name?.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesStatus = filterStatus === 'ALL' || o.status === filterStatus;
             return matchesSearch && matchesStatus;
         });
@@ -67,10 +67,12 @@ export default function PurchaseOrdersPage() {
                     <p className="text-gray-500">Manage incoming shipments, vendor restocks, and procurement lifecycles.</p>
                 </div>
                 {canEdit && (
-                    <Button onClick={() => window.location.href = '/inventory/purchase-orders/new'} className="bg-indigo-600 hover:bg-indigo-700">
-                        <PlusCircle className="h-4 w-4 mr-2" />
-                        Create PO
-                    </Button>
+                    <Link href="/inventory/purchase-orders/new">
+                        <Button className="bg-indigo-600 hover:bg-indigo-700">
+                            <PlusCircle className="h-4 w-4 mr-2" />
+                            Create PO
+                        </Button>
+                    </Link>
                 )}
             </div>
 
@@ -140,13 +142,13 @@ export default function PurchaseOrdersPage() {
                                                     <div className="p-2 bg-indigo-50 rounded-lg shrink-0 border border-indigo-100">
                                                         <ShoppingCart className="h-4 w-4 text-indigo-600" />
                                                     </div>
-                                                    <span className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">{o.orderNumber}</span>
+                                                    <span className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">{o.poNumber}</span>
                                                 </div>
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
                                                     <User className="h-4 w-4 text-gray-400" />
-                                                    <span className="font-medium text-gray-700">{o.vendor?.name || 'Unknown Vendor'}</span>
+                                                    <span className="font-medium text-gray-700">{o.supplier?.name || 'Unknown Vendor'}</span>
                                                 </div>
                                             </TableCell>
                                             <TableCell>
@@ -156,15 +158,15 @@ export default function PurchaseOrdersPage() {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-right font-medium text-gray-600">
-                                                {o.items?.length || 0} lines
+                                                {o.lines?.length || 0} lines
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <span className="font-bold text-gray-900">{formatCurrency(o.totalAmount || 0)}</span>
+                                                <span className="font-bold text-gray-900">{formatCurrency(o.total || 0)}</span>
                                             </TableCell>
                                             <TableCell className="text-right text-gray-500">
                                                 <div className="flex items-center justify-end gap-1.5 text-sm">
                                                     <Calendar className="h-3.5 w-3.5" />
-                                                    {new Date(o.orderDate).toLocaleDateString()}
+                                                    {new Date(o.createdAt).toLocaleDateString()}
                                                 </div>
                                             </TableCell>
                                             <TableCell>

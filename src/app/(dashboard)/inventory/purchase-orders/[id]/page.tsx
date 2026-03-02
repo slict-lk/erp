@@ -50,11 +50,23 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
     };
 
     const handleApprove = async () => {
-        // Stub to change PO status to APPROVED if DRAFT/PENDING
-        // Assuming a PUT /api/inventory/purchase-orders/[id] exists
-        // Wait, let's just use existing table structure for now
-        alert("PO Approved and Released to Vendor");
-        loadData();
+        try {
+            const res = await fetch(`/api/inventory/purchase-orders/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'APPROVED' })
+            });
+            if (res.ok) {
+                alert("PO Approved and Released to Vendor");
+                loadData();
+            } else {
+                const err = await res.json();
+                alert(err.error || 'Failed to approve PO');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Failed to approve PO');
+        }
     };
 
     const handleReceiveSubmit = async () => {
@@ -86,8 +98,9 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
                 const err = await res.json();
                 alert(err.error || 'Failed to receive items');
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
+            alert(e.message || 'Failed to receive items');
         } finally {
             setSubmitLoading(false);
         }
@@ -117,7 +130,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
                     <ArrowLeft className="h-4 w-4 mr-1" /> Orders
                 </button>
                 <span>/</span>
-                <span className="text-gray-900">{po.orderNumber}</span>
+                <span className="text-gray-900">{po.poNumber}</span>
             </div>
 
             {/* PO Header Card */}
@@ -128,7 +141,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
                         <div className="space-y-6">
                             <div>
                                 <div className="flex items-center gap-3 mb-2">
-                                    <h1 className="text-4xl font-bold tracking-tight text-gray-900">{po.orderNumber}</h1>
+                                    <h1 className="text-4xl font-bold tracking-tight text-gray-900">{po.poNumber}</h1>
                                     <Badge variant="outline" className={`px-2.5 py-1 text-sm ${StatusConfig[po.status]?.color}`}>
                                         {StatusConfig[po.status]?.label || po.status}
                                     </Badge>
@@ -166,7 +179,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
                                     ) : (po.status === 'APPROVED' || po.status === 'PARTIAL') ? (
                                         <Button onClick={() => {
                                             const initialData: Record<string, number> = {};
-                                            po.items?.forEach((l: any) => {
+                                            po.lines?.forEach((l: any) => {
                                                 const remaining = Number(l.quantity) - Number(l.receivedQty || 0);
                                                 initialData[l.id] = remaining > 0 ? remaining : 0;
                                             });
@@ -204,11 +217,11 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
                                 </TableRow>
                             </TableHeader>
                             <TableBody className="bg-white">
-                                {po.items?.length === 0 ? (
+                                {(!po.lines || po.lines.length === 0) ? (
                                     <TableRow>
                                         <TableCell colSpan={6} className="h-32 text-center text-gray-500">No items on this order.</TableCell>
                                     </TableRow>
-                                ) : po.items?.map((line: any) => {
+                                ) : (po.lines ?? []).map((line: any) => {
                                     const ordered = Number(line.quantity);
                                     const received = Number(line.receivedQty || 0);
                                     const isFullyReceived = received >= ordered;
@@ -226,7 +239,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-gray-600 text-sm">
-                                                {line.expectedDate ? new Date(line.expectedDate).toLocaleDateString() : '—'}
+                                                {(() => { if (!line.expectedDate) return '—'; const d = new Date(line.expectedDate); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString(); })()}
                                             </TableCell>
                                             <TableCell className="text-right font-medium text-gray-600">
                                                 {formatCurrency(Number(line.unitCost))}
@@ -240,7 +253,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-right font-bold text-gray-900">
-                                                {formatCurrency(Number(line.total))}
+                                                {formatCurrency(Number(line.lineTotal))}
                                             </TableCell>
                                         </TableRow>
                                     )
@@ -295,7 +308,7 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {po.items?.map((line: any) => {
+                                    {po.lines?.map((line: any) => {
                                         const ordered = Number(line.quantity);
                                         const received = Number(line.receivedQty || 0);
                                         const remaining = ordered - received;
@@ -315,7 +328,11 @@ export default function PurchaseOrderDetailPage({ params }: { params: Promise<{ 
                                                         min="0"
                                                         max={remaining}
                                                         value={receiveData[line.id] ?? 0}
-                                                        onChange={(e) => setReceiveData({ ...receiveData, [line.id]: Number(e.target.value) })}
+                                                        onChange={(e) => {
+                                                        const v = Number(e.target.value) || 0;
+                                                        const clamped = Math.max(0, Math.min(remaining, v));
+                                                        setReceiveData({ ...receiveData, [line.id]: clamped });
+                                                    }}
                                                         className="text-right font-semibold"
                                                     />
                                                 </TableCell>

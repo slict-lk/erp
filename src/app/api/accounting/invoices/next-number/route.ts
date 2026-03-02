@@ -4,12 +4,9 @@ import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
     try {
-        const tenant = await getOrCreateDefaultTenant();
-
-        // TODO: Replace with server-driven sequence backed by database counters
-        // For now, generating a collision-safe ID securely on the server using a full UUID
+        // TODO: Incorporate tenant-scoped sequencing
         const sequenceNumber = `INV-${crypto.randomUUID().toUpperCase()}`;
 
         return NextResponse.json({ number: sequenceNumber });

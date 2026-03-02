@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       where.parentId = parentId === 'null' ? null : parentId;
     }
 
-    const categories = await (prisma as any).productCategory.findMany({
+    const categories = await prisma.invCategory.findMany({
       where,
       include: {
         _count: {
@@ -63,7 +63,8 @@ export async function GET(request: NextRequest) {
 
       // First pass: create map and identify roots
       categories.forEach((category: any) => {
-        categoryMap.set(category.id, { ...category, children: [] });
+        // Initialize with existing children if Prisma already loaded some (e.g. nested include)
+        categoryMap.set(category.id, { ...category, children: [...(category.children || [])] });
         if (!category.parentId) {
           rootCategories.push(categoryMap.get(category.id));
         }
@@ -73,8 +74,12 @@ export async function GET(request: NextRequest) {
       categories.forEach((category: any) => {
         if (category.parentId) {
           const parent = categoryMap.get(category.parentId);
-          if (parent) {
-            parent.children.push(categoryMap.get(category.id));
+          const current = categoryMap.get(category.id);
+          if (parent && current) {
+            // Avoid duplicates if already present from Prisma's own nested children
+            if (!parent.children.some((c: any) => c.id === current.id)) {
+              parent.children.push(current);
+            }
           }
         }
       });
@@ -97,6 +102,20 @@ export async function POST(request: NextRequest) {
     const tenant = await getOrCreateDefaultTenant();
     const body = await request.json();
 
+    // Application-level uniqueness check for root categories (parentId is null)
+    if (!body.parentId || body.parentId === 'null') {
+      const existing = await prisma.invCategory.findFirst({
+        where: {
+          tenantId: tenant.id,
+          name: body.name,
+          parentId: null,
+        }
+      });
+      if (existing) {
+        return NextResponse.json({ error: 'A root category with this name already exists.' }, { status: 400 });
+      }
+    }
+
     // Validate required fields
     if (!body.name) {
       return NextResponse.json(
@@ -106,7 +125,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for duplicate names within the same parent
-    const existingCategory = await (prisma as any).productCategory.findFirst({
+    const existingCategory = await prisma.invCategory.findFirst({
       where: {
         tenantId: tenant.id,
         name: body.name,
@@ -123,7 +142,7 @@ export async function POST(request: NextRequest) {
 
     // Prevent circular references
     if (body.parentId) {
-      const parentCategory = await (prisma as any).productCategory.findUnique({
+      const parentCategory = await prisma.invCategory.findUnique({
         where: { id: body.parentId },
       });
 
@@ -143,13 +162,15 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         }
-        currentParent = await (prisma as any).productCategory.findUnique({
+        const nextParent: any = await prisma.invCategory.findUnique({
           where: { id: currentParent.parentId },
         });
+        if (!nextParent) break;
+        currentParent = nextParent;
       }
     }
 
-    const category = await (prisma as any).productCategory.create({
+    const category = await prisma.invCategory.create({
       data: {
         name: body.name,
         description: body.description,

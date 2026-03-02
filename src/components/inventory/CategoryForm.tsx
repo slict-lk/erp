@@ -59,7 +59,7 @@ export function CategoryForm({
     defaultValues: {
       name: initialData?.name || '',
       description: initialData?.description || '',
-      parentId: initialData?.parentId || '',
+      parentId: initialData?.parentId ?? undefined,
     },
   });
 
@@ -152,14 +152,14 @@ export function CategoryForm({
           <div className="space-y-2">
             <Label htmlFor="parentId">Parent Category (Optional)</Label>
             <Select
-              value={selectedParentId || ''}
-              onValueChange={(value) => setValue('parentId', value || undefined)}
+              value={selectedParentId || 'none'}
+              onValueChange={(value) => setValue('parentId', value === 'none' ? undefined : value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select parent category (leave empty for root category)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No Parent (Root Category)</SelectItem>
+                <SelectItem value="none">No Parent (Root Category)</SelectItem>
                 {categoryOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     <span style={{ paddingLeft: `${option.level * 16}px` }}>

@@ -14,15 +14,16 @@ export async function POST(request: NextRequest) {
         const { productId, warehouseId, quantity, type, notes } = body;
 
         // Type must be 'ADJUSTMENT_ADD' or 'ADJUSTMENT_SUBTRACT' for clarity in UI, mapped to bridge constants
-        if (!productId || !warehouseId || !quantity || quantity <= 0) {
-            return NextResponse.json({ error: 'Invalid parameters. Quantity must be positive.' }, { status: 400 });
+        const numQuantity = Number(quantity);
+        if (!productId || !warehouseId || !Number.isFinite(numQuantity) || numQuantity <= 0) {
+            return NextResponse.json({ error: 'Invalid parameters. productId, warehouseId required. Quantity must be a positive finite number.' }, { status: 400 });
         }
 
         const params = {
             tenantId: tenant.id,
             productId,
             warehouseId,
-            quantity: Number(quantity),
+            quantity: numQuantity,
             unitCost: 0, // Adjustments usually rely on average cost, or explicit cost can be passed
             sourceModule: 'inventory',
             sourceDocument: 'manual-adjustment',

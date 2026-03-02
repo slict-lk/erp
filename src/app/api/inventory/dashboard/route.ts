@@ -19,14 +19,14 @@ export async function GET(request: NextRequest) {
             prisma.invProduct.count({ where: { tenantId: tenant.id } }),
             prisma.invProduct.count({ where: { tenantId: tenant.id, isActive: true } }),
             prisma.invWarehouse.count({ where: { tenantId: tenant.id, isActive: true } }),
-            prisma.invProduct.count({
+            prisma.invProduct.findMany({
                 where: {
                     tenantId: tenant.id,
                     isActive: true,
                     type: 'STORABLE',
-                    stockQty: { lte: prisma.invProduct.fields.minStockQty }
-                }
-            }),
+                },
+                select: { stockQty: true, minStockQty: true }
+            }).then(prods => prods.filter(p => Number(p.stockQty) <= Number(p.minStockQty)).length),
             prisma.invStockMovement.findMany({
                 where: { tenantId: tenant.id },
                 orderBy: { date: 'desc' },

@@ -168,7 +168,7 @@ const StatusBadge = ({ status }: { status: string }) => {
 
   return (
     <Badge variant="outline" className={`${styles[status] || styles.DRAFT} text-[10px] font-semibold tracking-wider uppercase`}>
-      {status.replace('_', ' ')}
+      {status.replaceAll('_', ' ')}
     </Badge>
   );
 };
@@ -790,7 +790,7 @@ export default function AccountingDashboard() {
                       <div className="min-w-0">
                         <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{pay.reference || pay.invoice?.number || 'Payment'}</p>
                         <p className="text-xs text-gray-500 truncate">
-                          {pay.method} • {format(new Date(pay.paymentDate), 'MMM dd')}
+                          {pay.method} • {(() => { const d = safeDate(pay.paymentDate); return d ? format(d, 'MMM dd') : '-'; })()}
                         </p>
                       </div>
                     </div>

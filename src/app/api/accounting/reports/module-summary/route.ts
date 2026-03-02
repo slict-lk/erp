@@ -23,10 +23,10 @@ export async function GET(request: Request) {
         const now = new Date();
         const startDate = searchParams.get('startDate')
             ? new Date(searchParams.get('startDate')!)
-            : new Date(now.getFullYear(), now.getMonth(), 1);
+            : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
         const endDate = searchParams.get('endDate')
             ? new Date(searchParams.get('endDate')!)
-            : new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
 
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
             return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
@@ -86,7 +86,7 @@ export async function GET(request: Request) {
             data.transactionCount++;
 
             for (const line of entry.lines) {
-                const amount = Number(line.baseCurrency) || (line.debit > 0 ? line.debit : line.credit);
+                const amount = Number(line.baseCurrency ?? (line.debit > 0 ? line.debit : line.credit));
 
                 switch (line.account.type) {
                     case 'REVENUE':
@@ -186,16 +186,17 @@ async function getMonthlyBreakdown(
     startDate: Date,
     endDate: Date
 ): Promise<Array<{ month: string;[moduleSlug: string]: number | string }>> {
-    // Get 6 months of data ending at endDate
+    // Get 6 months of data ending at endDate, but respect startDate as a floor
     const sixMonthsAgo = new Date(endDate);
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
     sixMonthsAgo.setDate(1);
+    const effectiveStart = startDate > sixMonthsAgo ? startDate : sixMonthsAgo;
 
     const entries = await prisma.journalEntry.findMany({
         where: {
             tenantId,
             status: 'POSTED',
-            entryDate: { gte: sixMonthsAgo, lte: endDate },
+            entryDate: { gte: effectiveStart, lte: endDate },
             sourceModule: { not: null },
         },
         include: {
@@ -223,7 +224,7 @@ async function getMonthlyBreakdown(
 
         for (const line of entry.lines) {
             if (line.account.type === 'REVENUE' && line.credit > 0) {
-                const amount = Number(line.baseCurrency) || line.credit;
+                const amount = Number(line.baseCurrency ?? line.credit);
                 moduleMap.set(mod, (moduleMap.get(mod) || 0) + amount);
             }
         }

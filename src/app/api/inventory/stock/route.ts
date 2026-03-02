@@ -42,7 +42,15 @@ export async function POST(request: NextRequest) {
     const tenant = await getOrCreateDefaultTenant();
     const body = await request.json();
 
-    const type = body.type as 'IN' | 'OUT' | 'ADJUSTMENT' | 'RETURN' | 'WRITE_OFF';
+    const validTypes = ['IN', 'OUT', 'ADJUSTMENT', 'RETURN', 'WRITE_OFF'] as const;
+    const type = body.type as typeof validTypes[number];
+    if (!validTypes.includes(type)) {
+      return NextResponse.json({ error: `Invalid movement type. Must be one of: ${validTypes.join(', ')}` }, { status: 400 });
+    }
+
+    if (!body.productId || !body.warehouseId) {
+      return NextResponse.json({ error: 'productId and warehouseId are required' }, { status: 400 });
+    }
 
     let quantity = Number(body.quantity);
     let direction = body.direction !== undefined ? Number(body.direction) : 1;
@@ -72,7 +80,7 @@ export async function POST(request: NextRequest) {
       productId: body.productId,
       warehouseId: body.warehouseId,
       quantity,
-      unitCost: Number(body.unitCost || 0),
+      unitCost: Number(body.unitCost ?? 0),
       sourceModule: 'inventory',
       sourceDocument: body.sourceDocument || 'manual',
       reference: body.reference || `STK-${Date.now()}`,

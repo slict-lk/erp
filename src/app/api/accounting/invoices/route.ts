@@ -52,6 +52,10 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
+    // Validate invoice number
+    if (!body.number || typeof body.number !== 'string' || body.number.trim().length === 0) {
+      return NextResponse.json({ error: 'Invoice number is required' }, { status: 400 });
+    }
 
 
     // Wrap the invoice creation and GL posting in a transaction
@@ -118,7 +122,7 @@ export async function POST(request: NextRequest) {
           dueDate: dueDate,
           subtotal: computedSubtotal,
           tax: computedTax,
-          discount: body.discount || 0,
+          discount: Number(body.discount) || 0,
           total: computedTotal,
           amountPaid: 0,
           amountDue: computedTotal,
@@ -133,7 +137,7 @@ export async function POST(request: NextRequest) {
                 unitPrice: Number(l.unitPrice) || 0,
                 tax: Number(l.tax) || 0,
                 discount: Number(l.discount) || 0,
-                total: Number(l.total) || (Number(l.quantity) * Number(l.unitPrice)),
+                total: Number(l.total) || ((Number(l.quantity) * Number(l.unitPrice)) + (Number(l.tax) || 0) - (Number(l.discount) || 0)),
                 ...(l.productId && { productId: l.productId }),
               })),
             },
@@ -246,10 +250,11 @@ export async function POST(request: NextRequest) {
           });
 
           // Link JE back to invoice
-          await tx.invoice.update({
+          const updatedInvoice = await tx.invoice.update({
             where: { id: newInvoice.id },
             data: { journalEntryId: je.id }
           });
+          return updatedInvoice;
         }
       }
 

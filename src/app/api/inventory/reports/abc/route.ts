@@ -77,6 +77,6 @@ export async function GET(request: NextRequest) {
         });
     } catch (error) {
         console.error('Error fetching inventory ABC:', error);
-        return NextResponse.json({ error: 'Failed' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to generate ABC analysis' }, { status: 500 });
     }
 }

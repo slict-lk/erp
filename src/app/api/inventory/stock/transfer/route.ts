@@ -13,7 +13,8 @@ export async function POST(request: NextRequest) {
 
         const { productId, fromWarehouseId, toWarehouseId, quantity, notes } = body;
 
-        if (!productId || !fromWarehouseId || !toWarehouseId || !quantity || quantity <= 0) {
+        const numQuantity = Number(quantity);
+        if (!productId || !fromWarehouseId || !toWarehouseId || !Number.isFinite(numQuantity) || numQuantity <= 0) {
             return NextResponse.json({ error: 'Invalid parameters: requires productId, fromWarehouseId, toWarehouseId, and positive quantity.' }, { status: 400 });
         }
 
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Cannot transfer to the same warehouse' }, { status: 400 });
         }
 
-        const reference = `TRF-${Date.now()}`;
+        const reference = `TRF-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
         // Transfer means an OUT from source and an IN to destination
         // Wait for the OUT first so it throws if there's insufficient stock
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
                 tenantId: tenant.id,
                 productId,
                 warehouseId: fromWarehouseId,
-                quantity: Number(quantity),
+                quantity: numQuantity,
                 unitCost: 0, // Transfers do not change valuation overall, though they shift ledgers
                 sourceModule: 'inventory',
                 sourceDocument: 'transfer',
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
                 tenantId: tenant.id,
                 productId,
                 warehouseId: toWarehouseId,
-                quantity: Number(quantity),
+                quantity: numQuantity,
                 unitCost: 0, // Preserves the moving average
                 sourceModule: 'inventory',
                 sourceDocument: 'transfer',
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
                     tenantId: tenant.id,
                     productId,
                     warehouseId: fromWarehouseId,
-                    quantity: Number(quantity),
+                    quantity: numQuantity,
                     unitCost: 0,
                     sourceModule: 'inventory',
                     sourceDocument: 'transfer-rollback',

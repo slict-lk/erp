@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
         ],
       }),
       ...(typeParam && { type: typeParam as 'STORABLE' | 'CONSUMABLE' | 'SERVICE' }),
-      ...(categoryId && { category: categoryId }),
+      ...(categoryId && { categoryId: categoryId }),
       ...(isActive && { isActive: isActive === 'true' }),
     };
 
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     const products = await prisma.invProduct.findMany({
       where: whereClause,
       include: {
-        stockLedgers: true
+        category: true
       },
       skip,
       take,
@@ -85,16 +85,16 @@ export async function POST(request: NextRequest) {
 
     const product = await prisma.invProduct.create({
       data: {
-        sku: body.sku,
-        name: body.name,
+        sku: body.sku.trim(),
+        name: body.name.trim(),
         description: body.description,
         type: (body.type as 'STORABLE' | 'CONSUMABLE' | 'SERVICE') || 'STORABLE',
-        salePrice: body.salePrice || body.listPrice || 0,
-        costPrice: body.costPrice || 0,
-        stockQty: body.stockQty || body.qtyAvailable || 0,
-        minStockQty: body.minStockQty || 0,
+        salePrice: body.salePrice ?? body.listPrice ?? 0,
+        costPrice: body.costPrice ?? 0,
+        stockQty: body.stockQty ?? body.qtyAvailable ?? 0,
+        minStockQty: body.minStockQty ?? 0,
         barcode: body.barcode,
-        category: body.category,
+        categoryId: body.categoryId || body.category,
         isActive: body.isActive !== false,
         images: body.images || [],
         tenantId: tenant.id,

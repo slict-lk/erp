@@ -187,14 +187,14 @@ export function ProductForm({ initialData, categories = [], onSubmit, onCancel }
             <div>
               <Label htmlFor="categoryId">Category</Label>
               <Select
-                value={watch('categoryId') || ''}
-                onValueChange={(value) => setValue('categoryId', value || undefined)}
+                value={watch('categoryId') || 'none'}
+                onValueChange={(value) => setValue('categoryId', value === 'none' ? undefined : value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select category (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No Category</SelectItem>
+                  <SelectItem value="none">No Category</SelectItem>
                   {buildCategoryOptions(categories.filter(cat => !cat.parentId)).map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       <span style={{ paddingLeft: `${option.level * 16}px` }}>
@@ -261,6 +261,7 @@ export function ProductForm({ initialData, categories = [], onSubmit, onCancel }
                 size="icon"
                 className="text-red-500 hover:text-red-700 hover:bg-red-50"
                 onClick={() => remove(index)}
+                aria-label="Remove alias"
               >
                 <X className="h-4 w-4" />
               </Button>

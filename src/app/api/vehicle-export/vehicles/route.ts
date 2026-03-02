@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
                             auctionDate: body.auctionDate ? new Date(body.auctionDate) : null,
                             lotNumber: body.lotNumber,
                             auctionGrade: body.auctionGrade,
-                            auctionFee: body.auctionFee || 0,
+                            auctionFee: body.auctionFee ?? 0,
                             customerId: body.customerId,
                             status: 'WON_AT_AUCTION',
                             photos: body.photos && body.photos.length > 0 ? {
@@ -170,10 +170,10 @@ export async function POST(request: NextRequest) {
                 productId: `VEH-${vehicle.id}`,
                 productName: `${body.year} ${body.make} ${body.model} (Chassis: ${chassisNumber || 'Unknown'})`,
                 productCategory: 'Vehicle Export',
-                productPrice: Number(body.purchasePrice || 0) * 1.2, // Rough 20% margin for catalog
+                productPrice: Number(body.purchasePrice ?? 0) * 1.2, // Rough 20% margin for catalog
                 warehouseId: defaultWarehouse.id,
                 quantity: 1, // Serialized stock
-                unitCost: Number(body.purchasePrice || 0) + Number(body.auctionFee || 0),
+                unitCost: Number(body.purchasePrice ?? 0) + Number(body.auctionFee ?? 0),
                 sourceModule: 'vehicle-export',
                 sourceDocument: vehicle.id,
                 reference: stockNumber

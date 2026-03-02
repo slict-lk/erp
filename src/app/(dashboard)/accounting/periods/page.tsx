@@ -469,10 +469,10 @@ export default function AccountingPeriodsPage() {
                                                     : 'Unknown'}
                                             </TableCell>
                                             <TableCell className="text-sm text-gray-600 dark:text-gray-400">
-                                                {format(new Date(period.startDate), "MMM dd, yyyy")}
+                                                {(() => { const d = new Date(period.startDate); return isNaN(d.getTime()) ? 'Invalid date' : format(d, "MMM dd, yyyy"); })()}
                                             </TableCell>
                                             <TableCell className="text-sm text-gray-600 dark:text-gray-400">
-                                                {format(new Date(period.endDate), "MMM dd, yyyy")}
+                                                {(() => { const d = new Date(period.endDate); return isNaN(d.getTime()) ? 'Invalid date' : format(d, "MMM dd, yyyy"); })()}
                                             </TableCell>
                                             <TableCell>{getStatusBadge(period.status)}</TableCell>
                                             <TableCell className="hidden md:table-cell text-sm text-gray-500">
@@ -545,8 +545,8 @@ export default function AccountingPeriodsPage() {
                                     {periodToClose.name}
                                 </p>
                                 <p className="text-xs text-red-600 dark:text-red-400">
-                                    {format(new Date(periodToClose.startDate), "MMM dd, yyyy")} —{" "}
-                                    {format(new Date(periodToClose.endDate), "MMM dd, yyyy")}
+                                    {(() => { const d = new Date(periodToClose.startDate); return isNaN(d.getTime()) ? 'Invalid date' : format(d, "MMM dd, yyyy"); })()} —{" "}
+                                    {(() => { const d = new Date(periodToClose.endDate); return isNaN(d.getTime()) ? 'Invalid date' : format(d, "MMM dd, yyyy"); })()}
                                 </p>
                             </div>
                         </div>

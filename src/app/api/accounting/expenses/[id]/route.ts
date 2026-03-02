@@ -22,7 +22,7 @@ export async function PATCH(
         }
 
         const expense = await prisma.expense.update({
-            where: { id },
+            where: { id, tenantId: existingExpense.tenantId },
             data: {
                 ...(body.status && { status: body.status }),
                 ...(body.notes && { notes: body.notes }),
@@ -44,7 +44,7 @@ export async function PATCH(
                         sourceDocumentType: 'Expense',
                         eventType: 'EXPENSE_PAYMENT',
                         reference: `EXP-${expense.id.slice(-6)}`,
-                        description: `Employee Expense Approved - ${expense.employee?.firstName || 'Unknown'} - ${expense.description}`,
+                        description: `Employee Expense Approved - ${expense.employee?.firstName || 'Unknown'} - ${expense.description || 'No description'}`,
                         date: new Date(),
                         lines: [
                             { accountCode: accounts.debitCode, debit: expense.amount, credit: 0, description: `Expense: ${expense.category}` },
@@ -54,6 +54,11 @@ export async function PATCH(
                 }
             } catch (error) {
                 console.error('GL Bridge error (expense approval):', error);
+                // Mark expense GL status as failed so retries can be performed
+                await prisma.expense.update({
+                    where: { id: expense.id },
+                    data: { notes: `${expense.notes || ''}\n[GL POSTING FAILED: ${error instanceof Error ? error.message : 'Unknown error'}]` }
+                }).catch(e => console.error('Failed to update expense GL note:', e));
             }
         }
 

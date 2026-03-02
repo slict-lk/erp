@@ -46,6 +46,8 @@ export async function POST(request: NextRequest) {
         name: body.name,
         code: body.code,
         address: body.address,
+        description: body.description || null,
+        isActive: body.isActive !== false,
         tenantId: tenant.id,
       },
     });

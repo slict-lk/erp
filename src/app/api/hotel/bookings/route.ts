@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(bookings);
     } catch (error: any) {
         console.error('Error fetching bookings:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to fetch bookings' }, { status: 500 });
     }
 }
 
@@ -61,7 +61,13 @@ export async function POST(request: NextRequest) {
         // Calculate nights
         const start = new Date(checkIn);
         const end = new Date(checkOut);
-        const diffTime = Math.abs(end.getTime() - start.getTime());
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+            return NextResponse.json({ error: 'Invalid check-in or check-out date' }, { status: 400 });
+        }
+        if (end <= start) {
+            return NextResponse.json({ error: 'Check-out must be after check-in' }, { status: 400 });
+        }
+        const diffTime = end.getTime() - start.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
 
         // Create the booking
@@ -77,9 +83,9 @@ export async function POST(request: NextRequest) {
                 checkIn: start,
                 checkOut: end,
                 nights: diffDays,
-                totalAmount: Number(totalAmount) || 0,
+                totalAmount: Number(totalAmount) ?? 0,
                 status: status || 'CONFIRMED',
-                depositAmount: Number(depositAmount) || 0,
+                depositAmount: Number(depositAmount) ?? 0,
                 guests: 1, // Default
             },
             include: {

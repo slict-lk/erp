@@ -39,6 +39,21 @@ export async function POST(request: NextRequest) {
     const tenant = await getOrCreateDefaultTenant();
     const body = await request.json();
 
+    // Validate required fields
+    if (!body.code || typeof body.code !== 'string' || body.code.trim().length === 0) {
+      return NextResponse.json({ error: 'Account code is required' }, { status: 400 });
+    }
+    if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
+      return NextResponse.json({ error: 'Account name is required' }, { status: 400 });
+    }
+    const validTypes: AccountType[] = ['ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE'];
+    if (!body.type || !validTypes.includes(body.type)) {
+      return NextResponse.json({ error: 'Valid account type is required (ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE)' }, { status: 400 });
+    }
+    if (body.normalBalance && !['DEBIT', 'CREDIT'].includes(body.normalBalance)) {
+      return NextResponse.json({ error: 'normalBalance must be DEBIT or CREDIT' }, { status: 400 });
+    }
+
     if (body.parentId) {
       const parent = await prisma.account.findFirst({
         where: { id: body.parentId, tenantId: tenant.id }

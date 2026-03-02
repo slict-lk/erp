@@ -110,24 +110,29 @@ export async function PATCH(request: NextRequest) {
         const body = await request.json();
         const { statementLineId, paymentId } = body;
 
-        const line = await prisma.bankStatementLine.findUnique({
-            where: { id: statementLineId },
-            include: { statement: true }
-        });
+        if (!statementLineId || !paymentId) {
+            return NextResponse.json({ error: 'Both statementLineId and paymentId are required' }, { status: 400 });
+        }
 
-        const payment = await prisma.payment.findUnique({
-            where: { id: paymentId }
-        });
+        const [line, payment] = await Promise.all([
+            prisma.bankStatementLine.findUnique({
+                where: { id: statementLineId },
+                include: { statement: true }
+            }),
+            prisma.payment.findUnique({
+                where: { id: paymentId }
+            })
+        ]);
 
         if (!line || line.statement.tenantId !== tenant.id) {
-            return NextResponse.json({ error: 'Invalid statement line' }, { status: 400 });
+            return NextResponse.json({ error: 'Bank statement line not found' }, { status: 400 });
         }
 
         if (!payment || payment.tenantId !== tenant.id) {
-            return NextResponse.json({ error: 'Invalid payment' }, { status: 400 });
+            return NextResponse.json({ error: 'Payment not found' }, { status: 400 });
         }
 
-        if (Math.abs(Number(line.amount)) !== Number(payment.amount)) {
+        if (Math.round(Math.abs(Number(line.amount)) * 100) !== Math.round(Number(payment.amount) * 100)) {
             return NextResponse.json({ error: 'Amount mismatch between statement line and payment' }, { status: 400 });
         }
 

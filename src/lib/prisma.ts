@@ -1,43 +1,69 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
 
 // PrismaClient is attached to the `global` object in development to prevent
 // exhausting your database connection limit.
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-// Build the connection URL with serverless-optimized pooling parameters
-function getOptimizedDatabaseUrl(): string {
-  const baseUrl = process.env.DATABASE_URL || '';
+// Create Prisma Client instance using the Prisma 7 adapter pattern.
+// Prisma 7 uses the "client" engine, which requires a driver adapter.
+const createPrismaClient = () => {
+  const connectionString = process.env.DATABASE_URL;
 
-  if (!baseUrl) {
-    return 'postgresql://placeholder:placeholder@localhost:5432/placeholder';
+  if (!connectionString) {
+    throw new Error('DATABASE_URL environment variable is not set');
   }
 
-  // Check if URL already has query params
-  const separator = baseUrl.includes('?') ? '&' : '?';
+  // Strip sslmode from URL — pg Pool handles SSL via its own config object,
+  // and having it in the URL can conflict with the adapter.
+  const url = new URL(connectionString);
+  url.searchParams.delete('sslmode');
+  const cleanedUrl = url.toString();
 
-  // Ultra-conservative settings for Aiven free tier / serverless
-  // connection_limit=1 means each function instance uses only 1 connection
-  const params = [
-    'connection_limit=1',    // Only 1 connection per serverless function
-    'connect_timeout=15',    // Wait up to 15s for connection
-    'pool_timeout=15',       // Wait up to 15s for pool
-  ].join('&');
+  // SSL Configuration for Aiven / Managed Postgres
+  const sslConfig: any = {
+    rejectUnauthorized: process.env.DISABLE_SSL_VERIFY === 'true' ? false : true,
+  };
 
-  return `${baseUrl}${separator}${params}`;
-}
+  if (process.env.AIVEN_CA_CERT) {
+    sslConfig.ca = process.env.AIVEN_CA_CERT;
+    sslConfig.rejectUnauthorized = true; // Force verify if CA is provided
+  } else if (!process.env.DISABLE_SSL_VERIFY) {
+    // Default to rejectUnauthorized: false ONLY if no cert AND no explicit toggle
+    // to match existing behavior while allowing future lockdown.
+    sslConfig.rejectUnauthorized = false;
+  }
 
-// Create Prisma Client instance with serverless-optimized settings
-const createPrismaClient = () => {
-  const url = getOptimizedDatabaseUrl();
-
-  console.log('[Prisma] Initializing with optimized connection settings');
-
-  return new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-    datasources: {
-      db: { url },
-    },
+  // Create a pg Pool with conservative settings for Aiven / serverless
+  const pool = new pg.Pool({
+    connectionString: cleanedUrl,
+    max: 5,              // Max connections in pool
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 15000,
+    ssl: sslConfig,
   });
+
+  const adapter = new PrismaPg(pool);
+
+  console.log('[Prisma] Initializing client with pg adapter (Prisma 7)');
+
+  const client = new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+    adapter,
+  });
+
+  // Attach pool to client for teardown
+  (client as any)._pool = pool;
+  const originalDisconnect = client.$disconnect.bind(client);
+
+  client.$disconnect = async () => {
+    console.log('[Prisma] Disconnecting and closing pool...');
+    await originalDisconnect();
+    await pool.end();
+  };
+
+  return client;
 };
 
 // Use cached instance or create new one
@@ -52,6 +78,7 @@ if (typeof process !== 'undefined') {
     await prisma.$disconnect();
   });
 }
+
 
 // Connection health check helper
 export async function testDatabaseConnection(retries = 3): Promise<boolean> {

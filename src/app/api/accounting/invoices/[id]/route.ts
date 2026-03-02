@@ -31,7 +31,10 @@ export async function GET(
         }
 
         return NextResponse.json(invoice);
-    } catch (error) {
+    } catch (error: any) {
+        if (error instanceof Response || error?.status === 401 || error?.status === 403) {
+            return error instanceof Response ? error : NextResponse.json({ error: error.message || 'Forbidden' }, { status: error.status || 403 });
+        }
         console.error('Error fetching invoice:', error);
         return NextResponse.json({ error: 'Failed to fetch invoice' }, { status: 500 });
     }
@@ -45,7 +48,13 @@ export async function PATCH(
     try {
         const { tenantId } = await requireTenantContext({ moduleId: 'accounting', action: 'edit' });
         const resolvedParams = await params;
-        const body = await request.json();
+
+        let body: any;
+        try {
+            body = await request.json();
+        } catch (parseErr) {
+            return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
+        }
 
         const invoice = await prisma.invoice.findFirst({
             where: {
@@ -72,7 +81,10 @@ export async function PATCH(
         });
 
         return NextResponse.json(updatedInvoice);
-    } catch (error) {
+    } catch (error: any) {
+        if (error instanceof Response || error?.status === 401 || error?.status === 403) {
+            return error instanceof Response ? error : NextResponse.json({ error: error.message || 'Forbidden' }, { status: error.status || 403 });
+        }
         console.error('Error updating invoice:', error);
         return NextResponse.json({ error: 'Failed to update invoice' }, { status: 500 });
     }

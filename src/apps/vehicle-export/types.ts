@@ -1,6 +1,7 @@
 // Vehicle Export Module - Type Definitions
 
-import type { Decimal } from '@prisma/client/runtime/library';
+import { Prisma } from '@prisma/client';
+type Decimal = Prisma.Decimal;
 
 // ============================================================================
 // Enums (Matching Prisma Schema)

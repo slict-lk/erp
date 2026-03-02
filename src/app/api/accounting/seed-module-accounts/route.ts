@@ -18,13 +18,22 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
 
-        const body = await request.json();
+        let body: any = {};
+        try {
+            const text = await request.text();
+            if (text.trim()) {
+                body = JSON.parse(text);
+            }
+        } catch {
+            return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
+        }
         const tenantId = session.user.tenantId;
+        const moduleSlug = body?.moduleSlug;
 
-        if (body.moduleSlug) {
-            const result = await seedModuleAccounts(tenantId, body.moduleSlug);
+        if (moduleSlug) {
+            const result = await seedModuleAccounts(tenantId, moduleSlug);
             return NextResponse.json({
-                message: `Seeded accounts for ${body.moduleSlug}`,
+                message: `Seeded accounts for ${moduleSlug}`,
                 ...result,
             });
         }
@@ -37,7 +46,7 @@ export async function POST(request: Request) {
     } catch (error: any) {
         console.error('[Seed Module Accounts] Error:', error);
         return NextResponse.json(
-            { error: error.message || 'Failed to seed module accounts' },
+            { error: 'Failed to seed module accounts' },
             { status: 500 }
         );
     }

@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     try {
         const tenant = await getOrCreateDefaultTenant();
 
-        const suppliers = await prisma.vendor.findMany({
+        const suppliers = await prisma.invSupplier.findMany({
             where: {
                 tenantId: tenant.id,
             },
@@ -34,15 +34,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Supplier name is required' }, { status: 400 });
         }
 
-        const supplier = await prisma.vendor.create({
+        const supplier = await prisma.invSupplier.create({
             data: {
                 tenantId: tenant.id,
                 name: body.name,
-                contactPerson: body.contactName,
+                contactName: body.contactPerson || body.contactName,
                 email: body.email,
                 phone: body.phone,
                 address: body.address,
-                paymentTerms: body.paymentTerms,
                 taxId: body.taxId,
                 notes: body.notes,
                 isActive: body.isActive !== false,

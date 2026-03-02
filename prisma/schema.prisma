@@ -4,8 +4,6 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model Tenant {
@@ -5283,6 +5281,24 @@ model ModuleAccountMapping {
 // Prefixed with "Inv" to avoid naming conflicts with spareparts or POS models.
 // ─────────────────────────────────────────────────────────────────────────────
 
+model InvCategory {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  parentId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parent      InvCategory?  @relation("CategoryToCategory", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children    InvCategory[] @relation("CategoryToCategory")
+
+  products    InvProduct[]
+
+  @@unique([tenantId, name, parentId])
+  @@index([tenantId])
+}
+
 model InvProduct {
   id               String   @id @default(cuid())
   tenantId         String
@@ -5290,7 +5306,7 @@ model InvProduct {
   name             String
   description      String?
   type             String   @default("STORABLE") // STORABLE | CONSUMABLE | SERVICE
-  category         String?
+  categoryId       String?
   barcode          String?
   images           String[] @default([])
   isActive         Boolean  @default(true)
@@ -5317,13 +5333,14 @@ model InvProduct {
   updatedAt        DateTime @updatedAt
 
   supplier         InvSupplier?          @relation(fields: [defaultSupplierId], references: [id])
+  category         InvCategory?          @relation(fields: [categoryId], references: [id])
   stockLedgers     InvStockLedger[]
   stockMovements   InvStockMovement[]
   purchaseOrderLines InvPurchaseOrderLine[]
 
   @@unique([tenantId, sku])
   @@index([tenantId])
-  @@index([tenantId, category])
+  @@index([tenantId, categoryId])
 }
 
 model InvWarehouse {

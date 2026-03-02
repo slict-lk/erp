@@ -15,7 +15,11 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = new URL(request.url);
         const asOfDateParam = searchParams.get('asOfDate');
-        const typeParam = searchParams.get('type') || 'AR'; // AR or AP
+        const typeParam = (searchParams.get('type') || 'AR').toUpperCase();
+
+        if (typeParam !== 'AR' && typeParam !== 'AP') {
+            return NextResponse.json({ error: 'type parameter must be AR or AP' }, { status: 400 });
+        }
 
         const asOfDate = asOfDateParam ? new Date(asOfDateParam) : new Date();
         if (isNaN(asOfDate.getTime())) {
@@ -65,7 +69,8 @@ export async function GET(request: NextRequest) {
             else if (daysOverdue > 30) bucket = '31-60 Days';
             else if (daysOverdue > 0) bucket = '1-30 Days';
 
-            const amount = inv.amountDue * inv.exchangeRate; // Base currency equivalent
+            const safeExchangeRate = (inv.exchangeRate != null && Number(inv.exchangeRate) !== 0) ? Number(inv.exchangeRate) : 1;
+            const amount = Number(inv.amountDue) * safeExchangeRate; // Base currency equivalent
 
             // @ts-ignore dynamic key assignment
             agingBuckets[bucket] += amount;

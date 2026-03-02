@@ -30,7 +30,7 @@ export async function createPOSConfig(data: Partial<POSConfig> & { tenantId: str
       name: data.name,
       warehouseId: data.warehouseId,
       allowDiscount: data.allowDiscount !== false,
-      maxDiscount: data.maxDiscount || 0,
+      maxDiscount: data.maxDiscount ?? 0,
     }
   });
 }
@@ -105,12 +105,16 @@ export async function closePOSSession(
       throw new Error('Session not found or access denied');
     }
 
+    if (session.status !== 'OPEN') {
+      throw new Error('Session is already closed');
+    }
+
     let totalSales = 0;
-    let expectedCash = Number(session.openingCash) || 0;
+    let expectedCash = Number(session.openingCash) ?? 0;
     const orderCount = session.orders.length;
 
     for (const order of session.orders) {
-      totalSales += Number(order.totalAmount) || 0;
+      totalSales += Number(order.totalAmount) ?? 0;
       for (const pay of order.payments) {
         if (pay.method === 'CASH') {
           expectedCash += Number(pay.amount) || 0;
@@ -165,7 +169,7 @@ export async function createPOSOrder(data: any & { tenantId: string }) {
     where: { id: data.tenantId },
     select: { settings: true }
   });
-  const posCostMargin = tenantConfig?.settings?.posCostMargin || DEFAULT_COST_MARGIN;
+  const posCostMargin = tenantConfig?.settings?.posCostMargin ?? DEFAULT_COST_MARGIN;
 
   const computeUnitCost = (item: any, defaultMargin: number) => {
     return Number(item.product?.costPrice ?? item.product?.cost ?? (Number(item.product?.price ?? item.unitPrice) * (item.product?.costMargin ?? posCostMargin ?? defaultMargin)));
@@ -185,13 +189,18 @@ export async function createPOSOrder(data: any & { tenantId: string }) {
         notes: data.notes || '',
         tenantId: data.tenantId,
         items: {
-          create: (data.items || []).map((item: any) => ({
-            productId: item.productId,
-            quantity: Math.round(Number(item.quantity)) || 1,
-            unitPrice: Number(item.unitPrice),
-            total: Number(item.total),
-            tenantId: data.tenantId,
-          })),
+          create: (data.items || []).map((item: any) => {
+            const up = Number(item.unitPrice);
+            const t = Number(item.total);
+            const qty = Math.round(Number(item.quantity));
+            return {
+              productId: item.productId,
+              quantity: Number.isFinite(qty) && qty > 0 ? qty : 1,
+              unitPrice: Number.isFinite(up) ? up : 0,
+              total: Number.isFinite(t) ? t : 0,
+              tenantId: data.tenantId,
+            };
+          }),
         },
       },
       include: {

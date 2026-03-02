@@ -26,25 +26,32 @@ export default function FinancialReportsPage() {
         return d.toISOString().split('T')[0];
     });
     const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const [dateRangeError, setDateRangeError] = useState<string | null>(null);
 
-    const fetchReport = async (type: string) => {
+    const fetchReport = async (type: string, signal?: AbortSignal) => {
         setLoading(true);
         setError(null);
         try {
             let url = "";
             if (type === "pl") url = `/api/accounting/reports/profit-loss?startDate=${startDate}&endDate=${endDate}`;
-            if (type === "bs") url = `/api/accounting/reports/balance-sheet?asOfDate=${endDate}`;
-            if (type === "tb") url = `/api/accounting/reports/trial-balance?asOfDate=${endDate}`;
-            if (type === "ar") url = `/api/accounting/reports/ar-aging?asOfDate=${endDate}&type=AR`;
+            else if (type === "bs") url = `/api/accounting/reports/balance-sheet?asOfDate=${endDate}`;
+            else if (type === "tb") url = `/api/accounting/reports/trial-balance?asOfDate=${endDate}`;
+            else if (type === "ar") url = `/api/accounting/reports/ar-aging?asOfDate=${endDate}&type=AR`;
+            else {
+                setError(`Unknown report type: ${type}`);
+                setLoading(false);
+                return;
+            }
 
-            const res = await fetch(url);
+            const res = await fetch(url, signal ? { signal } : undefined);
             if (res.ok) {
                 setReportData(await res.json());
             } else {
                 const err = await res.json();
                 setError(err.error || "Failed to load report data.");
             }
-        } catch (err) {
+        } catch (err: any) {
+            if (err?.name === 'AbortError') return;
             console.error(err);
             setError("Unexpected error loading report.");
         } finally {
@@ -66,7 +73,16 @@ export default function FinancialReportsPage() {
     };
 
     useEffect(() => {
-        fetchReport(activeTab);
+        // Validate date range
+        if (activeTab === 'pl' && new Date(endDate) < new Date(startDate)) {
+            setDateRangeError('End date cannot be earlier than start date.');
+            return;
+        }
+        setDateRangeError(null);
+
+        const controller = new AbortController();
+        fetchReport(activeTab, controller.signal);
+        return () => controller.abort();
     }, [activeTab, startDate, endDate]);
 
     return (
@@ -111,7 +127,11 @@ export default function FinancialReportsPage() {
                         <input
                             type="date"
                             value={startDate}
-                            onChange={e => setStartDate(e.target.value)}
+                            onChange={e => {
+                            setStartDate(e.target.value);
+                            if (new Date(endDate) < new Date(e.target.value)) setDateRangeError('End date cannot be earlier than start date.');
+                            else setDateRangeError(null);
+                        }}
                             className="bg-transparent border rounded px-2 py-1 text-sm text-gray-700 dark:text-gray-300"
                             disabled={["bs", "tb", "ar"].includes(activeTab)}
                         />
@@ -119,11 +139,19 @@ export default function FinancialReportsPage() {
                         <input
                             type="date"
                             value={endDate}
-                            onChange={e => setEndDate(e.target.value)}
+                            onChange={e => {
+                            setEndDate(e.target.value);
+                            if (new Date(e.target.value) < new Date(startDate)) setDateRangeError('End date cannot be earlier than start date.');
+                            else setDateRangeError(null);
+                        }}
                             className="bg-transparent border rounded px-2 py-1 text-sm text-gray-700 dark:text-gray-300"
                         />
                     </div>
                 </div>
+
+                {dateRangeError && (
+                    <p className="text-sm text-red-500 mt-1">{dateRangeError}</p>
+                )}
 
                 {/* Profit & Loss */}
                 <TabsContent value="pl">

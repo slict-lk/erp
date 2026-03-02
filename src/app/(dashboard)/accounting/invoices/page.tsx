@@ -186,6 +186,8 @@ export default function InvoicesPage() {
     if (formData.type === 'SALES' && !formData.customerId) return alert("Please select a customer.");
     if (formData.type === 'PURCHASE' && !formData.vendorId) return alert("Please select a vendor.");
     if (formData.lines.every(l => !l.description)) return alert("Please add at least one line item.");
+    const invalidLine = formData.lines.find(l => l.description && (Number(l.quantity) <= 0 || !Number.isFinite(Number(l.quantity)) || Number(l.unitPrice) <= 0 || !Number.isFinite(Number(l.unitPrice))));
+    if (invalidLine) return alert("Each line item must have a positive quantity and unit price.");
 
     setSubmitting(true);
     try {
@@ -224,6 +226,7 @@ export default function InvoicesPage() {
           notes: ''
         });
         fetchInvoices();
+        fetchNextInvoiceNumber();
       } else {
         const err = await res.json();
         alert(err.error || "Failed to create invoice");
@@ -811,17 +814,17 @@ export default function InvoicesPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-gray-500">Loading invoices...</TableCell>
+                    <TableCell colSpan={9} className="text-center py-8 text-gray-500">Loading invoices...</TableCell>
                   </TableRow>
                 ) : invoices.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                       No invoices found. Create one to get started.
                     </TableCell>
                   </TableRow>
                 ) : filteredInvoices.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                       No invoices match your search.
                     </TableCell>
                   </TableRow>

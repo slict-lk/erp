@@ -83,7 +83,7 @@ export async function POST(
   } catch (error: any) {
     console.error('Error creating maintenance request:', error);
     return NextResponse.json(
-      { error: 'Failed to create maintenance request', details: error.message },
+      { error: 'Failed to create maintenance request' },
       { status: 500 }
     );
   }
@@ -113,7 +113,7 @@ export async function GET(
   } catch (error: any) {
     console.error('Error fetching maintenance requests:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch maintenance requests', details: error.message },
+      { error: 'Failed to fetch maintenance requests' },
       { status: 500 }
     );
   }

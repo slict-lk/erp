@@ -210,7 +210,11 @@ export default function PaymentsPage() {
           <PaymentForm
             initialData={selectedPayment ? {
               ...selectedPayment,
-              paymentDate: String(selectedPayment.paymentDate).split('T')[0]
+              paymentDate: (() => {
+                const pd = selectedPayment.paymentDate;
+                if (!pd) return undefined;
+                return (pd instanceof Date ? pd : new Date(pd)).toISOString().split('T')[0];
+              })()
             } : undefined}
             customers={customers}
             vendors={vendors}

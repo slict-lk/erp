@@ -17,7 +17,11 @@ export async function GET(request: NextRequest) {
                 id: true,
                 sku: true,
                 name: true,
-                category: true,
+                category: {
+                    select: {
+                        name: true
+                    }
+                },
                 stockQty: true,
                 costPrice: true
             }
@@ -26,7 +30,7 @@ export async function GET(request: NextRequest) {
         const valuation = products.map(p => ({
             id: p.id,
             productName: p.name,
-            category: p.category,
+            category: p.category?.name || '—',
             stockQty: Number(p.stockQty),
             averageCost: Number(p.costPrice),
             totalValue: Number(p.stockQty) * Number(p.costPrice)
@@ -42,6 +46,6 @@ export async function GET(request: NextRequest) {
         });
     } catch (error) {
         console.error('Error fetching inventory valuation:', error);
-        return NextResponse.json({ error: 'Failed' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to generate inventory valuation report' }, { status: 500 });
     }
 }

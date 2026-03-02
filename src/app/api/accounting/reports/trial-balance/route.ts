@@ -19,8 +19,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid asOfDate parameter' }, { status: 400 });
         }
 
-        // Set to end of day
-        endDate.setHours(23, 59, 59, 999);
+        // Set to end of day in UTC for consistency
+        endDate.setUTCHours(23, 59, 59, 999);
 
         // Get all POSTED journal lines up to the date
         const journalLines = await prisma.journalLine.findMany({
@@ -110,16 +110,19 @@ export async function GET(request: NextRequest) {
         }).filter(a => a.debit !== 0 || a.credit !== 0) // Hide zero balance accounts
             .sort((a, b) => a.code.localeCompare(b.code));
 
+        // Balance tolerance for floating-point comparison (0.005 provides sub-cent precision)
+        const BALANCE_EPSILON = 0.005;
+
         return NextResponse.json({
             asOfDate: endDate,
             accounts: results,
             totalDebit: totalDebit,
             totalCredit: totalCredit,
-            isBalanced: Math.abs(totalDebit - totalCredit) < 0.01
+            isBalanced: Math.abs(totalDebit - totalCredit) < BALANCE_EPSILON
         });
 
     } catch (error: any) {
-        if (error.message === 'Forbidden: Insufficient Permissions') {
+        if (error.message === 'Forbidden: Insufficient Permissions' || error?.code === 'INSUFFICIENT_PERMISSIONS') {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
         console.error('Error generating Trial Balance:', error);

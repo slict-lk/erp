@@ -113,6 +113,9 @@ export async function postToGL(request: GLPostingRequest, txClient?: any): Promi
                     sourceDocumentId: request.sourceDocumentId,
                     sourceDocumentType: request.sourceDocumentType,
                     sourceModule: request.sourceModule,
+                    // Include eventType in idempotency check so the same document
+                    // can post different event types (e.g., VEHICLE_PURCHASE and AUCTION_FEE)
+                    description: { contains: request.eventType },
                     status: 'POSTED',
                 }
             });
@@ -159,7 +162,7 @@ export async function postToGL(request: GLPostingRequest, txClient?: any): Promi
 
             // 5. Generate reference
             const prefix = MODULE_REF_PREFIX[request.sourceModule] || 'GL';
-            const reference = request.reference || `${prefix}-${Date.now()}`;
+            const reference = request.reference || `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
             // 6. Create the journal entry with lines
             const journalEntry = await tx.journalEntry.create({
@@ -176,7 +179,7 @@ export async function postToGL(request: GLPostingRequest, txClient?: any): Promi
                     lines: {
                         create: request.lines.map(line => {
                             const account = accountMap.get(line.accountCode)!;
-                            const exchangeRate = line.exchangeRate || 1;
+                            const exchangeRate = line.exchangeRate ?? 1;
                             const baseCurrencyAmount = line.debit > 0
                                 ? line.debit * exchangeRate
                                 : line.credit > 0

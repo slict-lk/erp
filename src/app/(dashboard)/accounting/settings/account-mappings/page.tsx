@@ -39,10 +39,15 @@ export default function AccountMappingsPage() {
                     fetch('/api/accounting/accounts'),
                     fetch('/api/accounting/module-mappings')
                 ]);
-                if (accountsRes.ok && mappingsRes.ok) {
+                if (accountsRes.ok) {
                     const accData = await accountsRes.json();
-                    const mapData = await mappingsRes.json();
                     setAccounts(accData);
+                } else {
+                    toast({ title: 'Error', description: `Failed to load accounts: ${accountsRes.statusText}`, variant: 'destructive' });
+                }
+
+                if (mappingsRes.ok) {
+                    const mapData = await mappingsRes.json();
                     setMappings(mapData);
 
                     // Initialize local state
@@ -54,6 +59,8 @@ export default function AccountMappingsPage() {
                         };
                     });
                     setLocalState(initial);
+                } else {
+                    toast({ title: 'Error', description: `Failed to load mappings: ${mappingsRes.statusText}`, variant: 'destructive' });
                 }
             } catch (error) {
                 console.error('Failed to load mapping data', error);
@@ -78,14 +85,23 @@ export default function AccountMappingsPage() {
     const handleSave = async () => {
         setSaving(true);
         try {
-            const updates = Object.keys(localState).filter(key => key.startsWith(`${activeModule}-`)).map(key => {
+            const allItems = Object.keys(localState).filter(key => key.startsWith(`${activeModule}-`)).map(key => {
                 const eventType = key.replace(`${activeModule}-`, '');
                 return {
                     moduleSlug: activeModule,
                     eventType,
                     ...localState[key]
                 };
-            }).filter(item => item.debitAccountId && item.creditAccountId);
+            });
+
+            const incompleteUpdates = allItems.filter(item => (item.debitAccountId && !item.creditAccountId) || (!item.debitAccountId && item.creditAccountId));
+            if (incompleteUpdates.length > 0) {
+                toast({ title: 'Incomplete Mappings', description: `The following event types have only one account mapped: ${incompleteUpdates.map(u => u.eventType).join(', ')}. Both debit and credit accounts are required.`, variant: 'destructive' });
+                setSaving(false);
+                return;
+            }
+
+            const updates = allItems.filter(item => item.debitAccountId && item.creditAccountId);
 
             const promises = updates.map(u => fetch('/api/accounting/module-mappings', {
                 method: 'PUT',

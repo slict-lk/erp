@@ -30,7 +30,8 @@ export default function BankReconciliationPage() {
     const [isUploading, setIsUploading] = useState(false);
 
     useEffect(() => {
-        setTimeout(() => setLoading(false), 1000);
+        const timeoutId = setTimeout(() => setLoading(false), 1000);
+        return () => clearTimeout(timeoutId);
     }, []);
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -60,9 +61,11 @@ export default function BankReconciliationPage() {
             toast.success('Statement uploaded successfully', { id: toastId });
 
             // Mocking a successful upload parsing
-            setTimeout(() => {
+            const mockTimeoutId = setTimeout(() => {
                 toast.success('Parsed 12 transactions from statement');
             }, 1500);
+            // Store for potential cleanup (component-level)
+            (window as any).__bankRecMockTimeout = mockTimeoutId;
 
         } catch (error: any) {
             console.error('Upload Error:', error);

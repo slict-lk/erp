@@ -35,6 +35,10 @@ export async function POST(request: NextRequest) {
         if (!body.code || !body.name || body.rate === undefined || !body.liabilityAccountId) {
             return NextResponse.json({ error: 'Code, name, rate, and liabilityAccountId are required' }, { status: 400 });
         }
+        const parsedRate = Number(body.rate);
+        if (!Number.isFinite(parsedRate) || parsedRate < 0 || parsedRate > 100) {
+            return NextResponse.json({ error: 'Rate must be a finite number between 0 and 100' }, { status: 400 });
+        }
 
         const validTaxTypes = ['STANDARD', 'COMPOUND', 'FLAT'];
         if (body.type && !validTaxTypes.includes(body.type)) {

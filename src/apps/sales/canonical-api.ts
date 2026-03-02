@@ -649,14 +649,14 @@ export async function approveSalesOrderV2(tenantId: string, id: string, userId: 
   // --- GL POSTING ---
   try {
     if (order.status === 'CONFIRMED' && order.grandTotal > 0) {
-      const accounts = await resolveAccountCodes(tenantId, 'sales', 'SALE_INVOICED');
+      const accounts = await resolveAccountCodes(tenantId, 'sales', 'SALE');
       if (accounts) {
         await postToGL({
           tenantId,
           sourceModule: 'sales',
           sourceDocumentId: order.id,
           sourceDocumentType: 'SalesOrderV2',
-          eventType: 'SALE_INVOICED',
+          eventType: 'SALE',
           reference: `SO-${order.orderNumber}`,
           description: `Sales Order Confirmed - ${order.orderNumber}`,
           date: new Date(),

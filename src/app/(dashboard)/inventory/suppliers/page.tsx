@@ -6,8 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Building2, Search, Mail, Phone, Users, MapPin, PlusCircle, CheckCircle } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { SupplierForm } from '@/components/inventory/SupplierForm';
+import { Building2, Search, Mail, Phone, Users, MapPin, PlusCircle, CheckCircle, Pencil } from 'lucide-react';
 import { useModuleAccess } from '@/hooks/useModulePermissions';
+import { cn } from '@/lib/utils';
 
 export default function SuppliersPage() {
     const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -15,7 +18,10 @@ export default function SuppliersPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const { canEdit } = useModuleAccess('inventory');
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
+    const [selectedSupplier, setSelectedSupplier] = useState<any | null>(null);
+
+    const { canEdit, canCreate } = useModuleAccess('inventory');
 
     useEffect(() => {
         loadSuppliers();
@@ -38,6 +44,52 @@ export default function SuppliersPage() {
         }
     };
 
+    const handleCreateSupplier = async (data: any) => {
+        try {
+            const res = await fetch('/api/inventory/suppliers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (res.ok) {
+                await loadSuppliers();
+                setIsSheetOpen(false);
+            } else {
+                const err = await res.json();
+                alert(err.error || 'Failed to create supplier');
+            }
+        } catch (error) {
+            console.error('Error creating supplier:', error);
+            alert('An unexpected error occurred.');
+        }
+    };
+
+    const handleUpdateSupplier = async (data: any) => {
+        if (!selectedSupplier) return;
+        try {
+            const res = await fetch(`/api/inventory/suppliers/${selectedSupplier.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (res.ok) {
+                await loadSuppliers();
+                setIsSheetOpen(false);
+            } else {
+                const err = await res.json();
+                alert(err.error || 'Failed to update supplier');
+            }
+        } catch (error) {
+            console.error('Error updating supplier:', error);
+            alert('An unexpected error occurred.');
+        }
+    };
+
+    const openEditSheet = (supplier?: any) => {
+        setSelectedSupplier(supplier || null);
+        setIsSheetOpen(true);
+    };
+
     const filteredSuppliers = useMemo(() => {
         return suppliers.filter(s =>
             s.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -53,8 +105,8 @@ export default function SuppliersPage() {
                     <h1 className="text-3xl font-bold tracking-tight text-gray-900">Procurement Partners</h1>
                     <p className="text-gray-500">Manage vendor relationships, supply chains, and contact directories.</p>
                 </div>
-                {canEdit && (
-                    <Button className="bg-indigo-600 hover:bg-indigo-700">
+                {(canEdit || canCreate) && (
+                    <Button onClick={() => openEditSheet()} className="bg-indigo-600 hover:bg-indigo-700">
                         <PlusCircle className="h-4 w-4 mr-2" />
                         Onboard Vendor
                     </Button>
@@ -92,12 +144,13 @@ export default function SuppliersPage() {
                                         <TableHead>Primary Contact</TableHead>
                                         <TableHead>Contact Details</TableHead>
                                         <TableHead>Status</TableHead>
+                                        <TableHead className="w-10">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody className="bg-white">
                                     {filteredSuppliers.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={4} className="h-48 text-center text-gray-500">
+                                            <TableCell colSpan={5} className="h-48 text-center text-gray-500">
                                                 <div className="flex flex-col items-center justify-center space-y-2">
                                                     <Building2 className="h-10 w-10 text-gray-300" />
                                                     <p>No vendors found matching your search.</p>
@@ -105,7 +158,14 @@ export default function SuppliersPage() {
                                             </TableCell>
                                         </TableRow>
                                     ) : filteredSuppliers.map((s) => (
-                                        <TableRow key={s.id} className="hover:bg-gray-50/50 transition-colors group cursor-pointer">
+                                        <TableRow
+                                            key={s.id}
+                                            onClick={() => { if (canEdit) openEditSheet(s); }}
+                                            className={cn(
+                                                "transition-colors group",
+                                                canEdit ? "hover:bg-gray-50/50 cursor-pointer" : "opacity-80"
+                                            )}
+                                        >
                                             <TableCell>
                                                 <div className="flex items-center gap-3">
                                                     <div className="p-2 bg-indigo-50 rounded-lg shrink-0 border border-indigo-100">
@@ -146,6 +206,13 @@ export default function SuppliersPage() {
                                                     {s.isActive ? 'Active Partner' : 'Inactive'}
                                                 </Badge>
                                             </TableCell>
+                                            <TableCell className="text-right">
+                                                {canEdit && (
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); openEditSheet(s); }}>
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -154,6 +221,26 @@ export default function SuppliersPage() {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Slide-over for Create/Edit Supplier */}
+            <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+                <SheetContent className="w-full sm:max-w-xl overflow-y-auto bg-gray-50 sm:rounded-l-2xl border-l border-gray-200">
+                    <SheetHeader className="pb-6 mb-6 border-b border-gray-200">
+                        <SheetTitle className="text-2xl font-bold flex items-center gap-2 text-gray-900">
+                            <Building2 className="h-5 w-5 text-indigo-600" />
+                            {selectedSupplier ? 'Edit Procurement Partner' : 'Onboard New Vendor'}
+                        </SheetTitle>
+                    </SheetHeader>
+
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <SupplierForm
+                            initialData={selectedSupplier || undefined}
+                            onSubmit={selectedSupplier ? handleUpdateSupplier : handleCreateSupplier}
+                            onCancel={() => setIsSheetOpen(false)}
+                        />
+                    </div>
+                </SheetContent>
+            </Sheet>
         </div>
     );
 }

@@ -22,6 +22,7 @@ Add these critical accounts (if missing):
 |------|------|------|--------|-------|
 | `1010` | Commercial Bank (LKR) | ASSET | Debit | Main LKR operating account |
 | `1011` | HNB Bank (USD) | ASSET | Debit | Foreign currency wallet |
+| `1012` | Petty Cash | ASSET | Debit | Small cash fund for incidental expenses |
 | `1200` | Accounts Receivable | ASSET | Debit | Linked to Sales/Invoices |
 | `2000` | Accounts Payable | LIABILITY | Credit | Linked to Purchases |
 | `2200` | Customer Deposits | LIABILITY | Credit | For Hotel/Vehicle advance payments |

@@ -89,7 +89,12 @@ export function PaymentForm({
   const onFormSubmit = async (data: PaymentFormData) => {
     setIsSubmitting(true);
     try {
-      await onSubmit(data);
+      // Clean sentinel 'none' values
+      const cleaned = { ...data };
+      if (cleaned.customerId === 'none') cleaned.customerId = undefined;
+      if (cleaned.vendorId === 'none') cleaned.vendorId = undefined;
+      if (cleaned.invoiceId === 'none') cleaned.invoiceId = undefined;
+      await onSubmit(cleaned);
     } finally {
       setIsSubmitting(false);
     }

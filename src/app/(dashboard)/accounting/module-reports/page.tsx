@@ -138,8 +138,8 @@ export default function ModuleReportsPage() {
                             <SelectItem value="this-year">This Year</SelectItem>
                         </SelectContent>
                     </Select>
-                    <Button variant="outline" className="bg-white">
-                        <DownloadCloud className="w-4 h-4 mr-2" /> Export
+                    <Button variant="outline" className="bg-white" disabled>
+                        <DownloadCloud className="w-4 h-4 mr-2" /> Export (coming soon)
                     </Button>
                 </motion.div>
             </div>

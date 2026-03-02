@@ -117,8 +117,8 @@ export async function createCustomer(data: CreateCustomerInput & { tenantId: str
             businessName: data.businessName,
             taxId: data.taxId,
             customerType: data.customerType || 'RETAIL',
-            creditLimit: data.creditLimit || 0,
-            paymentTermDays: data.paymentTermDays || 0,
+            creditLimit: data.creditLimit ?? 0,
+            paymentTermDays: data.paymentTermDays ?? 0,
             tenantId: data.tenantId,
         }
     });
@@ -464,7 +464,8 @@ export async function confirmInvoice(id: string, tenantId: string, appliedPromot
                 unitCost: Number(item.costPrice || item.unitPrice),
                 sourceModule: 'spareparts',
                 sourceDocument: invoice.id,
-                reference: invoice.invoiceNumber || `INV-${invoice.id.substring(0, 8)}`
+                reference: invoice.invoiceNumber || `INV-${invoice.id.substring(0, 8)}`,
+                allowNegative: true // Prevent silent failures if global stock doesn't exist yet
             }).catch(e => console.error("Failed to sync inventory outflow:", e));
         }
     }
@@ -569,13 +570,34 @@ export async function cancelInvoice(id: string, reason: string, tenantId: string
 
     // Restore stock if invoice was confirmed
     if (invoice.status === 'CONFIRMED' || invoice.status === 'COMPLETED') {
+        // Restore stock via inventory bridge for consistency
+        const defaultWarehouse = await prisma.invWarehouse.findFirst({ where: { tenantId, isDefault: true } })
+            || await prisma.invWarehouse.findFirst({ where: { tenantId } });
+
         for (const item of invoice.items) {
+            // Restore sparepart stock
             await (prisma as any).sparePart.update({
                 where: { id: item.productId },
                 data: {
                     stockQty: { increment: Number(item.quantity) }
                 }
             });
+
+            // Reverse inventory bridge record
+            if (defaultWarehouse) {
+                await recordStockIn('IN', {
+                    tenantId,
+                    productId: item.productId,
+                    productName: item.productName || 'Unknown Spare Part',
+                    productCategory: 'Spareparts',
+                    warehouseId: defaultWarehouse.id,
+                    quantity: Number(item.quantity),
+                    unitCost: Number(item.costPrice ?? item.unitPrice ?? 0),
+                    sourceModule: 'spareparts',
+                    sourceDocument: invoice.id,
+                    reference: `SP-CAN-${invoice.invoiceNumber || invoice.id.substring(0, 8)}`,
+                }).catch(e => console.error('Failed to reverse inventory on cancel:', e));
+            }
         }
     }
 
@@ -821,7 +843,7 @@ export async function generateReorderSuggestions(tenantId: string) {
             _sum: { quantity: true }
         });
 
-        const totalSold = Number(salesData._sum.quantity || 0);
+        const totalSold = Number(salesData._sum.quantity ?? 0);
         const avgDailySales = totalSold / 30;
         const daysOfStock = avgDailySales > 0 ? Math.floor(product.stockQty / avgDailySales) : 999;
 
@@ -934,7 +956,7 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderInput & { ten
 
         if (!product) throw new Error(`Product ${item.productId} not found`);
 
-        const unitCost = item.unitCost ? Number(item.unitCost) : Number(product.costPrice || 0);
+        const unitCost = item.unitCost ? Number(item.unitCost) : Number(product.costPrice ?? 0);
         const quantity = Number(item.quantity);
 
         let taxRate = 0;
@@ -981,7 +1003,7 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderInput & { ten
             subtotal,
             taxAmount: totalTax,
             total,
-            isTaxEnabled: data.isTaxEnabled || false,
+            isTaxEnabled: data.isTaxEnabled ?? false,
             expectedDate: data.expectedDate,
             notes: data.notes,
             createdById: data.createdById,
@@ -1122,7 +1144,7 @@ export async function getDashboardStats(tenantId: string): Promise<DashboardStat
         AND "isActive" = true 
         AND "stockQty" <= "minStockQty"
     ` as { count: bigint }[];
-    const lowStockCount = Number(lowStockResult[0]?.count || 0);
+    const lowStockCount = Number(lowStockResult[0]?.count ?? 0);
 
     // Pending reorders
     const pendingReorders = await prisma.shopReorderSuggestion.count({
@@ -1153,8 +1175,8 @@ export async function getDashboardStats(tenantId: string): Promise<DashboardStat
         }
     });
 
-    const todayTotal = Number(todaySales._sum.total || 0);
-    const todayCount = todaySales._count || 0;
+    const todayTotal = Number(todaySales._sum.total ?? 0);
+    const todayCount = todaySales._count ?? 0;
 
     return {
         todaySales: {
@@ -1163,8 +1185,8 @@ export async function getDashboardStats(tenantId: string): Promise<DashboardStat
             avgTicket: todayCount > 0 ? todayTotal / todayCount : 0
         },
         monthSales: {
-            total: Number(monthSales._sum.total || 0),
-            count: monthSales._count || 0
+            total: Number(monthSales._sum.total ?? 0),
+            count: monthSales._count ?? 0
         },
         lowStockCount,
         pendingReorders,
@@ -1232,15 +1254,18 @@ export async function getSalesSummary(tenantId: string, dateRange: DateRange): P
 }
 
 export async function getLowStockProducts(tenantId: string) {
-    return (prisma as any).sparePart.findMany({
+    // Cannot use prisma.sparePart.fields.minStockQty in a where clause;
+    // fetch all active products and filter in memory
+    const allProducts = await (prisma as any).sparePart.findMany({
         where: {
             tenantId,
             isActive: true,
-            stockQty: { lte: (prisma as any).sparePart.fields.minStockQty }
         },
         orderBy: { stockQty: 'asc' },
-        take: 20
     });
+    return allProducts
+        .filter((p: any) => p.stockQty <= p.minStockQty)
+        .slice(0, 20);
 }
 
 export async function getRecentTransactions(tenantId: string, limit = 10) {
@@ -1319,7 +1344,7 @@ export async function createQuantityPromotion(data: {
     return (prisma as any).sparePromotion.create({
         data: {
             ...promotionData,
-            discountValue: promotionData.discountValue || 0,
+            discountValue: promotionData.discountValue ?? 0,
             tiers: tiers ? {
                 create: tiers.map((tier: any) => ({
                     minQuantity: tier.minQuantity,

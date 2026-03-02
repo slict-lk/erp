@@ -113,9 +113,11 @@ export async function GET(request: NextRequest) {
 
         // Append Retained Earnings to Equity Section
         const formattedEquity = Array.from(equity.values()).sort((a, b) => a.code.localeCompare(b.code));
+        // Use a clearly synthetic, non-conflicting code for calculated retained earnings
+        const reCode = `_CALC_RE-${tenant.id.substring(0, 8)}`;
         formattedEquity.push({
             id: 'retained-earnings-calc',
-            code: 'CALC-3999',
+            code: reCode,
             name: 'Retained Earnings (Calculated)',
             total: retainedEarnings
         });

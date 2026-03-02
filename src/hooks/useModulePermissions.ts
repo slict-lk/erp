@@ -25,6 +25,10 @@ export function useModulePermissions() {
   const user = session?.user;
 
   const modulePermissions = useMemo(() => {
+    if (user?.modulePermissions && Object.keys(user.modulePermissions).length > 0) {
+      return user.modulePermissions as Record<string, ModulePermission>;
+    }
+
     // Use enabledModuleIds from session
     const enabledIds = user?.enabledModuleIds || [];
     const permissions: Record<string, ModulePermission> = {};
@@ -33,9 +37,9 @@ export function useModulePermissions() {
       permissions[id] = {
         enabled: true,
         view: true, // Implicit view permission for enabled modules
-        create: false, // Default to false, can be enhanced later if needed
-        edit: false,
-        delete: false,
+        create: user?.role === 'ADMIN' || user?.role === 'MANAGER',
+        edit: user?.role === 'ADMIN' || user?.role === 'MANAGER',
+        delete: user?.role === 'ADMIN',
       };
     });
 
@@ -49,6 +53,7 @@ export function useModulePermissions() {
     moduleId: string,
     action: 'view' | 'create' | 'edit' | 'delete' | 'export' | 'import' | 'approve'
   ): boolean => {
+    if (isAdmin) return true;
     return hasModulePermission(modulePermissions, moduleId, action);
   };
 

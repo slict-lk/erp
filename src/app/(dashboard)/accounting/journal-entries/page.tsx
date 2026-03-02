@@ -423,11 +423,11 @@ export default function JournalEntriesPage() {
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">Loading entries...</TableCell>
+                                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">Loading entries...</TableCell>
                                     </TableRow>
                                 ) : filteredEntries.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                                             {search ? 'No journal entries match your search.' : 'No journal entries found.'}
                                         </TableCell>
                                     </TableRow>

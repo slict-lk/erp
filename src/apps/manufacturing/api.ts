@@ -23,7 +23,7 @@ export async function createBOM(data: Partial<BillOfMaterials> & { tenantId: str
     data: {
       code: data.code,
       productId: data.productId,
-      quantity: data.quantity || 1,
+      quantity: data.quantity ?? 1,
       type: data.type || 'MANUFACTURE',
       tenantId: data.tenantId,
     },
@@ -54,8 +54,8 @@ export async function createWorkCenter(data: Partial<WorkCenter> & { tenantId: s
   if (!data.name || !data.name.trim() || !data.code || !data.code.trim()) {
     throw new Error('Name and code are required to create a Work Center');
   }
-  const capacity = data.capacity || 1;
-  const efficiency = data.efficiency || 100;
+  const capacity = data.capacity ?? 1;
+  const efficiency = data.efficiency ?? 100;
 
   return await client.workCenter.create({
     data: {
@@ -88,7 +88,7 @@ export async function createManufacturingOrder(data: Partial<ManufacturingOrder>
     data: {
       reference: data.reference || `MO-${Date.now()}`,
       productId: data.productId!,
-      quantity: data.quantity || 1,
+      quantity: data.quantity ?? 1,
       bomId: data.bomId,
       status: 'DRAFT',
       startDate: data.startDate || new Date(),
@@ -141,14 +141,37 @@ export async function updateManufacturingOrder(
       || await client.invWarehouse.findFirst({ where: { tenantId } });
 
     if (defaultWarehouse) {
-      let rawCostTotal = Number(order.product?.costPrice || 0);
+      let rawCostTotal = Number(order.product?.costPrice ?? 0);
 
       if (order.bom) {
         const components = (order.bom as any).components;
         if (Array.isArray(components) && components.length > 0) {
           rawCostTotal = components.reduce((sum: number, comp: any) => {
-            return sum + ((comp.unitCost || 0) * (comp.quantity || 0));
+            return sum + ((comp.unitCost ?? 0) * (comp.quantity ?? 0));
           }, 0);
+        }
+      }
+
+      // 1. Consume BOM components from inventory
+      if (order.bom) {
+        const components = (order.bom as any).components;
+        if (Array.isArray(components) && components.length > 0) {
+          for (const comp of components) {
+            await recordStockOut('OUT', {
+              tenantId,
+              productId: comp.productId,
+              productName: comp.productName || `BOM Component ${comp.productId}`,
+              productCategory: 'Raw Materials',
+              productPrice: Number(comp.unitCost ?? 0),
+              warehouseId: defaultWarehouse.id,
+              quantity: Number(comp.quantity ?? 0) * Number(order.quantity),
+              unitCost: Number(comp.unitCost ?? 0),
+              sourceModule: 'manufacturing',
+              sourceDocument: order.id,
+              reference: `MO-CONSUME-${order.reference || order.id.substring(0, 6)}`,
+              allowNegative: true
+            }).catch(e => console.error(`Failed to consume component ${comp.productId}:`, e));
+          }
         }
       }
 

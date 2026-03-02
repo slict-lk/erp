@@ -118,7 +118,7 @@ export async function POST(
   } catch (error: any) {
     console.error('Error creating lease:', error);
     return NextResponse.json(
-      { error: 'Failed to create lease', details: error.message },
+      { error: 'Failed to create lease' },
       { status: 500 }
     );
   }
@@ -146,7 +146,7 @@ export async function GET(
   } catch (error: any) {
     console.error('Error fetching leases:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch leases', details: error.message },
+      { error: 'Failed to fetch leases' },
       { status: 500 }
     );
   }

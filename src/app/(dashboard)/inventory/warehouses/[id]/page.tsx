@@ -26,9 +26,14 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
             const res = await fetch(`/api/inventory/warehouses/${id}`);
             if (res.ok) {
                 setWarehouse(await res.json());
+            } else if (res.status === 404) {
+                setWarehouse(null);
+            } else {
+                const errText = await res.text().catch(() => res.statusText);
+                console.error(`Failed to load warehouse (${res.status}):`, errText);
             }
         } catch (e) {
-            console.error(e);
+            console.error('Failed to load warehouse:', e);
         } finally {
             setIsLoading(false);
         }
@@ -182,14 +187,14 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
                                 ) : movements.map((m: any, i: number) => {
                                     const isOut = Number(m.direction) < 0;
                                     return (
-                                        <div key={i} className="flex justify-between items-center">
+                                        <div key={m.id || i} className="flex justify-between items-center">
                                             <div className="flex items-start gap-3">
                                                 <div className={`mt-0.5 p-1.5 rounded-full ${isOut ? 'bg-rose-50' : 'bg-emerald-50'}`}>
                                                     {isOut ? <ArrowUpFromLine className="h-3 w-3 text-rose-600" /> : <ArrowDownToLine className="h-3 w-3 text-emerald-600" />}
                                                 </div>
                                                 <div>
                                                     <p className="text-sm font-medium text-gray-900 line-clamp-1">{m.product?.name}</p>
-                                                    <p className="text-xs text-gray-500">{format(new Date(m.date), 'MMM d, h:mm a')} • {m.type}</p>
+                                                    <p className="text-xs text-gray-500">{(() => { const d = new Date(m.date); return isNaN(d.getTime()) ? 'Unknown date' : format(d, 'MMM d, h:mm a'); })()} • {m.type}</p>
                                                 </div>
                                             </div>
                                             <span className={`text-sm font-bold ${isOut ? 'text-rose-600' : 'text-emerald-600'}`}>

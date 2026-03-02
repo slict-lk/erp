@@ -133,7 +133,7 @@ export default function InventoryDashboard() {
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">{move.product.name}</p>
-                        <p className="text-xs text-gray-400">SKU: {move.product.sku} • {new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(move.date))}</p>
+                        <p className="text-xs text-gray-400">SKU: {move.product.sku} • {(() => { const d = new Date(move.date); return isNaN(d.getTime()) ? '—' : new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(d); })()}</p>
                       </div>
                     </div>
                     <div className="text-right">
