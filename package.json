@@ -130,6 +130,7 @@
     "zod-to-json-schema": "^3.25.0",
     "zustand": "^4.5.0",
     "dotenv": "^17.2.3",
+    "pg": "^8.16.3",
     "prisma": "^7.4.2"
   },
   "devDependencies": {
@@ -149,7 +150,6 @@
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^30.2.0",
     "mini-svg-data-uri": "^1.4.4",
-    "pg": "^8.16.3",
     "ts-jest": "^29.4.5",
     "tsx": "^4.20.6"
   },
