@@ -1,53 +1,42 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getDashboards, createDashboard } from '@/apps/studio/api';
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth-options';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
+import { tryCatch, formatSuccessResponse } from '@/lib/error-handler';
+import { getDashboards, createDashboard } from '@/apps/studio/dashboard-api';
 
-
-export const dynamic = 'force-dynamic';
-export async function GET(request: NextRequest) {
-  try {
-    console.log('🔍 GET /api/studio/dashboards - Fetching dashboards');
+export async function GET(req: Request) {
+  return tryCatch(async () => {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const tenant = await getOrCreateDefaultTenant();
-    const tenantId = tenant.id;
-    
-    console.log('✅ Tenant found:', tenantId);
+    const { searchParams } = new URL(req.url);
 
-    const dashboards = await getDashboards(tenantId);
+    const skip = parseInt(searchParams.get('skip') || '0', 10);
+    const take = parseInt(searchParams.get('take') || '50', 10);
+    const search = searchParams.get('search') || undefined;
+    const isPublished = searchParams.has('isPublished') ? searchParams.get('isPublished') === 'true' : undefined;
 
-    console.log(`✅ Found ${Array.isArray(dashboards) ? dashboards.length : 0} dashboards`);
-
-    return NextResponse.json(dashboards || []);
-  } catch (error: any) {
-    console.error('❌ Error fetching dashboards:', error);
-    console.error('Error details:', {
-      message: error.message,
-      code: error.code,
-      meta: error.meta
-    });
-
-    // Return empty array instead of error to prevent UI crash
-    return NextResponse.json([]);
-  }
+    const result = await getDashboards(tenant.id, { skip, take, search, isPublished });
+    const resp = formatSuccessResponse(result.data);
+    return NextResponse.json({ ...resp, meta: { count: result.count, skip: result.skip, take: result.take } });
+  });
 }
 
-export async function POST(request: NextRequest) {
-  try {
+export async function POST(req: Request) {
+  return tryCatch(async () => {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const tenant = await getOrCreateDefaultTenant();
-    const tenantId = tenant.id;
-    const data = await request.json();
-    
-    const dashboard = await createDashboard({
-      ...data,
-      tenantId,
-    });
-    
-    return NextResponse.json(dashboard, { status: 201 });
-  } catch (error) {
-    console.error('Error creating dashboard:', error);
-    return NextResponse.json(
-      { error: 'Failed to create dashboard' },
-      { status: 500 }
-    );
-  }
+    const body = await req.json();
+
+    if (!body.name || !body.layout) {
+      return NextResponse.json({ error: 'Dashboard name and layout are required' }, { status: 400 });
+    }
+
+    const dashboard = await createDashboard(tenant.id, body, session.user.id);
+    return NextResponse.json(formatSuccessResponse(dashboard), { status: 201 });
+  });
 }

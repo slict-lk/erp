@@ -4,6 +4,7 @@ import './globals.css';
 import 'leaflet/dist/leaflet.css';
 import { SessionProvider } from '@/components/providers/SessionProvider';
 import { SettingsProvider } from '@/components/providers/SettingsProvider';
+import QueryProvider from '@/components/providers/QueryProvider';
 import { AIEngineInitializer } from '@/components/ai/ai-engine-initializer';
 import { Toaster } from 'sonner';
 import { NextIntlClientProvider } from 'next-intl';
@@ -29,9 +30,11 @@ export default async function RootLayout({
       <body className={`${inter.className} antialiased h-full`} suppressHydrationWarning>
         <AIEngineInitializer />
         <NextIntlClientProvider messages={messages}>
-          <SettingsProvider>
-            <SessionProvider>{children}</SessionProvider>
-          </SettingsProvider>
+          <QueryProvider>
+            <SettingsProvider>
+              <SessionProvider>{children}</SessionProvider>
+            </SettingsProvider>
+          </QueryProvider>
         </NextIntlClientProvider>
         <Toaster richColors position="top-center" />
       </body>

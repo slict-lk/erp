@@ -378,13 +378,14 @@ const navigation: NavigationItem[] = [
     name: 'No-Code Studio',
     href: '/studio',
     icon: Palette,
-    moduleId: 'studio'
-  },
-  {
-    name: 'Automation Rules',
-    href: '/automation',
-    icon: Zap,
-    moduleId: 'automation'
+    moduleId: 'studio',
+    children: [
+      { name: 'Overview', href: '/studio', icon: LayoutDashboard, moduleId: 'studio' },
+      { name: 'Modules', href: '/studio/modules', icon: Package, moduleId: 'studio' },
+      { name: 'Dashboards', href: '/studio/dashboards', icon: BarChart3, moduleId: 'studio' },
+      { name: 'Workflows', href: '/studio/workflows', icon: Workflow, moduleId: 'studio' },
+      { name: 'Automation Rules', href: '/studio/automation', icon: Zap, moduleId: 'studio' },
+    ]
   },
 
   // Industry Verticals

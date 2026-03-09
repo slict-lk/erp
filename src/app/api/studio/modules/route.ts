@@ -1,53 +1,47 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getCustomModules, createCustomModule } from '@/apps/studio/api';
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth-options';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
+import { tryCatch, formatSuccessResponse } from '@/lib/error-handler';
+import { getCustomModules, createCustomModule } from '@/apps/studio/api';
 
-
-export const dynamic = 'force-dynamic';
-export async function GET(request: NextRequest) {
-  try {
-    console.log('🔍 GET /api/studio/modules - Fetching custom modules');
+export async function GET(req: Request) {
+  return tryCatch(async () => {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const tenant = await getOrCreateDefaultTenant();
-    const tenantId = tenant.id;
-    
-    console.log('✅ Tenant found:', tenantId);
+    const { searchParams } = new URL(req.url);
 
-    const modules = await getCustomModules(tenantId);
+    const skip = parseInt(searchParams.get('skip') || '0', 10);
+    const take = parseInt(searchParams.get('take') || '50', 10);
+    const search = searchParams.get('search') || undefined;
+    const isActive = searchParams.has('isActive') ? searchParams.get('isActive') === 'true' : undefined;
 
-    console.log(`✅ Found ${Array.isArray(modules) ? modules.length : 0} custom modules`);
+    const result = await getCustomModules(tenant.id, { skip, take, search, isActive });
 
-    return NextResponse.json(modules || []);
-  } catch (error: any) {
-    console.error('❌ Error fetching custom modules:', error);
-    console.error('Error details:', {
-      message: error.message,
-      code: error.code,
-      meta: error.meta
-    });
-
-    // Return empty array instead of error to prevent UI crash
-    return NextResponse.json([]);
-  }
+    const resp = formatSuccessResponse(result.data);
+    return NextResponse.json({ ...resp, meta: { count: result.count, skip: result.skip, take: result.take } });
+  });
 }
 
-export async function POST(request: NextRequest) {
-  try {
+export async function POST(req: Request) {
+  return tryCatch(async () => {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const tenant = await getOrCreateDefaultTenant();
-    const tenantId = tenant.id;
-    const data = await request.json();
-    
-    const module = await createCustomModule({
-      ...data,
-      tenantId,
-    });
-    
-    return NextResponse.json(module, { status: 201 });
-  } catch (error) {
-    console.error('Error creating custom module:', error);
-    return NextResponse.json(
-      { error: 'Failed to create custom module' },
-      { status: 500 }
-    );
-  }
+    const body = await req.json();
+
+    if (!body.name) {
+      return NextResponse.json({ error: 'Module name is required' }, { status: 400 });
+    }
+
+    const module = await createCustomModule(tenant.id, body, session.user.id);
+    return NextResponse.json(formatSuccessResponse(module), { status: 201 });
+  });
 }

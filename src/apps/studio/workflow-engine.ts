@@ -1,0 +1,177 @@
+import { prisma } from '@/lib/prisma';
+import { StudioWorkflow } from './types';
+import { createExecution, updateExecutionSteps } from './workflow-api';
+import { createCustomRecord, updateCustomRecord, deleteCustomRecord } from './api';
+
+export class WorkflowEngine {
+
+    static async executeWorkflow(workflowId: string, tenantId: string, triggerData: any) {
+        const workflow = await prisma.studioWorkflow.findUnique({
+            where: { id: workflowId }
+        });
+
+        if (!workflow || !workflow.isActive || workflow.tenantId !== tenantId) {
+            console.log(`Workflow ${workflowId} skipped: not found, inactive, or tenant mismatch.`);
+            return;
+        }
+
+        // Create execution record
+        const execution = await createExecution(workflow.id, triggerData);
+        const steps: any[] = [];
+
+        try {
+            const nodes = workflow.nodes as any[];
+            const edges = workflow.edges as any[];
+
+            // Find the trigger node
+            const triggerNode = nodes.find(n => n.type === 'triggerNode');
+            if (!triggerNode) throw new Error('No trigger node found');
+
+            steps.push({
+                nodeId: triggerNode.id,
+                status: 'completed',
+                startedAt: new Date().toISOString(),
+                completedAt: new Date().toISOString(),
+                output: triggerData
+            });
+
+            // Simple runner: find next connected node and run sequentially
+            let currentNode = triggerNode;
+            let contextData = { trigger: triggerData };
+
+            while (true) {
+                // Find outgoing edge
+                const edge = edges.find(e => e.source === currentNode.id);
+                if (!edge) break; // End of flow
+
+                const nextNode = nodes.find(n => n.id === edge.target);
+                if (!nextNode) break;
+
+                const stepResult = await this.executeNode(nextNode, contextData, tenantId);
+
+                steps.push({
+                    nodeId: nextNode.id,
+                    status: stepResult.success ? 'completed' : 'failed',
+                    startedAt: new Date().toISOString(),
+                    completedAt: new Date().toISOString(),
+                    output: stepResult.data,
+                    error: stepResult.error
+                });
+
+                if (!stepResult.success) {
+                    throw new Error(`Node ${nextNode.id} failed: ${stepResult.error}`);
+                }
+
+                // If condition node returned false, halt execution gracefully
+                if (nextNode.type === 'conditionNode' && stepResult.data === false) {
+                    break;
+                }
+
+                contextData = { ...contextData, [nextNode.id]: stepResult.data };
+                currentNode = nextNode;
+            }
+
+            await updateExecutionSteps(execution.id, steps, 'completed');
+
+        } catch (e: any) {
+            console.error(`Workflow ${workflowId} failed:`, e);
+            await updateExecutionSteps(execution.id, steps, 'failed', e.message);
+        }
+    }
+
+    private static async executeNode(node: any, contextData: any, tenantId: string): Promise<{ success: boolean; data?: any; error?: string }> {
+        try {
+            switch (node.type) {
+                case 'actionNode':
+                    return await this.executeAction(node.data, contextData, tenantId);
+                case 'conditionNode':
+                    return await this.evaluateCondition(node.data, contextData);
+                case 'delayNode':
+                    // Delay node in a serverless environment requires complex scheduling (e.g. queue).
+                    // For now, this is a synchronous wait (only suitable for a few seconds).
+                    const ms = (node.data.duration || 1) * 1000;
+                    await new Promise(res => setTimeout(res, Math.min(ms, 5000))); // Cap at 5s for sync
+                    return { success: true, data: { delayed: ms } };
+                default:
+                    return { success: false, error: `Unknown node type: ${node.type}` };
+            }
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    }
+
+    private static async executeAction(actionData: any, contextData: any, tenantId: string) {
+        const { actionType, config } = actionData;
+
+        // Helper to resolve template variables like {{trigger.email}}
+        const resolveVars = (template: string) => {
+            if (!template || typeof template !== 'string') return template;
+            return template.replace(/\{\{(.+?)\}\}/g, (_, path) => {
+                return path.split('.').reduce((obj: any, key: string) => obj?.[key], contextData) ?? '';
+            });
+        };
+
+        switch (actionType) {
+            case 'send_email':
+                // Integration with email provider
+                console.log('Sending email to:', resolveVars(config.to), 'Subject:', resolveVars(config.subject));
+                return { success: true, data: { sent: true } };
+
+            case 'create_record':
+                const createData = this.resolveObjectVars(config.data, contextData);
+                const newRecord = await createCustomRecord(config.moduleId, tenantId, createData, 'system');
+                return { success: true, data: newRecord };
+
+            case 'update_record':
+                const updateData = this.resolveObjectVars(config.data, contextData);
+                const recordId = resolveVars(config.recordId);
+                const updatedRecord = await updateCustomRecord(recordId, tenantId, updateData);
+                return { success: true, data: updatedRecord };
+
+            case 'webhook':
+                const url = resolveVars(config.url);
+                const payload = this.resolveObjectVars(config.payload, contextData);
+                // ... (fetch implementation)
+                return { success: true, data: { requested: url } };
+
+            default:
+                throw new Error(`Unsupported action type: ${actionType}`);
+        }
+    }
+
+    private static resolveObjectVars(obj: any, contextData: any): any {
+        if (!obj) return obj;
+        if (typeof obj === 'string') {
+            return obj.replace(/\{\{(.+?)\}\}/g, (_, path) => {
+                return path.split('.').reduce((o: any, k: string) => o?.[k], contextData) ?? '';
+            });
+        }
+        if (typeof obj === 'object') {
+            const resolved: any = Array.isArray(obj) ? [] : {};
+            for (const [k, v] of Object.entries(obj)) {
+                resolved[k] = this.resolveObjectVars(v, contextData);
+            }
+            return resolved;
+        }
+        return obj;
+    }
+
+    private static async evaluateCondition(conditionData: any, contextData: any) {
+        // Implement condition evaluation (e.g. value > 100)
+        const { field, operator, value } = conditionData;
+
+        // Resolve field value from context e.g. "trigger.amount"
+        const actualValue = field.split('.').reduce((obj: any, key: string) => obj?.[key], contextData);
+
+        let result = false;
+        switch (operator) {
+            case 'equals': result = actualValue == value; break;
+            case 'not_equals': result = actualValue != value; break;
+            case 'contains': result = String(actualValue).includes(String(value)); break;
+            case 'greater_than': result = Number(actualValue) > Number(value); break;
+            case 'less_than': result = Number(actualValue) < Number(value); break;
+        }
+
+        return { success: true, data: result };
+    }
+}

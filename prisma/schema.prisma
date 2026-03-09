@@ -31,6 +31,7 @@ model Tenant {
   shopTaxCategories    ShopTaxCategory[]
   sparePartsConfig     SparePartsConfig?
   users                User[]
+  customModules        CustomModule[]
 
   @@index([subdomain])
   @@index([domain])
@@ -2109,6 +2110,8 @@ model AutomationRule {
   conditions    Json?
   actions       Json
   isActive      Boolean               @default(true)
+  runCount      Int                   @default(0)
+  createdById   String?
   lastRunAt     DateTime?
   tenantId      String
   createdAt     DateTime              @default(now())
@@ -4601,6 +4604,139 @@ enum ManufacturingStatus {
   IN_PROGRESS
   DONE
   CANCELLED
+}
+
+// ============================================================================
+// NO-CODE STUDIO MODELS
+// ============================================================================
+
+model CustomModule {
+  id          String              @id @default(cuid())
+  tenantId    String
+  name        String
+  slug        String              // URL-safe name, auto-generated
+  icon        String?             @default("database")
+  description String?
+  isActive    Boolean             @default(true)
+  schema      Json                // { fields: [], relations: [] }
+  views       Json?               // [{ type, name, config }]
+  settings    Json?               // module-level settings
+  createdById String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  records     CustomRecord[]
+  fields      CustomModuleField[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([isActive])
+}
+
+model CustomModuleField {
+  id           String       @id @default(cuid())
+  moduleId     String
+  name         String       // internal name (snake_case)
+  label        String       // display label
+  type         String       // text, number, date, boolean, select, multiselect, file, json, email, phone, url, currency, textarea, lookup
+  required     Boolean      @default(false)
+  defaultValue Json?
+  options      Json?        // for select/multiselect: ["Option A", "Option B"]
+  validation   Json?        // { min, max, pattern, custom }
+  sequence     Int          @default(0)
+  isSystem     Boolean      @default(false)  // system fields can't be deleted
+  settings     Json?        // field-specific settings (placeholder, helpText, etc.)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  module       CustomModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([moduleId, name])
+  @@index([moduleId])
+  @@index([sequence])
+}
+
+model CustomRecord {
+  id          String       @id @default(cuid())
+  moduleId    String
+  tenantId    String
+  data        Json         // { field_name: value, ... }
+  createdById String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  module      CustomModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@index([moduleId])
+  @@index([tenantId])
+  @@index([createdAt])
+}
+
+model StudioDashboard {
+  id          String            @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  icon        String?           @default("layout-dashboard")
+  layout      Json              // { cols, rows, items: [{ widgetId, x, y, w, h }] }
+  isDefault   Boolean           @default(false)
+  isPublished Boolean           @default(true)
+  createdById String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  widgets     DashboardWidget[]
+
+  @@index([tenantId])
+  @@index([isDefault])
+}
+
+model DashboardWidget {
+  id          String          @id @default(cuid())
+  dashboardId String
+  title       String
+  type        String          // metric, chart, table, list, calendar
+  dataSource  String          // "custom:module_slug" or "erp:accounting.invoices"
+  config      Json            // { chartType, metrics, dimensions, filters, dateRange, refreshInterval }
+  position    Json            // { x, y, w, h }
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  dashboard   StudioDashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@index([dashboardId])
+}
+
+model StudioWorkflow {
+  id            String              @id @default(cuid())
+  tenantId      String
+  name          String
+  description   String?
+  triggerType   String              // record_created, record_updated, record_deleted, scheduled, webhook, manual
+  triggerConfig Json?               // { moduleId, cronExpression, webhookSecret }
+  nodes         Json                // ReactFlow nodes array
+  edges         Json                // ReactFlow edges array
+  isActive      Boolean             @default(false)
+  createdById   String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  executions    WorkflowExecution[]
+
+  @@index([tenantId])
+  @@index([isActive])
+  @@index([triggerType])
+}
+
+model WorkflowExecution {
+  id          String         @id @default(cuid())
+  workflowId  String
+  status      String         @default("running") // running, completed, failed, cancelled
+  triggerData Json?          // the data that triggered this execution
+  steps       Json?          // [{ nodeId, status, startedAt, completedAt, output, error }]
+  startedAt   DateTime       @default(now())
+  completedAt DateTime?
+  error       String?
+  workflow    StudioWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId])
+  @@index([status])
+  @@index([startedAt])
 }
 
 enum EmploymentType {
