@@ -93,6 +93,9 @@ dependencies:
   '@types/node':
     specifier: ^20.19.25
     version: 20.19.25
+  '@types/papaparse':
+    specifier: ^5.5.2
+    version: 5.5.2
   '@types/pg':
     specifier: ^8.18.0
     version: 8.18.0
@@ -296,9 +299,6 @@ devDependencies:
   '@types/jspdf':
     specifier: ^2.0.0
     version: 2.0.0
-  '@types/papaparse':
-    specifier: ^5.5.2
-    version: 5.5.2
   '@typescript-eslint/eslint-plugin':
     specifier: ^7.8.0
     version: 7.18.0(@typescript-eslint/parser@7.18.0)(eslint@8.57.1)(typescript@5.9.3)
@@ -3906,7 +3906,7 @@ packages:
     resolution: {integrity: sha512-gFnFp/JMzLHCwRf7tQHrNnfhN4eYBVYYI897CGX4MY1tzY9l2aLkVyx2IlKZ/SAqDbB3I1AOZW5gTMGGsqWliA==}
     dependencies:
       '@types/node': 20.19.25
-    dev: true
+    dev: false
 
   /@types/pg@8.18.0:
     resolution: {integrity: sha512-gT+oueVQkqnj6ajGJXblFR4iavIXWsGAFCk3dP4Kki5+a9R4NMt0JARdk6s8cUKcfUoqP5dAtDSLU8xYUTFV+Q==}
