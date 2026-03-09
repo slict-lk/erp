@@ -104,7 +104,7 @@ export default function EditWorkflowPage({ params }: { params: Promise<{ id: str
         event.preventDefault();
 
         const type = event.dataTransfer.getData('application/reactflow');
-        if (typeof type === 'undefined' || !type) return;
+        if (typeof type === 'undefined' || !type || !reactFlowInstance) return;
 
         const position = reactFlowInstance.project({
             x: event.clientX - event.target.getBoundingClientRect().left,
@@ -354,7 +354,7 @@ export default function EditWorkflowPage({ params }: { params: Promise<{ id: str
                                     variant="destructive"
                                     size="sm"
                                     className="w-full mt-8"
-                                    onClick={() => setNodes(nodes.filter(n => n.id !== selectedNode.id))}
+                                    onClick={() => { setNodes(nodes.filter(n => n.id !== selectedNode.id)); setSelectedNode(null); }}
                                 >
                                     <Trash2 className="mr-2 h-4 w-4" /> Delete Node
                                 </Button>

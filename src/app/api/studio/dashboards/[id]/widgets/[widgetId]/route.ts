@@ -17,7 +17,19 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string; wid
     const dashboard = await getDashboardById(id, tenant.id);
     if (!dashboard) return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
 
-    const widget = await updateDashboardWidget(widgetId, body);
+    // Verify widget belongs to this dashboard
+    const existingWidget = dashboard.widgets?.find((w: any) => w.id === widgetId);
+    if (!existingWidget) return NextResponse.json({ error: 'Widget not found in this dashboard' }, { status: 404 });
+
+    const sanitizedWidget = {
+      title: body.title,
+      type: body.type,
+      dataSource: body.dataSource,
+      config: body.config,
+      position: body.position,
+      metrics: body.metrics,
+    };
+    const widget = await updateDashboardWidget(widgetId, sanitizedWidget);
     return NextResponse.json(formatSuccessResponse(widget));
   });
 }
@@ -32,6 +44,10 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string; 
 
     const dashboard = await getDashboardById(id, tenant.id);
     if (!dashboard) return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
+
+    // Verify widget belongs to this dashboard
+    const existingWidget = dashboard.widgets?.find((w: any) => w.id === widgetId);
+    if (!existingWidget) return NextResponse.json({ error: 'Widget not found in this dashboard' }, { status: 404 });
 
     await deleteDashboardWidget(widgetId);
     return NextResponse.json(formatSuccessResponse({ success: true, message: 'Widget deleted successfully' }));

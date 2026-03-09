@@ -93,6 +93,7 @@ export function ModuleFieldEditor({ fields, onChange }: ModuleFieldEditorProps) 
                                 className="h-8 w-8 rounded-full text-slate-400 hover:text-red-500"
                                 onClick={() => removeField(field.id)}
                                 disabled={fields.length === 1}
+                                aria-label={`Remove ${field.label || 'field'}`}
                             >
                                 <Trash2 className="h-4 w-4" />
                             </Button>

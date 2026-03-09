@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useAutomations } from '@/hooks/use-studio';
+import { useAutomations, useToggleAutomationMutation } from '@/hooks/use-studio';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 export default function AutomationRulesListPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const { data: automations, isLoading } = useAutomations();
+    const toggleAutomation = useToggleAutomationMutation();
 
     const filteredAutomations = automations?.filter(a =>
         a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -168,7 +169,7 @@ export default function AutomationRulesListPage() {
                                     <Switch
                                         id={`toggle-${rule.id}`}
                                         checked={rule.isActive}
-                                        onChange={() => { }}
+                                        onCheckedChange={(checked) => toggleAutomation.mutate({ id: rule.id, isActive: checked })}
                                         className="scale-75 origin-right"
                                     />
                                 </div>

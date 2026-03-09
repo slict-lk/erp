@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from 'react';
+import { use, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useDashboard } from '@/hooks/use-studio';
 import { Button } from '@/components/ui/button';
@@ -25,9 +25,11 @@ function LiveWidget({ widget }: WidgetDataProps) {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const metricsKey = useMemo(() => JSON.stringify(widget.metrics), [widget.metrics]);
 
     useEffect(() => {
         let mounted = true;
+        const controller = new AbortController();
         const loadData = async () => {
             try {
                 setLoading(true);
@@ -41,22 +43,23 @@ function LiveWidget({ widget }: WidgetDataProps) {
                             source: widget.dataSource,
                             metrics: widget.metrics
                         }
-                    })
+                    }),
+                    signal: controller.signal,
                 });
 
                 if (!res.ok) throw new Error('Data connector failed');
                 const json = await res.json();
                 if (mounted) setData(json.data);
             } catch (err: any) {
-                if (mounted) setError(err.message);
+                if (mounted && err.name !== 'AbortError') setError(err.message);
             } finally {
                 if (mounted) setLoading(false);
             }
         };
 
         loadData();
-        return () => { mounted = false; };
-    }, [widget.dataSource, widget.metrics]);
+        return () => { mounted = false; controller.abort(); };
+    }, [widget.dataSource, metricsKey]);
 
     if (loading) {
         return (

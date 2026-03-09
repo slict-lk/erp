@@ -27,11 +27,30 @@ export default function NewAutomationRulePage() {
 
     // Basic payload configuration matching the existing primitive AutomationRule schema
     const [conditions, setConditions] = useState([{ field: '', operator: 'equals', value: '' }]);
+    const [conditionsRaw, setConditionsRaw] = useState(() => JSON.stringify([{ field: '', operator: 'equals', value: '' }], null, 2));
+    const [conditionsError, setConditionsError] = useState<string | null>(null);
     const [actionConfig, setActionConfig] = useState('{}');
 
     const handleSubmit = async () => {
         if (!name || !moduleName || !event || !action) {
             toast.error('Please fill in all required fields');
+            return;
+        }
+
+        // Validate conditions JSON
+        try {
+            const parsed = JSON.parse(conditionsRaw);
+            setConditions(parsed);
+        } catch {
+            toast.error('Conditions must be valid JSON');
+            return;
+        }
+
+        // Validate actionConfig is valid JSON
+        try {
+            JSON.parse(actionConfig);
+        } catch {
+            toast.error('Action Configuration must be valid JSON');
             return;
         }
 
@@ -148,17 +167,20 @@ export default function NewAutomationRulePage() {
                         <div className="md:col-span-2 space-y-2 border-t pt-4 mt-2">
                             <Label>Conditions (JSON)</Label>
                             <Textarea
-                                value={JSON.stringify(conditions, null, 2)}
-                                onChange={e => {
+                                value={conditionsRaw}
+                                onChange={ev => setConditionsRaw(ev.target.value)}
+                                onBlur={() => {
                                     try {
-                                        setConditions(JSON.parse(e.target.value));
-                                    } catch (e) {
-                                        // Ignore parsing errors while typing
+                                        setConditions(JSON.parse(conditionsRaw));
+                                        setConditionsError(null);
+                                    } catch {
+                                        setConditionsError('Invalid JSON');
                                     }
                                 }}
-                                className="font-mono text-xs"
+                                className={`font-mono text-xs ${conditionsError ? 'border-red-400' : ''}`}
                                 rows={3}
                             />
+                            {conditionsError && <p className="text-xs text-red-500">{conditionsError}</p>}
                         </div>
                     </CardContent>
                 </Card>

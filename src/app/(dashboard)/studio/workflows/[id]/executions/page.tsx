@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useEffect } from 'react';
+import { use, useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useWorkflow } from '@/hooks/use-studio';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ export default function WorkflowExecutionsPage({ params }: { params: Promise<{ i
     const [loadingExecutions, setLoadingExecutions] = useState(true);
     const [search, setSearch] = useState('');
 
-    const fetchExecutions = async () => {
+    const fetchExecutions = useCallback(async () => {
         try {
             setLoadingExecutions(true);
             const res = await fetch(`/api/studio/workflows/${workflowId}/executions`);
@@ -33,11 +33,11 @@ export default function WorkflowExecutionsPage({ params }: { params: Promise<{ i
         } finally {
             setLoadingExecutions(false);
         }
-    };
+    }, [workflowId]);
 
     useEffect(() => {
         fetchExecutions();
-    }, [workflowId]);
+    }, [fetchExecutions]);
 
     if (isLoading) {
         return <div className="p-8 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-slate-300" /></div>;
@@ -181,7 +181,7 @@ export default function WorkflowExecutionsPage({ params }: { params: Promise<{ i
                                     <TableCell>
                                         <div className="flex items-center gap-2 text-xs text-slate-500 font-mono bg-slate-100 px-2 py-1 rounded max-w-[200px] truncate">
                                             <FileJson className="h-3 w-3 shrink-0" />
-                                            {JSON.stringify(exec.context).substring(0, 30)}...
+                                            {JSON.stringify(exec.context ?? {}).substring(0, 30)}...
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-right">

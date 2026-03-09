@@ -25,6 +25,9 @@ export async function getDashboards(
 ): Promise<PaginatedResponse<StudioDashboard>> {
     const { skip = 0, take = 50, search, isPublished, sortBy = 'createdAt', sortOrder = 'desc' } = filters || {};
 
+    const allowedSortFields = ['createdAt', 'updatedAt', 'name'];
+    const safeSortBy = allowedSortFields.includes(sortBy as string) ? sortBy : 'createdAt';
+
     const where: Prisma.StudioDashboardWhereInput = {
         tenantId,
         ...(isPublished !== undefined && { isPublished }),
@@ -42,7 +45,7 @@ export async function getDashboards(
             where,
             skip,
             take,
-            orderBy: { [sortBy]: sortOrder },
+            orderBy: { [safeSortBy]: sortOrder },
             include: {
                 widgets: true,
             },
@@ -130,15 +133,8 @@ export async function updateDashboard(
 }
 
 export async function deleteDashboard(id: string, tenantId: string) {
-    // Verify ownership before deleting
-    const dashboard = await prisma.studioDashboard.findFirst({
+    return prisma.studioDashboard.deleteMany({
         where: { id, tenantId },
-    });
-
-    if (!dashboard) throw new Error('Dashboard not found');
-
-    return prisma.studioDashboard.delete({
-        where: { id },
     });
 }
 

@@ -8,7 +8,6 @@ interface CalendarWidgetProps {
 
 export function CalendarWidget({ data }: CalendarWidgetProps) {
     const listData = Array.isArray(data) ? data : (data?.items || data?.data || [data].filter(Boolean));
-    const dates = listData.slice(0, 3).map((item: any) => item.date || item.createdAt || new Date());
 
     return (
         <div className="space-y-4">
@@ -25,7 +24,7 @@ export function CalendarWidget({ data }: CalendarWidgetProps) {
                                 <CalendarIcon className="h-3 w-3 text-indigo-500" />
                             </div>
                             <div className="min-w-0">
-                                <p className="text-[10px] font-bold text-slate-700 truncate">{item.name || item.title}</p>
+                                <p className="text-[10px] font-bold text-slate-700 truncate">{String(item.name ?? item.title ?? 'Event')}</p>
                                 <p className="text-[9px] text-slate-400">{item.date ? new Date(item.date).toLocaleDateString() : 'Today'}</p>
                             </div>
                         </div>

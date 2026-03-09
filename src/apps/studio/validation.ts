@@ -17,7 +17,13 @@ export function buildDynamicSchema(fields: CustomModuleField[]) {
                 fieldSchema = z.string();
                 if (field.validation?.min) fieldSchema = (fieldSchema as z.ZodString).min(field.validation.min);
                 if (field.validation?.max) fieldSchema = (fieldSchema as z.ZodString).max(field.validation.max);
-                if (field.validation?.pattern) fieldSchema = (fieldSchema as z.ZodString).regex(new RegExp(field.validation.pattern));
+                if (field.validation?.pattern) {
+                    try {
+                        fieldSchema = (fieldSchema as z.ZodString).regex(new RegExp(field.validation.pattern));
+                    } catch {
+                        // Invalid regex pattern in field config - skip regex validation
+                    }
+                }
                 break;
 
             case 'number':
@@ -75,15 +81,14 @@ export function buildDynamicSchema(fields: CustomModuleField[]) {
             case 'json':
                 // Basic JSON validation (checks if object/array)
                 fieldSchema = z.any().refine(val => {
+                    if (typeof val === 'object' && val !== null) return true;
                     try {
                         if (typeof val === 'string') JSON.parse(val);
-                        return true;
+                        return typeof val === 'string';
                     } catch {
                         return false;
                     }
-                }, { message: 'Invalid JSON' });
-                // After parsing as boolean/string, transform
-                fieldSchema = fieldSchema.transform((v) => {
+                }, { message: 'Invalid JSON' }).transform((v) => {
                     if (typeof v === 'string') return JSON.parse(v);
                     return v;
                 });
@@ -105,14 +110,14 @@ export function buildDynamicSchema(fields: CustomModuleField[]) {
 
         if (field.required) {
             // If it's a string, ensure it's not empty
-            if (fieldSchema instanceof z.ZodString) {
-                fieldSchema = fieldSchema.min(1, { message: `${field.label} is required` });
-            } else if (fieldSchema instanceof z.ZodArray) {
-                fieldSchema = fieldSchema.min(1, { message: `${field.label} is required` });
+            if (fieldSchema._def?.typeName === 'ZodString') {
+                fieldSchema = (fieldSchema as z.ZodString).min(1, { message: `${field.label} is required` });
+            } else if (fieldSchema._def?.typeName === 'ZodArray') {
+                fieldSchema = (fieldSchema as z.ZodArray<any>).min(1, { message: `${field.label} is required` });
             }
         } else {
             // If optional, allow undefined or null (and empty string for text fields)
-            if (fieldSchema instanceof z.ZodString) {
+            if (fieldSchema._def?.typeName === 'ZodString') {
                 fieldSchema = z.union([fieldSchema, z.literal('')]).optional().nullable().transform(val => val === '' ? null : val);
             } else {
                 fieldSchema = fieldSchema.optional().nullable();

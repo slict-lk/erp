@@ -20,8 +20,9 @@ export async function POST(req: Request) {
         try {
             const result = await executeDataConnector(body.connectorId, body.config || {}, tenant.id);
             return NextResponse.json(formatSuccessResponse(result));
-        } catch (error: any) {
-            return NextResponse.json({ error: error.message }, { status: 400 });
+        } catch (err) {
+            console.error('[Studio] Data source preview failed:', err);
+            return NextResponse.json({ error: 'Data source preview failed' }, { status: 400 });
         }
     });
 }

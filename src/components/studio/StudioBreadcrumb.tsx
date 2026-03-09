@@ -28,8 +28,9 @@ export function StudioBreadcrumb() {
             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
             .join(' ');
 
-        // Handle dynamic IDs (simple check if it looks like an ID, though UUIDs are longer)
-        const isId = segment.length > 20 || /^[0-9a-fA-F-]+$/.test(segment);
+        // Handle dynamic IDs - match UUIDs and CUID patterns
+        const isId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment) ||
+            /^c[a-z0-9]{24,}$/i.test(segment);
         const displayLabel = isId ? 'Details' : label;
 
         return { path, label: displayLabel, isLast };

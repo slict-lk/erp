@@ -80,18 +80,27 @@ export default function NewDashboardPage() {
                 metrics: w.metrics ? w.metrics.split(',').map(s => s.trim()).filter(Boolean) : []
             }));
 
-            // Generate a simple layout top-to-bottom
+            // Generate a column-aware layout with proper y stacking
             const layout = {
                 cols: 12,
-                rows: Math.max(1, widgets.length * 2),
-                items: mappedWidgets.map((w, idx) => ({
-                    widgetId: w.id,
-                    x: (idx % 2) * 6, // 2 per row
-                    y: Math.floor(idx / 2) * 2,
-                    w: 6,
-                    h: w.type === 'chart' || w.type === 'table' ? 4 : 2
-                }))
+                rows: 0,
+                items: [] as Array<{ widgetId: string; x: number; y: number; w: number; h: number }>,
             };
+            let colY = [0, 0]; // Track y per column (2 columns)
+            mappedWidgets.forEach((w, idx) => {
+                const h = w.type === 'chart' || w.type === 'table' ? 4 : 2;
+                if (w.type === 'chart' || w.type === 'table') {
+                    const y = Math.max(colY[0], colY[1]);
+                    layout.items.push({ widgetId: w.id, x: 0, y, w: 12, h });
+                    colY[0] = y + h;
+                    colY[1] = y + h;
+                } else {
+                    const col = idx % 2;
+                    layout.items.push({ widgetId: w.id, x: col * 6, y: colY[col], w: 6, h });
+                    colY[col] += h;
+                }
+            });
+            layout.rows = Math.max(1, ...colY);
 
             await createMutation.mutateAsync({
                 name: name.trim(),
@@ -233,6 +242,7 @@ export default function NewDashboardPage() {
                                             size="icon"
                                             className="absolute -right-2 -top-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-md"
                                             onClick={() => removeWidget(widget.id)}
+                                            aria-label={`Remove ${widget.title} widget`}
                                         >
                                             <Trash2 className="h-3 w-3" />
                                         </Button>

@@ -29,7 +29,7 @@ export function TableWidget({ data }: TableWidgetProps) {
                                         {item.name || item.title || item.label || `Record ${i + 1}`}
                                     </td>
                                     <td className="py-2 px-2 text-right font-mono text-slate-500">
-                                        {item.amount || item.status || item.value || '-'}
+                                        {item.amount ?? item.status ?? item.value ?? '-'}
                                     </td>
                                 </tr>
                             ))}

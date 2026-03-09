@@ -57,11 +57,11 @@ export function FieldConfigPanel({ field, onUpdate }: FieldConfigPanelProps) {
                 <div className="flex gap-4">
                     <div className="space-y-1.5 flex-1">
                         <Label className="text-[10px] uppercase text-slate-500">Min</Label>
-                        <Input type="number" className="h-8" />
+                        <Input type="number" className="h-8" value={(field as any).min ?? ''} onChange={e => onUpdate(field.id, 'min', e.target.value ? Number(e.target.value) : undefined)} />
                     </div>
                     <div className="space-y-1.5 flex-1">
                         <Label className="text-[10px] uppercase text-slate-500">Max</Label>
-                        <Input type="number" className="h-8" />
+                        <Input type="number" className="h-8" value={(field as any).max ?? ''} onChange={e => onUpdate(field.id, 'max', e.target.value ? Number(e.target.value) : undefined)} />
                     </div>
                 </div>
             )}

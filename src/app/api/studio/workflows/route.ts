@@ -13,8 +13,10 @@ export async function GET(req: Request) {
     const tenant = await getOrCreateDefaultTenant();
     const { searchParams } = new URL(req.url);
 
-    const skip = parseInt(searchParams.get('skip') || '0', 10);
-    const take = parseInt(searchParams.get('take') || '50', 10);
+    const rawSkip = parseInt(searchParams.get('skip') || '0', 10);
+    const rawTake = parseInt(searchParams.get('take') || '50', 10);
+    const skip = Number.isFinite(rawSkip) ? Math.max(0, Math.floor(rawSkip)) : 0;
+    const take = Number.isFinite(rawTake) ? Math.min(100, Math.max(1, Math.floor(rawTake))) : 50;
     const search = searchParams.get('search') || undefined;
     const isActive = searchParams.has('isActive') ? searchParams.get('isActive') === 'true' : undefined;
 

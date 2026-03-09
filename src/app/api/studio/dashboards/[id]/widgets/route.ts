@@ -37,7 +37,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     const dashboard = await getDashboardById(id, tenant.id);
     if (!dashboard) return NextResponse.json({ error: 'Dashboard not found' }, { status: 404 });
 
-    const widget = await createDashboardWidget(id, body);
+    const sanitizedBody = {
+      title: body.title,
+      type: body.type,
+      dataSource: body.dataSource,
+      config: body.config,
+      position: body.position,
+      metrics: body.metrics,
+    };
+    const widget = await createDashboardWidget(id, sanitizedBody);
     return NextResponse.json(formatSuccessResponse(widget), { status: 201 });
   });
 }

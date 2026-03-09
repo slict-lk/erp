@@ -22,23 +22,27 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
         const module = await getCustomModuleById(tenant.id, id);
         if (!module) return NextResponse.json({ error: 'Module not found' }, { status: 404 });
 
-        // Verify all field IDs belong to this module before reordering
         const moduleFields = await prisma.customModuleField.findMany({
             where: { moduleId: module.id },
             select: { id: true },
         });
         const validFieldIds = new Set(moduleFields.map(f => f.id));
-        const invalidIds = body.fieldIds.filter(fid => !validFieldIds.has(fid));
-        if (invalidIds.length > 0) {
-            return NextResponse.json({ error: 'Some field IDs do not belong to this module' }, { status: 400 });
+        const uniqueInput = new Set(body.fieldIds);
+        if (uniqueInput.size !== body.fieldIds.length) {
+            return NextResponse.json({ error: 'Duplicate field IDs in request' }, { status: 400 });
+        }
+        if (uniqueInput.size !== validFieldIds.size || body.fieldIds.some((fid: string) => !validFieldIds.has(fid))) {
+            return NextResponse.json({ error: 'fieldIds must contain every field of this module exactly once' }, { status: 400 });
         }
 
-        for (let i = 0; i < body.fieldIds.length; i++) {
-            await prisma.customModuleField.update({
-                where: { id: body.fieldIds[i] },
-                data: { sequence: i }
-            });
-        }
+        await prisma.$transaction(
+          body.fieldIds.map((fid: string, i: number) =>
+            prisma.customModuleField.update({
+              where: { id: fid },
+              data: { sequence: i },
+            })
+          )
+        );
 
         return NextResponse.json(formatSuccessResponse({ success: true, message: 'Fields reordered successfully' }));
     });

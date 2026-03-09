@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useWorkflows } from '@/hooks/use-studio';
+import { useWorkflows, useToggleWorkflowMutation } from '@/hooks/use-studio';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 export default function WorkflowsListPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const { data: workflows, isLoading } = useWorkflows();
+    const toggleWorkflow = useToggleWorkflowMutation();
 
     const filteredWorkflows = workflows?.filter(w =>
         w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -80,7 +81,7 @@ export default function WorkflowsListPage() {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredWorkflows.map(workflow => (
-                        <Card key={workflow.id} className="flex flex-col hover:shadow-md transition-all border-slate-200">
+                        <Card key={workflow.id} className="relative flex flex-col hover:shadow-md transition-all border-slate-200">
                             <CardHeader className="pb-4 items-start justify-between flex-row">
                                 <div className="flex items-center gap-3 w-4/5">
                                     <div className={`h-10 w-10 flex shrink-0 items-center justify-center rounded-lg border ${workflow.isActive ? 'bg-indigo-50 border-indigo-100 text-indigo-600' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
@@ -147,7 +148,7 @@ export default function WorkflowsListPage() {
                                     <Switch
                                         id={`toggle-${workflow.id}`}
                                         checked={workflow.isActive}
-                                        onChange={() => { }}
+                                        onCheckedChange={(checked) => toggleWorkflow.mutate({ id: workflow.id, isActive: checked })}
                                         className="scale-75 origin-right"
                                     />
                                 </div>

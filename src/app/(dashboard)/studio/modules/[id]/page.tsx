@@ -124,13 +124,13 @@ export default function ModuleDetailPage({ params }: { params: Promise<{ id: str
                                 <TableBody>
                                     {loadingRecords || loadingFields ? (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="h-48 text-center text-slate-500">
+                                            <TableCell colSpan={(fieldsData?.slice(0, 5).length ?? 5) + 1} className="h-48 text-center text-slate-500">
                                                 <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" /> Loading records...
                                             </TableCell>
                                         </TableRow>
                                     ) : !recordsData?.length ? (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="h-48 text-center text-slate-500">
+                                            <TableCell colSpan={(fieldsData?.slice(0, 5).length ?? 5) + 1} className="h-48 text-center text-slate-500">
                                                 No records found. <Link href={`/studio/modules/${moduleId}/records/new`} className="text-primary hover:underline">Create one</Link>.
                                             </TableCell>
                                         </TableRow>
@@ -142,10 +142,10 @@ export default function ModuleDetailPage({ params }: { params: Promise<{ id: str
                                                         {f.type === 'boolean'
                                                             ? (record.data[f.name] ? 'Yes' : 'No')
                                                             : f.type === 'date'
-                                                                ? (record.data[f.name] ? format(new Date(record.data[f.name]), 'PPp') : '-')
+                                                                ? (() => { try { return record.data[f.name] ? format(new Date(record.data[f.name]), 'PPp') : '-'; } catch { return String(record.data[f.name] || '-'); } })()
                                                                 : typeof record.data[f.name] === 'object'
                                                                     ? JSON.stringify(record.data[f.name])
-                                                                    : String(record.data[f.name] || '-')}
+                                                                    : String(record.data[f.name] ?? '-')}
                                                     </TableCell>
                                                 ))}
                                                 <TableCell className="text-right">

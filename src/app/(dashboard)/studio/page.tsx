@@ -216,7 +216,7 @@ export default function StudioHubPage() {
                             {wf.isActive ? "Active" : "Draft"}
                           </span>
                           <span>•</span>
-                          <span className="capitalize">{wf.triggerType.replace('_', ' ')} trigger</span>
+                          <span className="capitalize">{wf.triggerType.replace(/_/g, ' ')} trigger</span>
                         </div>
                       </div>
                     </div>

@@ -28,13 +28,27 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
             return row;
         });
 
-        const csv = Papa.unparse(records);
+        // Sanitize CSV values to prevent injection (leading =, +, -, @, \t, \r)
+        const sanitizedRecords = records.map(row => {
+          const sanitized: Record<string, any> = {};
+          for (const [key, value] of Object.entries(row)) {
+            if (typeof value === 'string' && /^[=+\-@\t\r]/.test(value)) {
+              sanitized[key] = `'${value}`;
+            } else {
+              sanitized[key] = value;
+            }
+          }
+          return sanitized;
+        });
+
+        const csv = Papa.unparse(sanitizedRecords);
+        const safeSlug = module.slug.replace(/[^a-zA-Z0-9_-]/g, '_');
 
         return new NextResponse(csv, {
             status: 200,
             headers: {
                 'Content-Type': 'text/csv',
-                'Content-Disposition': `attachment; filename="${module.slug}_export.csv"`
+                'Content-Disposition': `attachment; filename="${safeSlug}_export.csv"`
             }
         });
     });

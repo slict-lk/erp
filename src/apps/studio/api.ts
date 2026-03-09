@@ -15,6 +15,9 @@ export async function getCustomModules(
 ) {
   const { skip = 0, take = 50, search, isActive, sortBy = 'createdAt', sortOrder = 'desc' } = filters || {};
 
+  const allowedSortFields = ['createdAt', 'updatedAt', 'name', 'slug'];
+  const safeSortBy = allowedSortFields.includes(sortBy as string) ? sortBy : 'createdAt';
+
   const where: Prisma.CustomModuleWhereInput = {
     tenantId,
     ...(isActive !== undefined && { isActive }),
@@ -32,7 +35,7 @@ export async function getCustomModules(
       where,
       skip,
       take,
-      orderBy: { [sortBy]: sortOrder },
+      orderBy: { [safeSortBy]: sortOrder },
       include: {
         _count: { select: { records: true, fields: true } },
       },
@@ -231,6 +234,9 @@ export async function getCustomRecords(
 ): Promise<PaginatedResponse<CustomRecord>> {
   const { skip = 0, take = 50, search, sortBy = 'createdAt', sortOrder = 'desc' } = filters || {};
 
+  const allowedRecordSortFields = ['createdAt', 'updatedAt'];
+  const safeSortBy = allowedRecordSortFields.includes(sortBy as string) ? sortBy : 'createdAt';
+
   // Note: we fetch all and filter in memory if searching in JSON data
   // For production with massive datasets, consider PostgreSQL JSONB features
   const where: Prisma.CustomRecordWhereInput = {
@@ -242,7 +248,7 @@ export async function getCustomRecords(
     where,
     skip,
     take,
-    orderBy: { [sortBy]: sortOrder },
+    orderBy: { [safeSortBy]: sortOrder },
   });
 
   const count = await prisma.customRecord.count({ where });
@@ -317,11 +323,12 @@ export async function deleteCustomRecord(id: string, tenantId: string) {
   });
 }
 
-export async function bulkDeleteRecords(ids: string[], tenantId: string) {
+export async function bulkDeleteRecords(ids: string[], tenantId: string, moduleId?: string) {
   return prisma.customRecord.deleteMany({
     where: {
       id: { in: ids },
       tenantId,
+      ...(moduleId && { moduleId }),
     },
   });
 }

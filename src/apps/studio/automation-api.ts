@@ -111,18 +111,14 @@ export async function toggleAutomationRule(id: string, tenantId: string, isActiv
 }
 
 export async function deleteAutomationRule(id: string, tenantId: string) {
-    // Hard delete
-    const rule = await prisma.automationRule.findFirst({ where: { id, tenantId } });
-    if (!rule) throw new Error('Automation rule not found');
-
-    return prisma.automationRule.delete({
-        where: { id },
+    return prisma.automationRule.deleteMany({
+        where: { id, tenantId },
     });
 }
 
-export async function incrementRunCount(id: string) {
-    return prisma.automationRule.update({
-        where: { id },
+export async function incrementRunCount(id: string, tenantId: string) {
+    return prisma.automationRule.updateMany({
+        where: { id, tenantId },
         data: {
             runCount: { increment: 1 },
             lastRunAt: new Date(),
@@ -136,12 +132,14 @@ export async function incrementRunCount(id: string) {
 
 export async function getAutomationExecutions(
     ruleId: string,
+    tenantId: string,
     filters?: AutomationExecutionFilters
 ) {
     const { skip = 0, take = 50, status, sortBy = 'executedAt', sortOrder = 'desc' } = filters || {};
 
     const where: Prisma.AutomationExecutionWhereInput = {
         ruleId,
+        rule: { tenantId },
         ...(status && { status: status as any }),
     };
 

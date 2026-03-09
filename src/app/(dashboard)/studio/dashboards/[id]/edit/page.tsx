@@ -42,10 +42,11 @@ export default function EditDashboardPage({ params }: { params: Promise<{ id: st
     const [description, setDescription] = useState('');
     const [isDefault, setIsDefault] = useState(false);
     const [widgets, setWidgets] = useState<WidgetDraft[]>([]);
+    const [initialized, setInitialized] = useState(false);
 
-    // Sync state when data loads
+    // Sync state when data loads (only on first load)
     useEffect(() => {
-        if (dashboard) {
+        if (dashboard && !initialized) {
             setName(dashboard.name);
             setDescription(dashboard.description || '');
             setIsDefault(dashboard.isDefault || false);
@@ -57,8 +58,9 @@ export default function EditDashboardPage({ params }: { params: Promise<{ id: st
                 chartType: w.chartType as ChartType | undefined,
                 metrics: Array.isArray(w.metrics) ? w.metrics.join(', ') : (w.metrics || '')
             })) || []);
+            setInitialized(true);
         }
-    }, [dashboard]);
+    }, [dashboard, initialized]);
 
     const addWidget = (type: WidgetType = 'metric') => {
         setWidgets([

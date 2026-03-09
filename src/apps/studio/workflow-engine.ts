@@ -86,12 +86,13 @@ export class WorkflowEngine {
                     return await this.executeAction(node.data, contextData, tenantId);
                 case 'conditionNode':
                     return await this.evaluateCondition(node.data, contextData);
-                case 'delayNode':
+                case 'delayNode': {
                     // Delay node in a serverless environment requires complex scheduling (e.g. queue).
                     // For now, this is a synchronous wait (only suitable for a few seconds).
-                    const ms = (node.data.duration || 1) * 1000;
+                    const ms = (node.data?.duration || 1) * 1000;
                     await new Promise(res => setTimeout(res, Math.min(ms, 5000))); // Cap at 5s for sync
                     return { success: true, data: { delayed: ms } };
+                }
                 default:
                     return { success: false, error: `Unknown node type: ${node.type}` };
             }
@@ -128,11 +129,41 @@ export class WorkflowEngine {
                 const updatedRecord = await updateCustomRecord(recordId, tenantId, updateData);
                 return { success: true, data: updatedRecord };
 
-            case 'webhook':
+            case 'webhook': {
                 const url = resolveVars(config.url);
+                // Validate URL to prevent SSRF
+                let parsed: URL;
+                try {
+                    parsed = new URL(url);
+                } catch {
+                    throw new Error('Invalid webhook URL');
+                }
+                if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+                    throw new Error('Webhook URL must use http or https');
+                }
+                // Block private/loopback addresses
+                const host = parsed.hostname.toLowerCase();
+                if (
+                    host === 'localhost' ||
+                    host === '127.0.0.1' ||
+                    host === '::1' ||
+                    host === '0.0.0.0' ||
+                    host === '169.254.169.254' ||
+                    host.endsWith('.internal') ||
+                    /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(host)
+                ) {
+                    throw new Error('Webhook URL targets a disallowed address');
+                }
                 const payload = this.resolveObjectVars(config.payload, contextData);
-                // ... (fetch implementation)
-                return { success: true, data: { requested: url } };
+                const response = await fetch(parsed.href, {
+                    method: config.method || 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: AbortSignal.timeout(10000),
+                });
+                const responseText = await response.text();
+                return { success: response.ok, data: { status: response.status, url: parsed.href, body: responseText.slice(0, 1024) } };
+            }
 
             default:
                 throw new Error(`Unsupported action type: ${actionType}`);
@@ -157,17 +188,18 @@ export class WorkflowEngine {
     }
 
     private static async evaluateCondition(conditionData: any, contextData: any) {
-        // Implement condition evaluation (e.g. value > 100)
+        if (!conditionData) return { success: true, data: false };
         const { field, operator, value } = conditionData;
+        if (!field) return { success: true, data: false };
 
         // Resolve field value from context e.g. "trigger.amount"
         const actualValue = field.split('.').reduce((obj: any, key: string) => obj?.[key], contextData);
 
         let result = false;
         switch (operator) {
-            case 'equals': result = actualValue == value; break;
-            case 'not_equals': result = actualValue != value; break;
-            case 'contains': result = String(actualValue).includes(String(value)); break;
+            case 'equals': result = actualValue === value; break;
+            case 'not_equals': result = actualValue !== value; break;
+            case 'contains': result = String(actualValue ?? '').includes(String(value)); break;
             case 'greater_than': result = Number(actualValue) > Number(value); break;
             case 'less_than': result = Number(actualValue) < Number(value); break;
         }

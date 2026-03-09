@@ -21,7 +21,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         const module = await getCustomModuleById(tenant.id, id);
         if (!module) return NextResponse.json({ error: 'Module not found' }, { status: 404 });
 
-        await bulkDeleteRecords(body.recordIds, tenant.id);
+        await bulkDeleteRecords(body.recordIds, tenant.id, id);
 
         return NextResponse.json(formatSuccessResponse({ success: true, message: `${body.recordIds.length} records deleted` }));
     });

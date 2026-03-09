@@ -14,13 +14,23 @@ import type {
 // Generic fetcher
 async function fetcher<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await fetch(url, init);
-    const json = await res.json();
+    const text = await res.text();
+    if (!text) throw new Error('Empty response');
+    let json;
+    try {
+        json = JSON.parse(text);
+    } catch {
+        throw new Error('Invalid JSON response');
+    }
     if (!res.ok) throw new Error(json.error || 'API Request failed');
     return json.data !== undefined ? json.data : json; // Handles wrapper if present
 }
 
 export function useModules(params?: { skip?: number; take?: number; search?: string }) {
-    const queryList = new URLSearchParams(params as any).toString();
+    const filtered = Object.fromEntries(
+        Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== '')
+    );
+    const queryList = new URLSearchParams(filtered as Record<string, string>).toString();
     return useQuery({
         queryKey: ['studio', 'modules', params],
         queryFn: () => fetcher<CustomModule[]>(`/api/studio/modules?${queryList}`)
@@ -44,7 +54,10 @@ export function useModuleFields(moduleId: string) {
 }
 
 export function useRecords(moduleId: string, params?: { skip?: number; take?: number; search?: string }) {
-    const queryList = new URLSearchParams(params as any).toString();
+    const filtered = Object.fromEntries(
+        Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== '')
+    );
+    const queryList = new URLSearchParams(filtered as Record<string, string>).toString();
     return useQuery({
         queryKey: ['studio', 'modules', moduleId, 'records', params],
         queryFn: () => fetcher<CustomRecord[]>(`/api/studio/modules/${moduleId}/records?${queryList}`),
@@ -159,7 +172,10 @@ export function useUpdateWorkflowMutation(id: string) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         }),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['studio', 'workflows'] })
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['studio', 'workflows'] });
+            queryClient.invalidateQueries({ queryKey: ['studio', 'workflows', id] });
+        }
     });
 }
 
@@ -171,7 +187,10 @@ export function useUpdateAutomationMutation(id: string) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         }),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['studio', 'automation'] })
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['studio', 'automation'] });
+            queryClient.invalidateQueries({ queryKey: ['studio', 'automation', id] });
+        }
     });
 }
 
@@ -199,6 +218,54 @@ export function useUpdateDashboardMutation() {
             queryClient.invalidateQueries({ queryKey: ['studio', 'dashboards'] });
             queryClient.invalidateQueries({ queryKey: ['studio', 'dashboards', id] });
         }
+    });
+}
+
+export function useToggleAutomationMutation() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+            fetcher(`/api/studio/automation/${id}/toggle`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isActive }),
+            }),
+        onMutate: async ({ id, isActive }) => {
+            await queryClient.cancelQueries({ queryKey: ['studio', 'automation'] });
+            const previous = queryClient.getQueryData<any[]>(['studio', 'automation']);
+            queryClient.setQueryData<any[]>(['studio', 'automation'], (old) =>
+                old?.map((r) => (r.id === id ? { ...r, isActive } : r))
+            );
+            return { previous };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previous) queryClient.setQueryData(['studio', 'automation'], context.previous);
+        },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: ['studio', 'automation'] }),
+    });
+}
+
+export function useToggleWorkflowMutation() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+            fetcher(`/api/studio/workflows/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isActive }),
+            }),
+        onMutate: async ({ id, isActive }) => {
+            await queryClient.cancelQueries({ queryKey: ['studio', 'workflows'] });
+            const previous = queryClient.getQueryData<any[]>(['studio', 'workflows']);
+            queryClient.setQueryData<any[]>(['studio', 'workflows'], (old) =>
+                old?.map((w) => (w.id === id ? { ...w, isActive } : w))
+            );
+            return { previous };
+        },
+        onError: (_err, _vars, context) => {
+            if (context?.previous) queryClient.setQueryData(['studio', 'workflows'], context.previous);
+        },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: ['studio', 'workflows'] }),
     });
 }
 

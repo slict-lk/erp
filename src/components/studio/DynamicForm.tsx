@@ -148,7 +148,7 @@ export function DynamicForm({ fields, defaultValues = {}, onSubmit, isLoading = 
                                                     </div>
                                                 </div>
                                             ) : field.type === 'select' ? (
-                                                <Select onValueChange={formField.onChange} defaultValue={String(formField.value || '')}>
+                                                <Select onValueChange={formField.onChange} value={formField.value || ''}>
                                                     <SelectTrigger>
                                                         <SelectValue placeholder={`Select ${field.label}`} />
                                                     </SelectTrigger>

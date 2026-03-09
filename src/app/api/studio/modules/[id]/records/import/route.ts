@@ -24,6 +24,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
             return NextResponse.json({ error: 'CSV file is required' }, { status: 400 });
         }
 
+        const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+        if (file.size > MAX_FILE_SIZE) {
+            return NextResponse.json({ error: 'File size exceeds 5MB limit' }, { status: 400 });
+        }
+        if (!file.name.toLowerCase().endsWith('.csv') && file.type !== 'text/csv') {
+            return NextResponse.json({ error: 'Only CSV files are supported' }, { status: 400 });
+        }
+
         const module = await getCustomModuleById(tenant.id, id);
         if (!module) return NextResponse.json({ error: 'Module not found' }, { status: 404 });
 

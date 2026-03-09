@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth-options';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
 import { tryCatch, formatSuccessResponse } from '@/lib/error-handler';
 import { getCustomModuleFields, createCustomModuleField, getCustomModuleById } from '@/apps/studio/api';
+import type { CreateFieldInput } from '@/apps/studio/types';
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
     return tryCatch(async () => {
@@ -37,7 +38,19 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         const module = await getCustomModuleById(tenant.id, id);
         if (!module) return NextResponse.json({ error: 'Module not found' }, { status: 404 });
 
-        const field = await createCustomModuleField(id, body);
+        const sanitizedBody = {
+          name: body.name,
+          label: body.label,
+          type: body.type,
+          required: body.required ?? false,
+          defaultValue: body.defaultValue,
+          options: body.options,
+          validation: body.validation,
+          sequence: body.sequence ?? 0,
+          isSystem: false,
+          settings: body.settings,
+        } satisfies CreateFieldInput;
+        const field = await createCustomModuleField(id, sanitizedBody);
         return NextResponse.json(formatSuccessResponse(field), { status: 201 });
     });
 }

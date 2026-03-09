@@ -111,14 +111,9 @@ export async function updateWorkflow(
 }
 
 export async function deleteWorkflow(id: string, tenantId: string) {
-    // Hard delete or soft delete? Custom module is soft delete, but for workflows
-    // we might want hard delete because executions cascade delete automatically.
-    const workflow = await prisma.studioWorkflow.findFirst({ where: { id, tenantId } });
-    if (!workflow) throw new Error('Workflow not found');
-
-    return prisma.studioWorkflow.delete({
-        where: { id },
-    });
+    const existing = await prisma.studioWorkflow.findFirst({ where: { id, tenantId } });
+    if (!existing) throw new Error('Workflow not found');
+    return prisma.studioWorkflow.delete({ where: { id } });
 }
 
 // ----------------------------------------------------------------------------
@@ -127,12 +122,14 @@ export async function deleteWorkflow(id: string, tenantId: string) {
 
 export async function getExecutions(
     workflowId: string,
+    tenantId: string,
     filters?: ExecutionFilters
 ): Promise<PaginatedResponse<WorkflowExecution>> {
     const { skip = 0, take = 50, status, sortBy = 'startedAt', sortOrder = 'desc' } = filters || {};
 
     const where: Prisma.WorkflowExecutionWhereInput = {
         workflowId,
+        workflow: { tenantId },
         ...(status && { status }),
     };
 
@@ -154,9 +151,9 @@ export async function getExecutions(
     };
 }
 
-export async function getExecutionById(id: string): Promise<WorkflowExecution | null> {
-    const execution = await prisma.workflowExecution.findUnique({
-        where: { id },
+export async function getExecutionById(id: string, tenantId: string): Promise<WorkflowExecution | null> {
+    const execution = await prisma.workflowExecution.findFirst({
+        where: { id, workflow: { tenantId } },
     });
 
     return execution as unknown as WorkflowExecution;

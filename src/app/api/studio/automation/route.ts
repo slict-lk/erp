@@ -14,11 +14,16 @@ export async function GET(req: Request) {
     const tenant = await getOrCreateDefaultTenant();
     const { searchParams } = new URL(req.url);
 
-    const skip = parseInt(searchParams.get('skip') || '0', 10);
-    const take = parseInt(searchParams.get('take') || '50', 10);
+    const rawSkip = parseInt(searchParams.get('skip') || '0', 10);
+    const rawTake = parseInt(searchParams.get('take') || '50', 10);
+    const skip = Number.isFinite(rawSkip) ? Math.max(0, Math.floor(rawSkip)) : 0;
+    const take = Number.isFinite(rawTake) ? Math.min(100, Math.max(1, Math.floor(rawTake))) : 50;
     const search = searchParams.get('search') || undefined;
     const isActive = searchParams.has('isActive') ? searchParams.get('isActive') === 'true' : undefined;
-    const triggerType = searchParams.get('triggerType') as TriggerType | undefined;
+    const rawTriggerType = searchParams.get('triggerType');
+    const triggerType = rawTriggerType && Object.values(TriggerType).includes(rawTriggerType as TriggerType)
+      ? rawTriggerType as TriggerType
+      : undefined;
 
     const result = await getAutomationRules(tenant.id, { skip, take, search, isActive, triggerType });
     const resp = formatSuccessResponse(result.data);
@@ -38,7 +43,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing required automation rule properties' }, { status: 400 });
     }
 
-    const rule = await createAutomationRule(tenant.id, body, session.user.id);
+    if (!Object.values(TriggerType).includes(body.triggerType)) {
+      return NextResponse.json({ error: 'Invalid triggerType' }, { status: 400 });
+    }
+
+    const sanitizedRule = {
+      name: body.name,
+      description: body.description,
+      triggerType: body.triggerType as TriggerType,
+      triggerConfig: body.triggerConfig || {},
+      conditions: body.conditions,
+      actions: body.actions,
+      isActive: body.isActive,
+    };
+
+    const rule = await createAutomationRule(tenant.id, sanitizedRule, session.user.id);
     return NextResponse.json(formatSuccessResponse(rule), { status: 201 });
   });
 }

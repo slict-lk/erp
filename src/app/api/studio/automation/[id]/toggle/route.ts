@@ -12,7 +12,12 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
         if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
         const tenant = await getOrCreateDefaultTenant();
-        const body = await req.json();
+        let body;
+        try {
+            body = await req.json();
+        } catch {
+            return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+        }
 
         if (typeof body.isActive !== 'boolean') {
             return NextResponse.json({ error: 'isActive boolean flag is required' }, { status: 400 });

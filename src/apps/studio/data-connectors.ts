@@ -186,14 +186,15 @@ export async function executeDataConnector(dataSourceId: string, config: Record<
     if (!connector) throw new Error(`Connector not found for ID: ${dataSourceId}`);
 
     // Auto-inject module ID for custom connectors
-    if (dataSourceId.startsWith('custom:') && !config.moduleId) {
+    const resolvedConfig = { ...config };
+    if (dataSourceId.startsWith('custom:') && !resolvedConfig.moduleId) {
         const slug = dataSourceId.split(':')[1];
         const mod = await prisma.customModule.findUnique({ where: { tenantId_slug: { tenantId, slug } } });
         if (!mod) throw new Error(`Custom module not found: ${slug}`);
-        config.moduleId = mod.id;
+        resolvedConfig.moduleId = mod.id;
     }
 
-    return connector.execute(config, tenantId);
+    return connector.execute(resolvedConfig, tenantId);
 }
 
 export function getDataSourceDescriptors() {
