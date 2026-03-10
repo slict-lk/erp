@@ -4,12 +4,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
     Type, Hash, Calendar, CheckSquare, List, ListFilter,
     FileBox, Code2, Mail, Link as LinkIcon, Phone, DollarSign,
-    Percent, AlignLeft
+    Percent, AlignLeft, ImageIcon
 } from "lucide-react";
 
 export type FieldType =
     | 'text' | 'number' | 'date' | 'boolean'
-    | 'select' | 'multiselect' | 'file' | 'json'
+    | 'select' | 'multiselect' | 'file' | 'image' | 'json'
     | 'email' | 'url' | 'phone' | 'currency' | 'percentage' | 'richtext';
 
 const FIELD_TYPES = [
@@ -19,7 +19,8 @@ const FIELD_TYPES = [
     { value: 'boolean', label: 'Boolean (Checkbox)', icon: CheckSquare },
     { value: 'select', label: 'Single Select', icon: List },
     { value: 'multiselect', label: 'Multiple Select', icon: ListFilter },
-    { value: 'file', label: 'File/Image Upload', icon: FileBox },
+    { value: 'file', label: 'File Upload', icon: FileBox },
+    { value: 'image', label: 'Image Upload', icon: ImageIcon },
     { value: 'json', label: 'JSON Object', icon: Code2 },
     { value: 'email', label: 'Email Address', icon: Mail },
     { value: 'url', label: 'URL/Link', icon: LinkIcon },

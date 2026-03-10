@@ -6,11 +6,14 @@ export type FieldType =
   | 'select'
   | 'multiselect'
   | 'file'
+  | 'image'
   | 'json'
   | 'email'
   | 'phone'
   | 'url'
   | 'currency'
+  | 'percentage'
+  | 'richtext'
   | 'textarea'
   | 'lookup';
 
@@ -248,8 +251,8 @@ export type UpdateFieldInput = Partial<Omit<CustomModuleField, 'id' | 'moduleId'
 export type CreateRecordInput = { data: Record<string, any> };
 export type UpdateRecordInput = { data: Record<string, any> };
 
-export type CreateDashboardInput = Omit<StudioDashboard, 'id' | 'tenantId' | 'createdAt' | 'updatedAt' | 'widgets'>;
-export type UpdateDashboardInput = Partial<Omit<StudioDashboard, 'id' | 'tenantId' | 'createdAt' | 'updatedAt' | 'widgets'>>;
+export type CreateDashboardInput = Omit<StudioDashboard, 'id' | 'tenantId' | 'createdAt' | 'updatedAt' | 'widgets'> & { widgets?: any[] };
+export type UpdateDashboardInput = Partial<Omit<StudioDashboard, 'id' | 'tenantId' | 'createdAt' | 'updatedAt' | 'widgets'>> & { widgets?: any[] };
 
 export type CreateWidgetInput = Omit<DashboardWidget, 'id' | 'dashboardId' | 'createdAt' | 'updatedAt'>;
 export type UpdateWidgetInput = Partial<Omit<DashboardWidget, 'id' | 'dashboardId' | 'createdAt' | 'updatedAt'>>;

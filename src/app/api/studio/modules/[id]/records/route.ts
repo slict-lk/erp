@@ -43,7 +43,22 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     if (!module) return NextResponse.json({ error: 'Module not found' }, { status: 404 });
 
     try {
-      const validatedData = validateRecordData((module as any).fields || [], body.data);
+      // Use DB fields if they include user-defined fields, otherwise fallback to schema.fields
+      const dbFields = (module as any).fields || [];
+      const schemaFields = ((module as any).schema?.fields || []).map((f: any, i: number) => ({
+        id: `schema-${i}`,
+        name: f.name,
+        label: f.label,
+        type: f.type,
+        required: f.required ?? false,
+        options: f.options,
+        validation: f.validation,
+        settings: f.settings,
+      }));
+      const userDbFields = dbFields.filter((f: any) => !f.isSystem);
+      const fields = userDbFields.length > 0 ? dbFields : [...schemaFields, ...dbFields];
+
+      const validatedData = validateRecordData(fields, body.data);
       const record = await createCustomRecord(id, tenant.id, validatedData, session.user.id);
       return NextResponse.json(formatSuccessResponse(record), { status: 201 });
     } catch (error: any) {

@@ -45,18 +45,33 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         const recordsToCreate = [];
         const errors = [];
 
+        // Use DB fields if they include user-defined fields, otherwise fallback to schema.fields
+        const dbFields = (module as any).fields || [];
+        const schemaFields = ((module as any).schema?.fields || []).map((f: any, i: number) => ({
+            id: `schema-${i}`,
+            name: f.name,
+            label: f.label,
+            type: f.type,
+            required: f.required ?? false,
+            options: f.options,
+            validation: f.validation,
+            settings: f.settings,
+        }));
+        const userDbFields = dbFields.filter((f: any) => !f.isSystem);
+        const fields = userDbFields.length > 0 ? dbFields : [...schemaFields, ...dbFields];
+
         for (let i = 0; i < parsed.data.length; i++) {
             const row = parsed.data[i] as any;
             const recordData: any = {};
 
-            (module as any).fields?.forEach((f: any) => {
+            fields.forEach((f: any) => {
                 if (row[f.name] !== undefined) {
                     recordData[f.name] = row[f.name];
                 }
             });
 
             try {
-                const validated = validateRecordData((module as any).fields || [], recordData);
+                const validated = validateRecordData(fields, recordData);
                 recordsToCreate.push({
                     moduleId: module.id,
                     tenantId: tenant.id,

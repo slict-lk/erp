@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, use } from 'react';
+import { useState, use, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useModule, useRecords, useModuleFields, useDeleteRecordMutation } from '@/hooks/use-studio';
+import { useModule, useRecords, useModuleFields, useDeleteRecordMutation, useDeleteModuleMutation } from '@/hooks/use-studio';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,14 +23,68 @@ export default function ModuleDetailPage({ params }: { params: Promise<{ id: str
     const resolvedParams = use(params);
     const moduleId = resolvedParams.id;
     const router = useRouter();
+    const queryClient = useQueryClient();
 
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('records');
+    const [importFile, setImportFile] = useState<File | null>(null);
+    const [isImporting, setIsImporting] = useState(false);
+    const [isDeletingModule, setIsDeletingModule] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const { data: moduleData, isLoading: loadingModule } = useModule(moduleId);
     const { data: recordsData, isLoading: loadingRecords } = useRecords(moduleId, { search: searchQuery });
-    const { data: fieldsData, isLoading: loadingFields } = useModuleFields(moduleId);
+    const { data: dbFields, isLoading: loadingFields } = useModuleFields(moduleId);
+
+    // Use DB fields if they have user-defined (non-system) fields, otherwise fallback to schema.fields
+    const hasUserDbFields = dbFields?.some((f: any) => !f.isSystem);
+    const schemaFields = moduleData?.schema?.fields?.map((f: any, i: number) => ({ id: `schema-${i}`, ...f })) || [];
+    const fieldsData = hasUserDbFields ? dbFields! : schemaFields;
     const deleteMutation = useDeleteRecordMutation(moduleId);
+    const deleteModuleMutation = useDeleteModuleMutation();
+
+    const handleDeleteModule = async () => {
+        if (!confirm(`Are you sure you want to delete "${moduleData?.name}"? All records will be permanently removed.`)) return;
+        setIsDeletingModule(true);
+        try {
+            await deleteModuleMutation.mutateAsync(moduleId);
+            toast.success('Module deleted successfully');
+            router.push('/studio/modules');
+        } catch (err: any) {
+            toast.error('Failed to delete module: ' + err.message);
+            setIsDeletingModule(false);
+        }
+    };
+
+    const handleImportCSV = async () => {
+        if (!importFile) {
+            toast.error('Please select a CSV file first');
+            return;
+        }
+        setIsImporting(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', importFile);
+            const res = await fetch(`/api/studio/modules/${moduleId}/records/import`, {
+                method: 'POST',
+                body: formData,
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Import failed');
+            }
+            const result = await res.json();
+            toast.success(`Imported ${result.data?.count ?? 0} records successfully`);
+            setImportFile(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            queryClient.invalidateQueries({ queryKey: ['studio', 'modules', moduleId, 'records'] });
+            setActiveTab('records');
+        } catch (err: any) {
+            toast.error('Import failed: ' + err.message);
+        } finally {
+            setIsImporting(false);
+        }
+    };
 
     const handleDeleteRecord = async (recordId: string) => {
         if (!confirm('Are you sure you want to delete this record?')) return;
@@ -143,9 +198,13 @@ export default function ModuleDetailPage({ params }: { params: Promise<{ id: str
                                                             ? (record.data[f.name] ? 'Yes' : 'No')
                                                             : f.type === 'date'
                                                                 ? (() => { try { return record.data[f.name] ? format(new Date(record.data[f.name]), 'PPp') : '-'; } catch { return String(record.data[f.name] || '-'); } })()
-                                                                : typeof record.data[f.name] === 'object'
-                                                                    ? JSON.stringify(record.data[f.name])
-                                                                    : String(record.data[f.name] ?? '-')}
+                                                                : (f.type === 'file' || f.type === 'image') && record.data[f.name]
+                                                                    ? (f.type === 'image'
+                                                                        ? <img src={record.data[f.name]} alt={f.label} className="h-8 w-8 rounded object-cover inline-block" />
+                                                                        : <a href={record.data[f.name]} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">View file</a>)
+                                                                    : typeof record.data[f.name] === 'object'
+                                                                        ? JSON.stringify(record.data[f.name])
+                                                                        : String(record.data[f.name] ?? '-')}
                                                     </TableCell>
                                                 ))}
                                                 <TableCell className="text-right">
@@ -184,8 +243,8 @@ export default function ModuleDetailPage({ params }: { params: Promise<{ id: str
                                 <CardTitle>Data Structure</CardTitle>
                                 <CardDescription>Fields assigned to this custom module.</CardDescription>
                             </div>
-                            <Button variant="outline" size="sm">
-                                <Code className="mr-2 h-4 w-4" /> Edit Schema JSON
+                            <Button variant="outline" size="sm" onClick={() => setActiveTab('records')}>
+                                <Code className="mr-2 h-4 w-4" /> View Records
                             </Button>
                         </CardHeader>
                         <CardContent>
@@ -218,14 +277,28 @@ export default function ModuleDetailPage({ params }: { params: Promise<{ id: str
                                 <CardDescription>Bulk upload records into this module.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="h-32 border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer">
+                                <div
+                                    className="h-32 border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer"
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
                                     <Upload className="h-6 w-6 mb-2 text-slate-400" />
-                                    <span className="text-sm font-medium text-slate-700">Click to upload CSV</span>
+                                    <span className="text-sm font-medium text-slate-700">
+                                        {importFile ? importFile.name : 'Click to upload CSV'}
+                                    </span>
                                     <span className="text-xs">Comma separated values only</span>
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept=".csv"
+                                        className="hidden"
+                                        onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                                    />
                                 </div>
                             </CardContent>
                             <CardFooter>
-                                <Button className="w-full">Upload & Map Fields</Button>
+                                <Button className="w-full" onClick={handleImportCSV} disabled={!importFile || isImporting}>
+                                    {isImporting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Importing...</> : 'Upload & Import'}
+                                </Button>
                             </CardFooter>
                         </Card>
 
@@ -263,7 +336,9 @@ export default function ModuleDetailPage({ params }: { params: Promise<{ id: str
                                     <h4 className="font-medium text-slate-900">Delete Module</h4>
                                     <p className="text-sm text-slate-500">Permanently remove this module and all its data records.</p>
                                 </div>
-                                <Button variant="destructive">Delete Module</Button>
+                                <Button variant="destructive" onClick={handleDeleteModule} disabled={isDeletingModule}>
+                                    {isDeletingModule ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...</> : 'Delete Module'}
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>

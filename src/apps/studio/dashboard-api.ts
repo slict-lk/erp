@@ -98,7 +98,46 @@ export async function createDashboard(
         },
     });
 
-    return dashboard as unknown as StudioDashboard;
+    // Create widgets if provided
+    if (input.widgets && input.widgets.length > 0) {
+        const layout = (input.layout as any) || { cols: 12, rows: 0, items: [] };
+        const idMap = new Map<string, string>(); // tempId -> realId
+
+        for (let i = 0; i < input.widgets.length; i++) {
+            const w = input.widgets[i];
+            const layoutItem = layout.items?.find((item: any) => item.widgetId === w.id);
+            const widget = await prisma.dashboardWidget.create({
+                data: {
+                    dashboardId: dashboard.id,
+                    title: w.title || `Widget ${i + 1}`,
+                    type: w.type || 'metric',
+                    dataSource: w.dataSource || '',
+                    config: { chartType: w.chartType, metrics: w.metrics } as any,
+                    position: (layoutItem ? { x: layoutItem.x, y: layoutItem.y, w: layoutItem.w, h: layoutItem.h } : { x: 0, y: i * 2, w: 6, h: 2 }) as any,
+                },
+            });
+            if (w.id) idMap.set(w.id, widget.id);
+        }
+
+        // Update layout items to use real widget IDs
+        if (layout.items?.length) {
+            const updatedItems = layout.items.map((item: any) => ({
+                ...item,
+                widgetId: idMap.get(item.widgetId) || item.widgetId,
+            }));
+            await prisma.studioDashboard.update({
+                where: { id: dashboard.id },
+                data: { layout: { ...layout, items: updatedItems } as any },
+            });
+        }
+    }
+
+    // Re-fetch with widgets included
+    const result = await prisma.studioDashboard.findUnique({
+        where: { id: dashboard.id },
+        include: { widgets: true },
+    });
+    return (result || dashboard) as unknown as StudioDashboard;
 }
 
 export async function updateDashboard(
@@ -124,12 +163,67 @@ export async function updateDashboard(
             isDefault: data.isDefault,
             isPublished: data.isPublished,
         },
-        include: {
-            widgets: true,
-        }
     });
 
-    return updated as unknown as StudioDashboard;
+    // Sync widgets if provided
+    if (data.widgets) {
+        const existingWidgets = await prisma.dashboardWidget.findMany({ where: { dashboardId: id } });
+        const existingIds = new Set(existingWidgets.map(w => w.id));
+        const incomingIds = new Set<string>();
+        const layout = (data.layout as any) || (updated.layout as any) || { cols: 12, items: [] };
+        const idMap = new Map<string, string>();
+
+        for (let i = 0; i < data.widgets.length; i++) {
+            const w = data.widgets[i];
+            const layoutItem = layout.items?.find((item: any) => item.widgetId === w.id);
+            const position = layoutItem ? { x: layoutItem.x, y: layoutItem.y, w: layoutItem.w, h: layoutItem.h } : { x: 0, y: i * 2, w: 6, h: 2 };
+            const widgetData = {
+                title: w.title || `Widget ${i + 1}`,
+                type: w.type || 'metric',
+                dataSource: w.dataSource || '',
+                config: { chartType: w.chartType, metrics: w.metrics } as any,
+                position: position as any,
+            };
+
+            if (w.id && existingIds.has(w.id)) {
+                // Update existing widget
+                await prisma.dashboardWidget.update({ where: { id: w.id }, data: widgetData });
+                incomingIds.add(w.id);
+            } else {
+                // Create new widget
+                const created = await prisma.dashboardWidget.create({
+                    data: { dashboardId: id, ...widgetData },
+                });
+                if (w.id) idMap.set(w.id, created.id);
+                incomingIds.add(created.id);
+            }
+        }
+
+        // Delete widgets that were removed
+        const toDelete = [...existingIds].filter(eid => !incomingIds.has(eid));
+        if (toDelete.length > 0) {
+            await prisma.dashboardWidget.deleteMany({ where: { id: { in: toDelete } } });
+        }
+
+        // Update layout with real widget IDs for newly created widgets
+        if (idMap.size > 0 && layout.items?.length) {
+            const updatedItems = layout.items.map((item: any) => ({
+                ...item,
+                widgetId: idMap.get(item.widgetId) || item.widgetId,
+            }));
+            await prisma.studioDashboard.update({
+                where: { id },
+                data: { layout: { ...layout, items: updatedItems } as any },
+            });
+        }
+    }
+
+    // Re-fetch with widgets
+    const result = await prisma.studioDashboard.findUnique({
+        where: { id },
+        include: { widgets: true },
+    });
+    return (result || updated) as unknown as StudioDashboard;
 }
 
 export async function deleteDashboard(id: string, tenantId: string) {

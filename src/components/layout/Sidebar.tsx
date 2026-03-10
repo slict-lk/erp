@@ -68,6 +68,17 @@ import {
 import { useModulePermissions } from '@/hooks/useModulePermissions';
 import type { LucideIcon } from 'lucide-react';
 import { signOut } from 'next-auth/react';
+import { useModules, useDashboards } from '@/hooks/use-studio';
+import * as LucideIcons from 'lucide-react';
+
+// Resolve a stored icon name (e.g. "package") to a Lucide component
+function resolveIcon(name?: string | null): LucideIcon | undefined {
+  if (!name) return undefined;
+  // Lucide exports PascalCase names, e.g. "Package", "ShoppingCart"
+  const pascal = name
+    .replace(/(^|[-_])(\w)/g, (_, _p, c) => c.toUpperCase());
+  return (LucideIcons as Record<string, unknown>)[pascal] as LucideIcon | undefined;
+}
 
 // Navigation item type
 interface NavigationChild {
@@ -535,10 +546,42 @@ export function Sidebar({
   const isSuperAdmin = user?.isSuperAdmin === true;
   const navRef = useRef<HTMLElement>(null);
 
+  // Fetch tenant-specific studio data for dynamic sidebar items
+  const { data: studioModules } = useModules();
+  const { data: studioDashboards } = useDashboards();
+
   const [openMenus, setOpenMenus] = useState<string[]>([]);
 
-  // Filter navigation based on module permissions
+  // Filter navigation based on module permissions and inject dynamic studio items
   const filteredNavigation = useMemo(() => {
+    // Build dynamic children for No-Code Studio
+    const dynamicStudioChildren: NavigationChild[] = [];
+
+    const activeModules = (studioModules || []).filter((m: any) => m.isActive !== false);
+    if (activeModules.length > 0) {
+      dynamicStudioChildren.push({ name: '── Modules', href: '#studio-divider-modules' });
+      activeModules.forEach((m: any) => {
+        dynamicStudioChildren.push({
+          name: m.name,
+          href: `/studio/modules/${m.id}`,
+          icon: resolveIcon(m.icon) || Package,
+          moduleId: 'studio',
+        });
+      });
+    }
+
+    if ((studioDashboards || []).length > 0) {
+      dynamicStudioChildren.push({ name: '── Dashboards', href: '#studio-divider-dashboards' });
+      (studioDashboards || []).forEach((d: any) => {
+        dynamicStudioChildren.push({
+          name: d.name,
+          href: `/studio/dashboards/${d.id}`,
+          icon: BarChart3,
+          moduleId: 'studio',
+        });
+      });
+    }
+
     return navigation.reduce<NavigationItem[]>((acc, item) => {
       // Skip Super Admin items for non-super-admins
       if (item.requiresSuperAdmin && !isSuperAdmin) {
@@ -559,9 +602,14 @@ export function Sidebar({
         );
 
         if (filteredChildren.length > 0) {
+          // Inject dynamic items under No-Code Studio
+          const children = item.moduleId === 'studio'
+            ? [...filteredChildren, ...dynamicStudioChildren]
+            : filteredChildren;
+
           acc.push({
             ...item,
-            children: filteredChildren,
+            children,
           });
         }
       } else {
@@ -571,7 +619,7 @@ export function Sidebar({
       }
       return acc;
     }, []);
-  }, [modulePermissions, isAdmin, isSuperAdmin]);
+  }, [modulePermissions, isAdmin, isSuperAdmin, studioModules, studioDashboards]);
 
   // Restore scroll position
   useEffect(() => {
@@ -693,11 +741,22 @@ export function Sidebar({
                       >
                         <div className="ml-4 mt-1 space-y-0.5 border-l border-slate-800 pl-3 py-1">
                           {item.children!.map((child) => {
-                            const isChildActive = pathname === child.href;
+                            // Render divider labels for dynamic studio sections
+                            if (child.href.startsWith('#studio-divider')) {
+                              return (
+                                <div key={child.href} className="px-3 pt-3 pb-1">
+                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                                    {child.name.replace(/^──\s*/, '')}
+                                  </span>
+                                </div>
+                              );
+                            }
+
+                            const isChildActive = pathname === child.href || pathname.startsWith(child.href + '/');
                             const ChildIcon = child.icon;
                             return (
                               <Link
-                                key={child.name}
+                                key={child.href}
                                 href={child.href}
                                 onClick={onClose}
                                 className={`

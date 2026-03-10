@@ -164,6 +164,16 @@ export function useDeleteRecordMutation(moduleId: string) {
     });
 }
 
+export function useDeleteModuleMutation() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (moduleId: string) => fetcher(`/api/studio/modules/${moduleId}`, {
+            method: 'DELETE',
+        }),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['studio', 'modules'] })
+    });
+}
+
 export function useUpdateWorkflowMutation(id: string) {
     const queryClient = useQueryClient();
     return useMutation({

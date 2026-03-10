@@ -34,10 +34,13 @@ export async function POST(request: Request) {
     }
 
     // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+    const imageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+    const documentTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/csv', 'text/plain'];
+    const allowedTypes = [...imageTypes, ...documentTypes];
+
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
-        { error: 'Invalid file type. Only JPG, PNG, WEBP and SVG are allowed.' },
+        { error: 'Invalid file type. Allowed: images (JPG, PNG, WEBP, SVG) and documents (PDF, Word, Excel, CSV, TXT).' },
         { status: 400 }
       );
     }
@@ -47,14 +50,15 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(bytes);
 
     const folder = formData.get('folder') as string || 'vehicle-export';
+    const isImage = imageTypes.includes(file.type);
 
     // Upload to Cloudinary using a Promise wrapper
     const result = await new Promise<any>((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
-          folder, // specific folder in Cloudinary
-          resource_type: 'auto',
-          format: 'webp', // auto-convert to webp for performance
+          folder,
+          resource_type: isImage ? 'image' : 'raw',
+          ...(isImage ? { format: 'webp' } : {}),
         },
         (error, result) => {
           if (error) reject(error);
@@ -71,8 +75,8 @@ export async function POST(request: Request) {
       url: result.secure_url,
       field,
       fileName: result.public_id,
-      width: result.width,
-      height: result.height
+      width: result.width || null,
+      height: result.height || null
     });
 
   } catch (error) {

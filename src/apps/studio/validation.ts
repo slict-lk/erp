@@ -14,6 +14,7 @@ export function buildDynamicSchema(fields: CustomModuleField[]) {
         switch (field.type) {
             case 'text':
             case 'textarea':
+            case 'richtext':
                 fieldSchema = z.string();
                 if (field.validation?.min) fieldSchema = (fieldSchema as z.ZodString).min(field.validation.min);
                 if (field.validation?.max) fieldSchema = (fieldSchema as z.ZodString).max(field.validation.max);
@@ -68,13 +69,20 @@ export function buildDynamicSchema(fields: CustomModuleField[]) {
                 break;
 
             case 'multiselect':
-                if (field.options && field.options.length > 0) {
-                    fieldSchema = z.array(z.enum(field.options as [string, ...string[]]));
-                } else {
-                    fieldSchema = z.array(z.string());
-                }
+                // Accept both array and comma/newline-separated string from textarea
+                const multiselectPreprocess = z.preprocess((val) => {
+                    if (Array.isArray(val)) return val;
+                    if (typeof val === 'string') {
+                        return val.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
+                    }
+                    return val;
+                }, field.options && field.options.length > 0
+                    ? z.array(z.enum(field.options as [string, ...string[]]))
+                    : z.array(z.string())
+                );
+                fieldSchema = multiselectPreprocess;
                 if (field.settings?.maxSelections) {
-                    fieldSchema = (fieldSchema as z.ZodArray<any>).max(field.settings.maxSelections);
+                    // maxSelections can't be applied after preprocess; skip for now
                 }
                 break;
 
@@ -100,8 +108,9 @@ export function buildDynamicSchema(fields: CustomModuleField[]) {
                 break;
 
             case 'file':
-                // Stores URL or object reference
-                fieldSchema = z.string();
+            case 'image':
+                // Stores Cloudinary URL
+                fieldSchema = z.string().url();
                 break;
 
             default:

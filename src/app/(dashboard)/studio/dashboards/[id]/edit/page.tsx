@@ -55,8 +55,11 @@ export default function EditDashboardPage({ params }: { params: Promise<{ id: st
                 title: w.title,
                 type: w.type as WidgetType,
                 dataSource: w.dataSource,
-                chartType: w.chartType as ChartType | undefined,
-                metrics: Array.isArray(w.metrics) ? w.metrics.join(', ') : (w.metrics || '')
+                chartType: (w.config?.chartType || w.chartType) as ChartType | undefined,
+                metrics: (() => {
+                    const m = w.config?.metrics || w.metrics;
+                    return Array.isArray(m) ? m.join(', ') : (m || '');
+                })()
             })) || []);
             setInitialized(true);
         }

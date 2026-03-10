@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useModules } from '@/hooks/use-studio';
+import { useRouter } from 'next/navigation';
+import { useModules, useDeleteModuleMutation } from '@/hooks/use-studio';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -26,8 +28,20 @@ import { Database, Plus, Search, MoreHorizontal, FileEdit, Trash, Component, Arr
 import { format } from 'date-fns';
 
 export default function ModulesListPage() {
+    const router = useRouter();
     const [searchQuery, setSearchQuery] = useState('');
     const { data: modules, isLoading } = useModules({ search: searchQuery });
+    const deleteMutation = useDeleteModuleMutation();
+
+    const handleDeleteModule = async (moduleId: string, moduleName: string) => {
+        if (!confirm(`Are you sure you want to delete "${moduleName}"? All records will be permanently removed.`)) return;
+        try {
+            await deleteMutation.mutateAsync(moduleId);
+            toast.success('Module deleted successfully');
+        } catch (err: any) {
+            toast.error('Failed to delete module: ' + err.message);
+        }
+    };
 
     return (
         <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto flex flex-col h-full">
@@ -150,7 +164,7 @@ export default function ModulesListPage() {
                                         <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                                                    <Link href={`/studio/modules/${mod.id}/records`}>
+                                                    <Link href={`/studio/modules/${mod.id}`}>
                                                         <Play className="h-4 w-4 text-slate-600" />
                                                     </Link>
                                                 </Button>
@@ -165,7 +179,7 @@ export default function ModulesListPage() {
                                                     <DropdownMenuContent align="end" className="w-[160px]">
                                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                                         <DropdownMenuItem asChild>
-                                                            <Link href={`/studio/modules/${mod.id}/records`} className="cursor-pointer">
+                                                            <Link href={`/studio/modules/${mod.id}`} className="cursor-pointer">
                                                                 <Database className="mr-2 h-4 w-4 text-slate-500" /> View Records
                                                             </Link>
                                                         </DropdownMenuItem>
@@ -175,7 +189,10 @@ export default function ModulesListPage() {
                                                             </Link>
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
-                                                        <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600 cursor-pointer">
+                                                        <DropdownMenuItem
+                                                            className="text-red-600 focus:bg-red-50 focus:text-red-600 cursor-pointer"
+                                                            onClick={() => handleDeleteModule(mod.id, mod.name)}
+                                                        >
                                                             <Trash className="mr-2 h-4 w-4" /> Delete Module
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>

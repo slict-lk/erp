@@ -132,10 +132,9 @@ export async function updateCustomModule(id: string, tenantId: string, data: Upd
 }
 
 export async function deleteCustomModule(id: string, tenantId: string) {
-  // Soft delete
-  return prisma.customModule.updateMany({
+  // Cascade is configured in schema, so deleting the module removes fields and records
+  return prisma.customModule.deleteMany({
     where: { id, tenantId },
-    data: { isActive: false },
   });
 }
 

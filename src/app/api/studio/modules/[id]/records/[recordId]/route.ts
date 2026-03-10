@@ -45,7 +45,23 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string; rec
 
         try {
             const mergedData = { ...existingRecord.data, ...body.data };
-            const validatedData = validateRecordData((module as any).fields || [], mergedData);
+
+            // Use DB fields if they include user-defined fields, otherwise fallback to schema.fields
+            const dbFields = (module as any).fields || [];
+            const schemaFields = ((module as any).schema?.fields || []).map((f: any, i: number) => ({
+                id: `schema-${i}`,
+                name: f.name,
+                label: f.label,
+                type: f.type,
+                required: f.required ?? false,
+                options: f.options,
+                validation: f.validation,
+                settings: f.settings,
+            }));
+            const userDbFields = dbFields.filter((f: any) => !f.isSystem);
+            const fields = userDbFields.length > 0 ? dbFields : [...schemaFields, ...dbFields];
+
+            const validatedData = validateRecordData(fields, mergedData);
 
             const updatedRecord = await updateCustomRecord(recordId, tenant.id, validatedData);
             return NextResponse.json(formatSuccessResponse(updatedRecord));

@@ -100,21 +100,25 @@ export default function NewModulePage() {
 
         setIsSubmitting(true);
         try {
+            const mappedFields = fields.map(f => ({
+                name: f.name,
+                label: f.label,
+                type: f.type,
+                required: f.required,
+                options: (f.type === 'select' || f.type === 'multiselect') && f.options
+                    ? f.options.split(',').map(s => s.trim()).filter(Boolean)
+                    : undefined
+            }));
+
             const payload = {
                 name: name.trim(),
                 description: description.trim() || undefined,
                 icon: icon || undefined,
                 isActive,
+                fields: mappedFields,
                 schema: {
-                    fields: fields.map(f => ({
-                        name: f.name,
-                        label: f.label,
-                        type: f.type,
-                        required: f.required,
-                        options: (f.type === 'select' || f.type === 'multiselect') && f.options
-                            ? f.options.split(',').map(s => s.trim()).filter(Boolean)
-                            : undefined
-                    }))
+                    fields: mappedFields,
+                    relations: []
                 },
                 views: [{ type: 'list', name: 'All Records' }]
             };
@@ -132,7 +136,7 @@ export default function NewModulePage() {
 
             const created = await res.json();
             toast.success('Module created successfully');
-            router.push(`/studio/modules/${created.id}`);
+            router.push(`/studio/modules/${created.data.id}`);
 
         } catch (error: any) {
             toast.error(error.message);

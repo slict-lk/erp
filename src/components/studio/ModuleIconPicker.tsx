@@ -14,11 +14,13 @@ interface ModuleIconPickerProps {
 
 export function ModuleIconPicker({ value, onSelect }: ModuleIconPickerProps) {
     const [search, setSearch] = useState("");
-    const iconNames = Object.keys(Icons).filter(name =>
-        name.toLowerCase().includes(search.toLowerCase()) &&
-        typeof (Icons as any)[name] === 'function' &&
-        name !== 'createLucideIcon'
-    ).slice(0, 50);
+    const iconNames = Object.keys(Icons).filter(name => {
+        if (!name.toLowerCase().includes(search.toLowerCase())) return false;
+        const exp = (Icons as any)[name];
+        if (name === 'createLucideIcon' || name === 'icons') return false;
+        if (name.endsWith('Icon')) return false; // skip duplicate aliases like PackageIcon
+        return typeof exp === 'object' && exp !== null && typeof exp.render === 'function';
+    }).slice(0, 50);
 
     const SelectedIcon = (Icons as any)[value] || Icons.HelpCircle;
 

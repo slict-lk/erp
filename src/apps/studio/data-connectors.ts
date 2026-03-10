@@ -166,12 +166,24 @@ class DataConnectorRegistry {
         this.connectors.set(connector.id, connector);
     }
 
+    // Map friendly data source names used in widget dropdowns to actual connector IDs
+    private static ALIASES: Record<string, string> = {
+        'accounting_invoices': 'erp:accounting',
+        'accounting_payments': 'erp:accounting',
+        'crm_leads': 'erp:crm',
+        'crm_customers': 'erp:crm',
+        'sales_orders': 'erp:accounting',
+        'inventory_products': 'erp:accounting',
+    };
+
     public getConnector(id: string): DataConnector | undefined {
         // Handle dynamic custom module ids (e.g., "custom:properties")
         if (id.startsWith('custom:')) {
             return this.connectors.get('custom:*');
         }
-        return this.connectors.get(id);
+        // Resolve aliases from widget dropdown values to registered connector IDs
+        const resolvedId = DataConnectorRegistry.ALIASES[id] || id;
+        return this.connectors.get(resolvedId);
     }
 
     public listDescriptors(): DataSourceDescriptor[] {

@@ -25,7 +25,9 @@ function LiveWidget({ widget }: WidgetDataProps) {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const metricsKey = useMemo(() => JSON.stringify(widget.metrics), [widget.metrics]);
+    const metrics = widget.config?.metrics || widget.metrics;
+    const chartType = widget.config?.chartType || widget.chartType;
+    const metricsKey = useMemo(() => JSON.stringify(metrics), [metrics]);
 
     useEffect(() => {
         let mounted = true;
@@ -39,10 +41,8 @@ function LiveWidget({ widget }: WidgetDataProps) {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        descriptor: {
-                            source: widget.dataSource,
-                            metrics: widget.metrics
-                        }
+                        connectorId: widget.dataSource,
+                        config: { metrics }
                     }),
                     signal: controller.signal,
                 });
@@ -81,7 +81,7 @@ function LiveWidget({ widget }: WidgetDataProps) {
 
     switch (widget.type) {
         case 'metric': return <MetricWidget data={data} title={widget.title} />;
-        case 'chart': return <ChartWidget data={data} chartType={widget.chartType} />;
+        case 'chart': return <ChartWidget data={data} chartType={chartType} />;
         case 'table': return <TableWidget data={data} />;
         case 'list': return <ListWidget data={data} />;
         case 'calendar': return <CalendarWidget data={data} />;
