@@ -71,7 +71,7 @@ export default function ContactPage() {
                                     <div>
                                         <h3 className="font-semibold text-gray-900">WhatsApp</h3>
                                         <p className="text-sm text-gray-500 mb-1">Instant support</p>
-                                        <a href="https://wa.me/94752539988" className="text-green-600 font-medium hover:underline">+94 75 253 8899</a>
+                                        <a href="https://wa.me/94752539988" className="text-green-600 font-medium hover:underline">+94 75 253 9988</a>
                                     </div>
                                 </CardContent>
                             </Card>

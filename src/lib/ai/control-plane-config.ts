@@ -1,5 +1,7 @@
 import type {
   AIControlPlaneSettings,
+  AIUserExperiencePreferences,
+  OnboardingChecklistState,
   TenantAIConfig,
 } from '@/lib/ai/control-plane-types';
 
@@ -18,6 +20,25 @@ export function buildDefaultSettings(): AIControlPlaneSettings {
   };
 }
 
+export function buildDefaultOnboardingChecklist(): OnboardingChecklistState {
+  return {
+    connectModel: false,
+    chooseDefaultPolicy: false,
+    enableCopilot: false,
+    publishFirstAutomation: false,
+    reviewApprovalInbox: false,
+    dismissed: false,
+  };
+}
+
+export function buildDefaultUserPreferences(mode: 'simple' | 'advanced' = 'simple'): AIUserExperiencePreferences {
+  return {
+    mode,
+    lastVisitedSection: 'home',
+    onboardingChecklist: buildDefaultOnboardingChecklist(),
+  };
+}
+
 export function buildDefaultTenantConfig(_tenantId: string): TenantAIConfig {
   return {
     settings: buildDefaultSettings(),
@@ -29,6 +50,7 @@ export function buildDefaultTenantConfig(_tenantId: string): TenantAIConfig {
     executionQueue: [],
     deadLetterQueue: [],
     workflowVersions: [],
+    userPreferences: {},
   };
 }
 
@@ -53,5 +75,6 @@ export function mergeTenantAIConfig(
     executionQueue: overrides.executionQueue || base.executionQueue,
     deadLetterQueue: overrides.deadLetterQueue || base.deadLetterQueue,
     workflowVersions: overrides.workflowVersions || base.workflowVersions,
+    userPreferences: overrides.userPreferences || base.userPreferences,
   };
 }

@@ -20,7 +20,7 @@ export function AIPageShell({
     <div className="space-y-6 px-1 pb-6 pt-5 md:px-2">
       <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700">AI Control Plane</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700">AI Workspace</p>
           <h1 className="text-3xl font-semibold tracking-tight text-slate-950">{title}</h1>
           <p className="max-w-3xl text-sm text-slate-600">{description}</p>
         </div>

@@ -1,5 +1,6 @@
 import { AISettingsForm } from '@/components/ai/ai-settings-form';
 import { AIPageShell, AISectionCard, AIStatusBadge } from '@/components/ai/ai-primitives';
+import { AIAdminSummaryStrip } from '@/components/ai/ai-admin-summary-strip';
 import { getAISettings, runDiagnostics } from '@/lib/ai/control-plane';
 import { requireAIAccess } from '@/lib/ai/governance';
 
@@ -14,6 +15,12 @@ export default async function AISettingsPage() {
       title="Settings"
       description="Tenant-wide defaults for retention, notifications, policy routing, and diagnostics."
     >
+      <AIAdminSummaryStrip
+        title="Tenant defaults, retries, notifications, and diagnostics"
+        audience="AI admins"
+        readiness="Configured per tenant"
+        description="These settings control the overall behavior of the AI workspace rather than any single automation."
+      />
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <AISectionCard title="Module Settings" description="Save tenant-scoped control-plane defaults.">
           <AISettingsForm settings={settings} />

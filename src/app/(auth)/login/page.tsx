@@ -60,7 +60,7 @@ export default function LoginPage() {
           <div className="space-y-4">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-sm border border-white/30">
               <Sparkles className="h-4 w-4" />
-              <span className="text-sm font-medium">SLICT ERP 2025</span>
+              <span className="text-sm font-medium">SLICT ERP {new Date().getFullYear()}</span>
             </div>
             <h1 className="text-5xl font-bold leading-tight">
               Welcome to the Future of Business Management

@@ -6,10 +6,12 @@ import { assignVehiclesToShipment, updateVehicle } from '@/apps/vehicle-export/a
 import {
   buildDefaultSettings,
   buildDefaultTenantConfig,
+  buildDefaultUserPreferences,
   mergeTenantAIConfig,
 } from '@/lib/ai/control-plane-config';
 import type {
   AIControlPlaneSettings,
+  AIUserExperiencePreferences,
   ActionAdapter,
   AgentRecord,
   AgentCreateInput,
@@ -38,6 +40,7 @@ import type {
   WorkflowDefinition,
   WorkflowVersionRecord,
 } from '@/lib/ai/control-plane-types';
+import { getActionUIMetadata, getModuleLabel } from '@/lib/ai/ui-metadata';
 
 const db = prisma as any;
 const TENANT_AI_SETTINGS_KEY = 'aiControlPlane';
@@ -104,6 +107,43 @@ export async function updateTenantAIConfig(
   const current = await getTenantAIConfig(tenantId);
   const next = mergeTenantAIConfig(current, patch);
   return saveTenantAIConfig(tenantId, next);
+}
+
+export async function getUserExperiencePreferences(
+  tenantId: string,
+  userId: string,
+  isAdmin = false
+) {
+  const config = await getTenantAIConfig(tenantId);
+  return config.userPreferences[userId] || buildDefaultUserPreferences(isAdmin ? 'advanced' : 'simple');
+}
+
+export async function updateUserExperiencePreferences(
+  tenantId: string,
+  userId: string,
+  patch: Partial<AIUserExperiencePreferences>,
+  isAdmin = false
+) {
+  const config = await getTenantAIConfig(tenantId);
+  const current = config.userPreferences[userId] || buildDefaultUserPreferences(isAdmin ? 'advanced' : 'simple');
+  const next: AIUserExperiencePreferences = {
+    ...current,
+    ...patch,
+    onboardingChecklist: {
+      ...current.onboardingChecklist,
+      ...(patch.onboardingChecklist || {}),
+    },
+  };
+
+  await saveTenantAIConfig(tenantId, {
+    ...config,
+    userPreferences: {
+      ...config.userPreferences,
+      [userId]: next,
+    },
+  });
+
+  return next;
 }
 
 function nextCollectionItem<T extends { id: string }>(
@@ -3201,7 +3241,31 @@ export async function getPredictiveInsights(tenantId: string): Promise<Predictiv
   return insights;
 }
 
-export async function getCommandCenterData(tenantId: string): Promise<CommandCenterPayload> {
+function getRoleFocus(aiRoles: string[] = []) {
+  if (aiRoles.includes('APPROVER') && !aiRoles.includes('AUTOMATION_DESIGNER')) {
+    return {
+      title: 'Your focus today',
+      description: 'Review pending approvals and resolve any actions that are waiting for a decision.',
+    };
+  }
+
+  if (aiRoles.includes('OPERATOR') && !aiRoles.includes('AI_ADMIN')) {
+    return {
+      title: 'Your focus today',
+      description: 'Watch alerts, failed automations, and assistant readiness so work keeps moving.',
+    };
+  }
+
+  return {
+    title: 'Getting started',
+    description: 'Finish setup, publish the first automation, and make the module usable for business teams.',
+  };
+}
+
+export async function getCommandCenterData(
+  tenantId: string,
+  options?: { userId?: string; isAdmin?: boolean; aiRoles?: string[] }
+): Promise<CommandCenterPayload> {
   const [
     workflows,
     approvals,
@@ -3210,6 +3274,7 @@ export async function getCommandCenterData(tenantId: string): Promise<CommandCen
     models,
     failedWorkflowRuns,
     copilots,
+    settings,
   ] = await Promise.all([
     listWorkflowRegistry(tenantId),
     listApprovalQueue(tenantId),
@@ -3240,7 +3305,11 @@ export async function getCommandCenterData(tenantId: string): Promise<CommandCen
       []
     ),
     listCopilotConfigs(tenantId),
+    getAISettings(tenantId),
   ]);
+  const preferences = options?.userId
+    ? await getUserExperiencePreferences(tenantId, options.userId, options?.isAdmin)
+    : buildDefaultUserPreferences(options?.isAdmin ? 'advanced' : 'simple');
 
   const activeWorkflows = workflows.filter((item) => item.status === 'active').length;
   const failedRuns = failedWorkflowRuns.length;
@@ -3277,6 +3346,28 @@ export async function getCommandCenterData(tenantId: string): Promise<CommandCen
       unreadInsights,
       monthlyModelCost,
     },
+    setupProgress: {
+      completed: [
+        models.some((model) => model.isActive),
+        Boolean(settings.defaultPolicyProfileId),
+        copilots.some((copilot) => copilot.enabled),
+        activeWorkflows > 0,
+        preferences.lastVisitedSection === 'tasks' || preferences.lastVisitedSection === 'inbox' || preferences.onboardingChecklist.reviewApprovalInbox,
+      ].filter(Boolean).length,
+      total: 5,
+      items: {
+        connectModel: models.some((model) => model.isActive),
+        chooseDefaultPolicy: Boolean(settings.defaultPolicyProfileId),
+        enableCopilot: copilots.some((copilot) => copilot.enabled),
+        publishFirstAutomation: activeWorkflows > 0,
+        reviewApprovalInbox:
+          preferences.lastVisitedSection === 'tasks' ||
+          preferences.lastVisitedSection === 'inbox' ||
+          preferences.onboardingChecklist.reviewApprovalInbox,
+        dismissed: preferences.onboardingChecklist.dismissed,
+      },
+    },
+    roleFocus: getRoleFocus(options?.aiRoles || []),
     alerts: insights.map((insight: any) => ({
       id: insight.id,
       title: insight.title || insight.type,
@@ -3293,6 +3384,22 @@ export async function getCommandCenterData(tenantId: string): Promise<CommandCen
       error: run.error || 'Execution failed',
     })),
     moduleHeatmap,
+    assistantReadiness: (
+      ['crm', 'accounting', 'spareparts', 'real-estate', 'restaurant', 'vehicle-export'] as DomainModule[]
+    ).map((module) => {
+      const enabled = copilots.some((copilot) => copilot.module === module && copilot.enabled);
+      const modelsReady = models.some((model) => model.isActive);
+      return {
+        module,
+        label: `${getModuleLabel(module)} Assistant`,
+        status: enabled && modelsReady ? 'ready' : enabled ? 'attention' : 'setup_needed',
+        description: enabled
+          ? modelsReady
+            ? 'Ready for staff to use from the module page.'
+            : 'Configured, but a model provider still needs attention.'
+          : 'Enable a copilot profile for this business area.',
+      };
+    }),
   };
 }
 

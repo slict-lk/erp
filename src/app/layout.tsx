@@ -13,7 +13,7 @@ import { getMessages, getLocale } from 'next-intl/server';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'SLICT ERP 2025',
+  title: `SLICT ERP ${new Date().getFullYear()}`,
   description: 'Complete Multi-Tenant SaaS ERP System',
 };
 

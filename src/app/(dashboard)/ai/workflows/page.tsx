@@ -12,16 +12,16 @@ export default async function AIWorkflowsPage() {
 
   return (
     <AIPageShell
-      title="Workflow Registry"
-      description="Track every active workflow and compatibility-compiled legacy automation rule in one registry."
+      title="Workflows"
+      description="Review every automation in one place, from guided business workflows to advanced technical definitions."
       actions={
         <>
-          <AIActionLink href="/ai/workflows/new" label="New Workflow" />
+          <AIActionLink href="/ai/workflows/new" label="New Automation" />
           <AIActionLink href="/ai/templates" label="Use Template" variant="outline" />
         </>
       }
     >
-      <AISectionCard title="Registry" description="Ownership, trigger, policy, and execution posture for all orchestration assets.">
+      <AISectionCard title="Automation list" description="Ownership, trigger, policy, and execution posture for all orchestration assets.">
         {workflows.length === 0 ? (
           <AIEmptyState
             title="No workflows available"

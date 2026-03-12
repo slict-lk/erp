@@ -1374,7 +1374,7 @@ function Footer() {
                 <div className="p-2 bg-blue-50 rounded-lg text-blue-600 group-hover:bg-blue-100 transition-colors">
                   <Phone className="h-4 w-4" />
                 </div>
-                <a href="https://wa.me/94752539988" className="hover:text-blue-600 transition-colors">WhatsApp: +94 75 253 8899</a>
+                <a href="https://wa.me/94752539988" className="hover:text-blue-600 transition-colors">WhatsApp: +94 75 253 9988</a>
               </div>
             </div>
           </div>

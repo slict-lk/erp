@@ -34,6 +34,8 @@ export type SimulationStepStatus = 'pass' | 'warn' | 'fail';
 
 export type ExecutionHealth = 'healthy' | 'attention' | 'critical';
 
+export type AIExperienceMode = 'simple' | 'advanced';
+
 export interface DomainEvent {
   id: string;
   tenantId: string;
@@ -252,6 +254,21 @@ export interface AIControlPlaneSettings {
   queuePollingIntervalSeconds: number;
 }
 
+export interface OnboardingChecklistState {
+  connectModel: boolean;
+  chooseDefaultPolicy: boolean;
+  enableCopilot: boolean;
+  publishFirstAutomation: boolean;
+  reviewApprovalInbox: boolean;
+  dismissed: boolean;
+}
+
+export interface AIUserExperiencePreferences {
+  mode: AIExperienceMode;
+  lastVisitedSection: string;
+  onboardingChecklist: OnboardingChecklistState;
+}
+
 export interface WorkflowTemplateRecord {
   id: string;
   name: string;
@@ -271,6 +288,7 @@ export interface TenantAIConfig {
   executionQueue: WorkflowQueueItem[];
   deadLetterQueue: WorkflowQueueItem[];
   workflowVersions: WorkflowVersionRecord[];
+  userPreferences: Record<string, AIUserExperiencePreferences>;
 }
 
 export interface RegistryItem {
@@ -395,6 +413,15 @@ export interface CommandCenterPayload {
     unreadInsights: number;
     monthlyModelCost: number;
   };
+  setupProgress: {
+    completed: number;
+    total: number;
+    items: OnboardingChecklistState;
+  };
+  roleFocus: {
+    title: string;
+    description: string;
+  };
   alerts: Array<{
     id: string;
     title: string;
@@ -416,6 +443,12 @@ export interface CommandCenterPayload {
     copilotEnabled: boolean;
     approvalBacklog: number;
     health: ExecutionHealth;
+  }>;
+  assistantReadiness: Array<{
+    module: DomainModule;
+    label: string;
+    status: 'ready' | 'setup_needed' | 'attention';
+    description: string;
   }>;
 }
 
@@ -445,6 +478,44 @@ export interface WorkflowCreateInput {
   policyProfileId: string;
   approvalsMode: 'always' | 'policy' | 'never';
   isActive?: boolean;
+}
+
+export interface ActionFieldOption {
+  label: string;
+  value: string;
+}
+
+export interface ActionFieldSchema {
+  key: string;
+  label: string;
+  description: string;
+  type: 'text' | 'textarea' | 'number' | 'date' | 'datetime' | 'email' | 'select' | 'boolean' | 'list';
+  required?: boolean;
+  placeholder?: string;
+  options?: ActionFieldOption[];
+  rows?: number;
+}
+
+export interface ActionAdapterUIMetadata {
+  module: DomainModule;
+  action: string;
+  label: string;
+  shortDescription: string;
+  category: string;
+  icon: string;
+  successLabel: string;
+  fields: ActionFieldSchema[];
+  summaryTemplate: string;
+}
+
+export interface EventCatalogItem {
+  id: string;
+  module: DomainModule;
+  entity: string;
+  event: string;
+  label: string;
+  description: string;
+  category: string;
 }
 
 export interface AgentCreateInput {

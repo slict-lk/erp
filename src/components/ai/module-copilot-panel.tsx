@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
+import { useAIExperience } from '@/components/ai/ai-experience-context';
 
 type ModuleCopilotPanelProps = {
   module: 'crm' | 'accounting' | 'spareparts' | 'real-estate' | 'restaurant' | 'vehicle-export';
@@ -24,10 +25,14 @@ export function ModuleCopilotPanel({
   suggestions = [],
 }: ModuleCopilotPanelProps) {
   const { toast } = useToast();
+  const { mode } = useAIExperience();
+  const simpleMode = mode === 'simple';
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
   const [functionCalls, setFunctionCalls] = useState<any[]>([]);
+  const promptChips =
+    suggestions.length > 0 ? suggestions : ['Summarize priorities', 'Show risks', 'Recommend next step'];
 
   const contextTags = useMemo(
     () =>
@@ -104,7 +109,7 @@ export function ModuleCopilotPanel({
           value={input}
           onChange={(event) => setInput(event.target.value)}
           className="min-h-[110px]"
-          placeholder="Ask the copilot for a summary, next best action, or risk review."
+          placeholder="Ask for a summary, next step, or risk review."
         />
         <div className="flex flex-wrap gap-2">
           <Button type="button" onClick={() => askCopilot(input)} disabled={loading || !input.trim()}>
@@ -117,7 +122,7 @@ export function ModuleCopilotPanel({
               'Ask Copilot'
             )}
           </Button>
-          {suggestions.map((suggestion) => (
+          {promptChips.map((suggestion) => (
             <Button
               key={suggestion}
               type="button"
@@ -132,7 +137,7 @@ export function ModuleCopilotPanel({
         {response ? (
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <p className="whitespace-pre-wrap text-sm text-slate-800">{response}</p>
-            {functionCalls.length > 0 ? (
+            {functionCalls.length > 0 && !simpleMode ? (
               <p className="mt-3 text-xs text-slate-500">
                 Used {functionCalls.length} tool call{functionCalls.length > 1 ? 's' : ''}.
               </p>

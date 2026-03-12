@@ -11,16 +11,15 @@ export default async function AINewWorkflowPage() {
 
   return (
     <AIPageShell
-      title="Create Workflow"
-      description="Build an approval-aware workflow definition on top of the unified orchestration runtime."
+      title="Create Automation"
+      description="Use the guided builder to turn a business need into an approval-aware automation."
     >
       <AISectionCard
-        title="Workflow Composer"
-        description="Capture trigger, routing policy, and execution steps. The form publishes directly into the Studio workflow runtime."
+        title="Automation Builder"
+        description="Choose the business outcome, trigger, action, and review posture before publishing."
       >
         <WorkflowComposer policyProfiles={policies.map((policy) => ({ id: policy.id, name: policy.name }))} />
       </AISectionCard>
     </AIPageShell>
   );
 }
-

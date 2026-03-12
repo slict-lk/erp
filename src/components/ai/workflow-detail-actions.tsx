@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { readResponseError } from '@/components/ai/registry-manager-utils';
+import { useAIExperience } from '@/components/ai/ai-experience-context';
 import type { WorkflowSimulationResult, WorkflowVersionRecord } from '@/lib/ai/control-plane-types';
 
 export function WorkflowDetailActions({
@@ -23,6 +24,8 @@ export function WorkflowDetailActions({
 }) {
   const router = useRouter();
   const { toast } = useToast();
+  const { mode } = useAIExperience();
+  const simpleMode = mode === 'simple';
   const [payload, setPayload] = useState('{\n  "source": "manual-test"\n}');
   const [workingAction, setWorkingAction] = useState<string | null>(null);
   const [rollbackVersionId, setRollbackVersionId] = useState<string>(versions[0]?.id || '');
@@ -49,7 +52,7 @@ export function WorkflowDetailActions({
       }
 
       toast({
-        title: enabled ? 'Workflow paused' : 'Workflow resumed',
+        title: enabled ? 'Automation paused' : 'Automation resumed',
         description: workflowName,
       });
       refresh();
@@ -115,7 +118,7 @@ export function WorkflowDetailActions({
       }
 
       toast({
-        title: 'Workflow archived',
+        title: 'Automation archived',
         description: workflowName,
       });
       refresh();
@@ -149,7 +152,7 @@ export function WorkflowDetailActions({
       }
 
       toast({
-        title: 'Workflow rolled back',
+        title: 'Automation restored',
         description: workflowName,
       });
       refresh();
@@ -183,7 +186,7 @@ export function WorkflowDetailActions({
       }
 
       toast({
-        title: 'Workflow test executed',
+        title: 'Automation test executed',
         description: 'A real execution record has been created.',
       });
       refresh();
@@ -250,7 +253,7 @@ export function WorkflowDetailActions({
       }
 
       toast({
-        title: 'Workflow deleted',
+        title: 'Automation deleted',
         description: workflowName,
       });
       router.push('/ai/workflows');
@@ -270,28 +273,28 @@ export function WorkflowDetailActions({
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
         <Button type="button" variant="outline" onClick={toggleWorkflow} disabled={workingAction !== null}>
-          {workingAction === 'toggle' ? 'Updating...' : enabled ? 'Pause Workflow' : 'Resume Workflow'}
+          {workingAction === 'toggle' ? 'Updating...' : enabled ? 'Pause Automation' : 'Resume Automation'}
         </Button>
         <Button type="button" variant="outline" onClick={cloneWorkflow} disabled={workingAction !== null}>
-          {workingAction === 'clone' ? 'Cloning...' : 'Clone Workflow'}
+          {workingAction === 'clone' ? 'Cloning...' : 'Clone Automation'}
         </Button>
         <Button type="button" variant="outline" onClick={archiveWorkflow} disabled={workingAction !== null}>
-          {workingAction === 'archive' ? 'Archiving...' : 'Archive Workflow'}
+          {workingAction === 'archive' ? 'Archiving...' : 'Archive'}
         </Button>
         <Button type="button" onClick={runTest} disabled={workingAction !== null}>
-          {workingAction === 'test' ? 'Running Test...' : 'Run Live Test'}
+          {workingAction === 'test' ? 'Running Test...' : 'Test Automation'}
         </Button>
         <Button type="button" variant="outline" onClick={runSimulation} disabled={workingAction !== null}>
-          {workingAction === 'simulate' ? 'Simulating...' : 'Run Simulation'}
+          {workingAction === 'simulate' ? 'Simulating...' : 'Preview Outcome'}
         </Button>
         <Button type="button" variant="destructive" onClick={deleteWorkflow} disabled={workingAction !== null}>
-          {workingAction === 'delete' ? 'Deleting...' : 'Delete Workflow'}
+          {workingAction === 'delete' ? 'Deleting...' : 'Delete Automation'}
         </Button>
       </div>
 
       <AIFormSection
         title="Rollback"
-        description="Restore the workflow from a saved version snapshot."
+        description="Restore the automation from a saved version snapshot."
       >
         <div className="flex flex-wrap gap-2">
           <Select value={rollbackVersionId} onValueChange={setRollbackVersionId}>
@@ -318,8 +321,12 @@ export function WorkflowDetailActions({
       </AIFormSection>
 
       <AIFormSection
-        title="Test Payload"
-        description="This runs a real workflow execution and may create approval items or downstream records, depending on the workflow steps."
+        title={simpleMode ? 'Test details' : 'Test Payload'}
+        description={
+          simpleMode
+            ? 'Testing runs a real automation and may create approvals or downstream business records.'
+            : 'This runs a real workflow execution and may create approval items or downstream records, depending on the workflow steps.'
+        }
       >
         <Textarea
           value={payload}

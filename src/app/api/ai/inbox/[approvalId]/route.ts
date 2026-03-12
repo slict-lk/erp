@@ -18,7 +18,7 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
 
-    const validDecisions = ['APPROVED', 'REJECTED', 'ESCALATED'];
+    const validDecisions = ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED', 'ESCALATED'];
     if (!body.decision || !validDecisions.includes(body.decision)) {
       return NextResponse.json({ error: `decision must be one of: ${validDecisions.join(', ')}` }, { status: 400 });
     }
@@ -47,4 +47,3 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to update approval' }, { status: 500 });
   }
 }
-
