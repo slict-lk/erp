@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { deleteOpportunity, getOpportunityById, updateOpportunity } from '@/apps/crm/api';
+import { publishModuleMutationEvent } from '@/lib/ai/module-events';
 import { requireTenantContext } from '@/lib/server/erp-context';
 import { z } from 'zod';
 
@@ -58,6 +59,22 @@ export async function PATCH(
       userId: user.id,
       actorName: user.name ?? user.email ?? null,
     });
+    try {
+      await publishModuleMutationEvent({
+        tenantId,
+        module: 'crm',
+        entity: 'opportunity',
+        event: 'updated',
+        actorId: user.id,
+        payload: {
+          opportunityId: item.id,
+          name: item.name,
+          status: item.status,
+        },
+      });
+    } catch (publishError) {
+      console.error('Failed to publish opportunity mutation event:', { tenantId, opportunityId: item.id, userId: user.id, error: publishError });
+    }
     return NextResponse.json({ data: item });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
@@ -97,9 +114,23 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { tenantId } = await requireTenantContext({ moduleId: 'crm', action: 'delete' });
+    const { tenantId, user } = await requireTenantContext({ moduleId: 'crm', action: 'delete' });
     const { id } = await params;
     const result = await deleteOpportunity(tenantId, id);
+    try {
+      await publishModuleMutationEvent({
+        tenantId,
+        module: 'crm',
+        entity: 'opportunity',
+        event: 'deleted',
+        actorId: user.id,
+        payload: {
+          opportunityId: id,
+        },
+      });
+    } catch (publishError) {
+      console.error('Failed to publish opportunity deletion event:', { tenantId, opportunityId: id, userId: user.id, error: publishError });
+    }
     return NextResponse.json(result);
   } catch (error: any) {
     const status = error?.message?.includes('Forbidden') ? 403 : 500;

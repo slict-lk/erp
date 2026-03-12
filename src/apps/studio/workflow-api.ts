@@ -129,7 +129,7 @@ export async function getExecutions(
 
     const where: Prisma.WorkflowExecutionWhereInput = {
         workflowId,
-        workflow: { tenantId },
+        workflow: { is: { tenantId } },
         ...(status && { status }),
     };
 
@@ -153,7 +153,7 @@ export async function getExecutions(
 
 export async function getExecutionById(id: string, tenantId: string): Promise<WorkflowExecution | null> {
     const execution = await prisma.workflowExecution.findFirst({
-        where: { id, workflow: { tenantId } },
+        where: { id, workflow: { is: { tenantId } } },
     });
 
     return execution as unknown as WorkflowExecution;

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
+import { publishModuleMutationEvent } from '@/lib/ai/module-events';
+import { requireTenantContext } from '@/lib/server/erp-context';
 import { JournalEntryStatus } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
     try {
-        const tenant = await getOrCreateDefaultTenant();
+        const { tenantId } = await requireTenantContext({ moduleId: 'accounting', action: 'view' });
 
         const { searchParams } = new URL(request.url);
         const statusParam = searchParams.get('status') as JournalEntryStatus | null;
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
         // Advanced filtering
         const journalEntries = await prisma.journalEntry.findMany({
             where: {
-                tenantId: tenant.id,
+                tenantId,
                 ...(statusParam && { status: statusParam }),
                 ...(periodId && { periodId }),
                 ...(reference && {
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const tenant = await getOrCreateDefaultTenant();
+        const { tenantId, user } = await requireTenantContext({ moduleId: 'accounting', action: 'create' });
         const body = await request.json();
 
         if (!body.periodId) {
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
         const period = await prisma.accountingPeriod.findFirst({
             where: {
                 id: body.periodId,
-                tenantId: tenant.id
+                tenantId
             }
         });
 
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
             // Create header
             const entry = await tx.journalEntry.create({
                 data: {
-                    tenantId: tenant.id,
+                    tenantId,
                     periodId: body.periodId,
                     reference: body.reference,
                     description: body.description,
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
                             description: line.description || body.description,
                             debit: Number(line.debit || 0),
                             credit: Number(line.credit || 0),
-                            currencyCode: line.currencyCode || tenant.baseCurrency,
+                            currencyCode: line.currencyCode || 'LKR', // TODO: replace with tenant.baseCurrency from tenant config
                             exchangeRate: Number(line.exchangeRate || 1),
                             // Base currency equivalent 
                             baseCurrency: Number(line.debit || 0) > 0 ? Number(line.debit || 0) * Number(line.exchangeRate || 1) : Number(line.credit || 0) * Number(line.exchangeRate || 1),
@@ -137,6 +138,19 @@ export async function POST(request: NextRequest) {
             });
 
             return entry;
+        });
+
+        await publishModuleMutationEvent({
+            tenantId,
+            module: 'accounting',
+            entity: 'journal-entry',
+            event: 'created',
+            actorId: user.id,
+            payload: {
+                journalEntryId: journalEntry.id,
+                reference: journalEntry.reference,
+                status: journalEntry.status,
+            },
         });
 
         return NextResponse.json(journalEntry, { status: 201 });

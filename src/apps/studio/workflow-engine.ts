@@ -2,17 +2,26 @@ import { prisma } from '@/lib/prisma';
 import { StudioWorkflow } from './types';
 import { createExecution, updateExecutionSteps } from './workflow-api';
 import { createCustomRecord, updateCustomRecord, deleteCustomRecord } from './api';
+import { executeAdapterAction, publishDomainEvent } from '@/lib/ai/control-plane';
 
 export class WorkflowEngine {
 
-    static async executeWorkflow(workflowId: string, tenantId: string, triggerData: any) {
+    static async executeWorkflow(
+        workflowId: string,
+        tenantId: string,
+        triggerData: any,
+        options?: { allowInactive?: boolean }
+    ) {
         const workflow = await prisma.studioWorkflow.findUnique({
             where: { id: workflowId }
         });
 
-        if (!workflow || !workflow.isActive || workflow.tenantId !== tenantId) {
+        if (!workflow || (!workflow.isActive && !options?.allowInactive) || workflow.tenantId !== tenantId) {
             console.log(`Workflow ${workflowId} skipped: not found, inactive, or tenant mismatch.`);
-            return;
+            return {
+                ok: false,
+                error: 'Workflow not found, inactive, or tenant mismatch.',
+            };
         }
 
         // Create execution record
@@ -20,6 +29,38 @@ export class WorkflowEngine {
         const steps: any[] = [];
 
         try {
+            try {
+                await publishDomainEvent({
+                    id: `evt-${execution.id}`,
+                    tenantId,
+                    module: 'studio',
+                    entity: 'workflow',
+                    event: 'triggered',
+                    occurredAt: new Date().toISOString(),
+                    actorType: 'system',
+                    actorId: (triggerData?.initiatedBy as string) || 'workflow-engine',
+                    correlationId: execution.id,
+                    payload: {
+                        workflowId,
+                        triggerSource: triggerData?.source ?? 'unknown',
+                    },
+                });
+            } catch (publishErr: any) {
+                console.error(`Workflow ${workflowId}: Failed to publish domain event:`, publishErr);
+                await updateExecutionSteps(execution.id, [{
+                    nodeId: 'domain-event-publish',
+                    status: 'failed',
+                    startedAt: new Date().toISOString(),
+                    completedAt: new Date().toISOString(),
+                    error: publishErr?.message || 'Failed to publish domain event',
+                }], 'failed', publishErr?.message);
+                return {
+                    ok: false,
+                    executionId: execution.id,
+                    error: `Failed to publish domain event: ${publishErr?.message}`,
+                };
+            }
+
             const nodes = workflow.nodes as any[];
             const edges = workflow.edges as any[];
 
@@ -72,10 +113,19 @@ export class WorkflowEngine {
             }
 
             await updateExecutionSteps(execution.id, steps, 'completed');
+            return {
+                ok: true,
+                executionId: execution.id,
+            };
 
         } catch (e: any) {
             console.error(`Workflow ${workflowId} failed:`, e);
             await updateExecutionSteps(execution.id, steps, 'failed', e.message);
+            return {
+                ok: false,
+                executionId: execution.id,
+                error: e.message,
+            };
         }
     }
 
@@ -163,6 +213,27 @@ export class WorkflowEngine {
                 });
                 const responseText = await response.text();
                 return { success: response.ok, data: { status: response.status, url: parsed.href, body: responseText.slice(0, 1024) } };
+            }
+
+            case 'module_action': {
+                const module = (config.module || config.moduleId || contextData.trigger?.moduleScope || 'studio') as any;
+                const action = (config.action || config.actionId) as string;
+                if (!action) {
+                    throw new Error('module_action requires an explicit action (config.action or config.actionId must be specified)');
+                }
+                const payload = this.resolveObjectVars(config.payload || config.data || {}, contextData);
+                const actorId = (contextData.trigger?.initiatedBy as string) || 'workflow-engine';
+                const result = await executeAdapterAction({
+                    tenantId,
+                    userId: actorId,
+                    module,
+                    action,
+                    input: payload,
+                });
+                if (!result.ok) {
+                    throw new Error(result.error || 'Module action failed');
+                }
+                return { success: true, data: result };
             }
 
             default:

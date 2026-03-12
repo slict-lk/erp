@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ModuleCopilotPanel } from '@/components/ai/module-copilot-panel';
 import { FadeIn, SlideUp, StaggerContainer, StaggerItem, HoverCard as MotionCard } from '@/components/ui/motion/primitives';
 import {
     Ship,
@@ -186,6 +187,24 @@ export default function VehicleExportPage() {
                     />
                 </StaggerItem>
             </StaggerContainer>
+
+            <ModuleCopilotPanel
+                module="vehicle-export"
+                title="Vehicle Export Copilot"
+                description="Surface shipment delay risk, yard bottlenecks, and customer-impacting exceptions."
+                context={{
+                    pendingBids: stats?.pendingBids || 0,
+                    inYard: stats?.inYard || 0,
+                    readyToShip: stats?.readyToShip || 0,
+                    shipped: stats?.shipped || 0,
+                    pendingYardJobs: stats?.pendingYardJobs || 0,
+                    recentVehicles: recentVehicles.length,
+                }}
+                suggestions={[
+                    'Summarize shipment and customs risk.',
+                    'Which vehicles need operator action next?',
+                ]}
+            />
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { postToGL, resolveAccountCodes } from '@/lib/accounting/gl-bridge';
+import { publishModuleMutationEvent } from '@/lib/ai/module-events';
 
 // GET /api/vehicle-export/bids/[id]
 export async function GET(
@@ -123,6 +124,24 @@ export async function PUT(
             } catch (noteError) {
                 console.error('Failed to append GL error to adminNotes:', noteError);
             }
+        }
+
+        try {
+            await publishModuleMutationEvent({
+                tenantId: session.user.tenantId,
+                module: 'vehicle-export',
+                entity: 'bid',
+                event: 'updated',
+                actorId: String(session.user?.id || 'vehicle-export-api'),
+                payload: {
+                    bidId: bid.id,
+                    status: bid.status,
+                    approvedPrice: parsedPrice,
+                    glStatus,
+                },
+            });
+        } catch (publishError) {
+            console.error('Failed to publish bid update event:', { bidId: bid.id, event: 'updated', error: publishError });
         }
 
         return NextResponse.json({ bid: { ...bid, glStatus } });

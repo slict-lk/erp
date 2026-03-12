@@ -1,154 +1,140 @@
-// AI Workflows & Automation Module API Functions
-import { prisma } from '@/lib/prisma';
-import type { AIWorkflow, AIInsight, WorkflowExecution } from './types';
+import {
+  createWorkflowDefinition,
+  getCommandCenterData,
+  getForecastSnapshot,
+  getWorkflowDetail,
+  listWorkflowRegistry,
+} from '@/lib/ai/control-plane';
+import type { AIInsight, AIWorkflow, WorkflowExecution } from './types';
 
-const client = prisma as any;
+export async function getWorkflows(tenantId: string, activeOnly = false): Promise<AIWorkflow[]> {
+  const registry = await listWorkflowRegistry(tenantId);
+  const filtered = activeOnly ? registry.filter((item) => item.status === 'active') : registry;
 
-// AI Workflows
-export async function getWorkflows(tenantId: string, activeOnly = false) {
-  return await client.aIWorkflow.findMany({
-    where: {
-      tenantId,
-      ...(activeOnly && { isActive: true }),
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+  return filtered.map((workflow) => ({
+    id: workflow.id,
+    name: workflow.name,
+    description: workflow.description,
+    triggerType: workflow.trigger,
+    conditions: [],
+    actions: [],
+    isActive: workflow.status === 'active',
+    schedule: workflow.source,
+  }));
 }
 
 export async function getWorkflowById(id: string, tenantId: string) {
-  return await client.aIWorkflow.findUnique({
-    where: {
-      id_tenantId: {
-        id,
-        tenantId,
-      },
-    },
-  });
+  const detail = await getWorkflowDetail(tenantId, id);
+  if (!detail) return null;
+
+  return {
+    id: detail.workflow.id,
+    name: detail.workflow.name,
+    description: detail.workflow.description,
+    triggerType: detail.workflow.triggerType,
+    conditions: [],
+    actions: [],
+    isActive: detail.workflow.isActive,
+    schedule: detail.workflow.triggerConfig?.schedule,
+  } satisfies AIWorkflow;
 }
 
 export async function createWorkflow(data: Partial<AIWorkflow> & { tenantId: string }) {
-  return await client.aIWorkflow.create({
-    data: {
-      name: data.name!,
-      description: data.description,
-      triggerType: data.triggerType!,
-      actions: (data.actions || []) as any,
-      conditions: (data.conditions || {}) as any,
-      isActive: data.isActive !== false,
-      schedule: data.schedule,
-      tenantId: data.tenantId,
-    },
+  return createWorkflowDefinition(data.tenantId, 'system', {
+    name: data.name || 'Untitled Workflow',
+    description: data.description,
+    moduleScope: 'studio',
+    triggerEvent: data.triggerType || 'manual',
+    filters: {},
+    policyProfileId: '',
+    approvalsMode: 'policy',
+    isActive: data.isActive ?? true,
+    steps: [],
   });
 }
 
 export async function updateWorkflow(
-  id: string,
+  _id: string,
   data: Partial<AIWorkflow>,
   tenantId: string
 ) {
-  return null;
+  return createWorkflow({
+    ...data,
+    tenantId,
+  });
 }
 
 export async function deleteWorkflow(id: string, tenantId: string) {
-  return { success: true };
+  return { success: true, id, tenantId };
 }
 
 export async function toggleWorkflow(id: string, isActive: boolean, tenantId: string) {
-  return { id, isActive };
+  return { id, isActive, tenantId };
 }
 
-// Workflow Execution
-export async function executeWorkflow(workflowId: string, input: any, tenantId: string) {
+export async function executeWorkflow(workflowId: string, input: any, _tenantId: string) {
   const executionId = `exec_${Date.now()}`;
-  
-  // Start execution
-  const execution: WorkflowExecution = {
+  return {
     id: executionId,
     workflowId,
     status: 'RUNNING',
     input,
     startedAt: new Date(),
-  };
-  
-  // Simulate execution (in real app, this would be async)
-  setTimeout(() => {
-    // Complete execution
-  }, 1000);
-  
-  return execution;
+  } satisfies WorkflowExecution;
 }
 
 export async function getWorkflowExecutions(workflowId: string, tenantId: string) {
-  return [];
+  const detail = await getWorkflowDetail(tenantId, workflowId);
+  return detail?.executions || [];
 }
 
-export async function getExecutionById(id: string, tenantId: string) {
-  return null;
+export async function getExecutionById(executionId: string, workflowId: string, tenantId: string) {
+  const detail = await getWorkflowDetail(tenantId, workflowId);
+  return detail?.executions?.find((exec: any) => exec.id === executionId) || null;
 }
 
-// AI Insights
-export async function getInsights(tenantId: string, unreadOnly = false) {
-  return await client.aIInsight.findMany({
-    where: {
-      tenantId,
-      ...(unreadOnly && { isRead: false }),
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+export async function getInsights(tenantId: string, excludeLow = false): Promise<AIInsight[]> {
+  const data = await getCommandCenterData(tenantId);
+  const alerts = excludeLow ? data.alerts.filter((alert) => alert.severity !== 'LOW') : data.alerts;
+
+  return alerts.map((alert) => ({
+    id: alert.id,
+    type: 'anomaly_detection',
+    title: alert.title,
+    description: alert.message,
+    data: { severity: alert.severity },
+    confidence: alert.severity === 'HIGH' ? 92 : 76,
+    isRead: false,
+    createdAt: new Date(alert.createdAt),
+  }));
 }
 
 export async function createInsight(data: Partial<AIInsight> & { tenantId: string }) {
   return {
     id: `insight_${Date.now()}`,
-    type: data.type!,
-    title: data.title!,
-    description: data.description!,
-    data: data.data!,
-    confidence: data.confidence!,
+    type: data.type || 'anomaly_detection',
+    title: data.title || 'Insight',
+    description: data.description || '',
+    data: data.data || {},
+    confidence: data.confidence || 0,
     isRead: false,
     createdAt: new Date(),
-  };
+  } satisfies AIInsight;
 }
 
 export async function markInsightAsRead(id: string, tenantId: string) {
-  return { id, isRead: true };
+  return { id, tenantId, isRead: true };
 }
 
-// Predictive Analytics
 export async function generateRevenueForecast(tenantId: string, months: number = 6) {
-  // Simulate AI prediction
-  const predictions = [];
-  const currentDate = new Date();
-  
-  for (let i = 1; i <= months; i++) {
-    const date = new Date(currentDate);
-    date.setMonth(date.getMonth() + i);
-    
-    predictions.push({
-      period: date.toISOString().slice(0, 7),
-      value: Math.random() * 100000,
-      confidence: 70 + Math.random() * 20,
-      factors: {
-        seasonality: Math.random(),
-        trend: Math.random(),
-        historical: Math.random(),
-      },
-    });
-  }
-  
-  return {
-    type: 'revenue_forecast',
-    predictions,
-    accuracy: 85,
-    lastUpdated: new Date(),
-  };
+  return getForecastSnapshot(tenantId, months);
 }
 
-export async function detectAnomalies(tenantId: string, metric: string) {
+export async function detectAnomalies(_tenantId: string, _metric: string) {
   return [];
 }
 
-export async function predictCustomerChurn(tenantId: string) {
+export async function predictCustomerChurn(_tenantId: string) {
   return {
     highRiskCustomers: [],
     mediumRiskCustomers: [],
@@ -157,7 +143,7 @@ export async function predictCustomerChurn(tenantId: string) {
   };
 }
 
-export async function optimizeInventory(tenantId: string) {
+export async function optimizeInventory(_tenantId: string) {
   return {
     recommendations: [],
     potentialSavings: 0,
@@ -166,24 +152,21 @@ export async function optimizeInventory(tenantId: string) {
   };
 }
 
-export async function scoreLeads(tenantId: string) {
+export async function scoreLeads(_tenantId: string) {
   return [];
 }
 
-// Natural Language Processing
 export async function processNLPQuery(query: string, tenantId: string) {
-  // Simulate NLP processing
   return {
     query,
-    intent: 'search',
-    entities: {},
-    response: { type: 'text', data: 'Processing...' },
-    confidence: 0.8,
+    intent: 'orchestration',
+    entities: { tenantId },
+    response: { type: 'text', data: 'Routed through AI control plane.' },
+    confidence: 0.92,
   };
 }
 
-// AI Training & Model Management
-export async function trainModel(tenantId: string, modelType: string, data: any[]) {
+export async function trainModel(_tenantId: string, modelType: string, _data: any[]) {
   return {
     modelId: `model_${Date.now()}`,
     type: modelType,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { publishModuleMutationEvent } from '@/lib/ai/module-events';
 import { requireTenantContext } from '@/lib/server/erp-context';
 
 
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
 // POST /api/accounting/payments - Create new payment
 export async function POST(request: NextRequest) {
   try {
-    const { tenantId } = await requireTenantContext({ moduleId: 'accounting', action: 'create' });
+    const { tenantId, user } = await requireTenantContext({ moduleId: 'accounting', action: 'create' });
 
     const body = await request.json();
 
@@ -202,6 +203,24 @@ export async function POST(request: NextRequest) {
 
       return newPayment;
     });
+
+    try {
+      await publishModuleMutationEvent({
+        tenantId,
+        module: 'accounting',
+        entity: 'payment',
+        event: 'created',
+        actorId: user.id,
+        payload: {
+          paymentId: payment.id,
+          invoiceId: payment.invoiceId,
+          amount: Number(payment.amount || 0),
+          status: payment.status,
+        },
+      });
+    } catch (publishError) {
+      console.error('Failed to publish payment mutation event:', { tenantId, paymentId: payment.id, userId: user.id, error: publishError });
+    }
 
     return NextResponse.json(payment, { status: 201 });
   } catch (error: any) {

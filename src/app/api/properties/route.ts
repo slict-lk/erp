@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { publishModuleMutationEvent } from '@/lib/ai/module-events';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { propertyCreateSchema, propertySearchSchema } from '@/lib/validations/property';
@@ -291,6 +292,24 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    try {
+      await publishModuleMutationEvent({
+        tenantId: validatedData.tenantId,
+        module: 'real-estate',
+        entity: 'property',
+        event: 'created',
+        actorId: 'property-api',
+        payload: {
+          propertyId: property.id,
+          title: property.title,
+          status: property.status,
+          listingType: property.listingType,
+        },
+      });
+    } catch (publishError) {
+      console.error('Failed to publish property mutation event:', { tenantId: validatedData.tenantId, propertyId: property.id, error: publishError });
+    }
 
     return NextResponse.json({
       success: true,

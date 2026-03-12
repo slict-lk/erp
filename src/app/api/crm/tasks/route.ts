@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createTask, listTasks } from '@/apps/crm/api';
+import { publishModuleMutationEvent } from '@/lib/ai/module-events';
 import { requireTenantContext } from '@/lib/server/erp-context';
 import { z } from 'zod';
 
@@ -43,6 +44,22 @@ export async function POST(request: NextRequest) {
     const parsedData = taskCreateSchema.parse(body);
 
     const item = await createTask(tenantId, user.id, parsedData);
+    try {
+      await publishModuleMutationEvent({
+        tenantId,
+        module: 'crm',
+        entity: 'task',
+        event: 'created',
+        actorId: user.id,
+        payload: {
+          taskId: item.id,
+          title: item.title,
+          status: item.status,
+        },
+      });
+    } catch (publishError) {
+      console.error('Failed to publish task mutation event:', { tenantId, taskId: item.id, userId: user.id, error: publishError });
+    }
     return NextResponse.json({ data: item }, { status: 201 });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
@@ -52,4 +69,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to create task' }, { status });
   }
 }
-

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { publishModuleMutationEvent } from '@/lib/ai/module-events';
 import { postToGL, resolveAccountCodes } from '@/lib/accounting/gl-bridge';
 import { recordStockIn } from '@/lib/inventory/inventory-bridge';
 
@@ -224,6 +225,23 @@ export async function POST(request: NextRequest) {
                 error: error.message
             });
             // Continue allowing creation, but system logged for persistence queue 
+        }
+
+        try {
+            await publishModuleMutationEvent({
+                tenantId,
+                module: 'vehicle-export',
+                entity: 'vehicle',
+                event: 'created',
+                actorId: String(session.user?.id || 'vehicle-export-api'),
+                payload: {
+                    vehicleId: vehicle.id,
+                    stockNumber: vehicle.stockNumber,
+                    status: vehicle.status,
+                },
+            });
+        } catch (publishError) {
+            console.error('Failed to publish vehicle created event:', { tenantId, vehicleId: vehicle.id, stockNumber: vehicle.stockNumber, error: publishError });
         }
 
         return NextResponse.json({ vehicle }, { status: 201 });

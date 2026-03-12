@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ModuleCopilotPanel } from '@/components/ai/module-copilot-panel';
 import {
     Store,
     Users,
@@ -149,6 +150,24 @@ export default function SparePartsPage() {
                     variant="purple"
                 />
             </div>
+
+            <ModuleCopilotPanel
+                module="spareparts"
+                title="Spare Parts Copilot"
+                description="Highlight low-stock exposure, reorder pressure, and sales momentum."
+                context={{
+                    todaySales: stats?.todaySales.total || 0,
+                    monthSales: stats?.monthSales.total || 0,
+                    lowStockCount: stats?.lowStockCount || 0,
+                    pendingReorders: stats?.pendingReorders || 0,
+                    activeCustomers: stats?.activeCustomers || 0,
+                    recentTransactions: recentTransactions.length,
+                }}
+                suggestions={[
+                    'Which stock issues need action first?',
+                    'Summarize reorder priorities by urgency.',
+                ]}
+            />
 
             {/* Quick Actions */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">

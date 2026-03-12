@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { publishModuleMutationEvent } from '@/lib/ai/module-events';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
 
 export async function GET(request: NextRequest) {
@@ -76,6 +77,18 @@ export async function POST(request: NextRequest) {
                     tenantId
                 }
             });
+            await publishModuleMutationEvent({
+                tenantId,
+                module: 'restaurant',
+                entity: 'shift',
+                event: 'clocked_in',
+                actorId: 'restaurant-shift-api',
+                payload: {
+                    staffId,
+                    shiftId: newShift.id,
+                    status: newShift.status,
+                },
+            });
             return NextResponse.json(newShift);
         } else if (action === 'CLOCK_OUT') {
             const activeShift = await (prisma as any).restaurantShift.findFirst({
@@ -90,6 +103,18 @@ export async function POST(request: NextRequest) {
                     status: 'CLOSED',
                     endTime: new Date()
                 }
+            });
+            await publishModuleMutationEvent({
+                tenantId,
+                module: 'restaurant',
+                entity: 'shift',
+                event: 'clocked_out',
+                actorId: 'restaurant-shift-api',
+                payload: {
+                    staffId,
+                    shiftId: updatedShift.id,
+                    status: updatedShift.status,
+                },
             });
             return NextResponse.json(updatedShift);
         }

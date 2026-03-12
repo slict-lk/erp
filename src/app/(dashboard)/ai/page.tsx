@@ -1,199 +1,172 @@
-"use client";
-
-
-import { formatCurrency } from '@/lib/utils';
-import { useCallback, useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AIActionLink, AIEmptyState, AIPageShell, AISectionCard, AIStatGrid, AIStatusBadge } from '@/components/ai/ai-primitives';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Zap, TrendingUp, AlertCircle, Settings, RefreshCw, Brain, Sparkles, ArrowUp, ArrowDown } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { getCommandCenterData } from '@/lib/ai/control-plane';
+import { requireAIAccess } from '@/lib/ai/governance';
 
-interface Forecast {
-  period: string;
-  prediction: number;
-  confidence: number;
-}
+export const dynamic = 'force-dynamic';
 
-interface Insight {
-  id: string;
-  type: string;
-  message: string;
-  severity: string;
-  createdAt: string;
-}
+export default async function AIOverviewPage() {
+  const { tenantId } = await requireAIAccess('view');
+  const data = await getCommandCenterData(tenantId);
+  const items = [
+    {
+      label: 'Active Workflows',
+      value: String(data.summary.activeWorkflows),
+      hint: 'Live orchestration definitions across tenant modules.',
+      tone: 'sky' as const,
+    },
+    {
+      label: 'Pending Approvals',
+      value: String(data.summary.pendingApprovals),
+      hint: 'High-impact actions waiting for review.',
+      tone: 'amber' as const,
+    },
+    {
+      label: 'Failed Runs',
+      value: String(data.summary.failedRuns),
+      hint: 'Visible execution failures requiring operator attention.',
+      tone: 'slate' as const,
+    },
+    {
+      label: 'Active Agents',
+      value: String(data.summary.activeAgents),
+      hint: 'Configured copilots and specialist agents.',
+      tone: 'emerald' as const,
+    },
+  ];
 
-// formatCurrency removed
-
-export default function AIPage() {
-  const [forecasts, setForecasts] = useState<Forecast[]>([]);
-  const [insights, setInsights] = useState<Insight[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const fetchData = useCallback(async () => {
-    try {
-      setRefreshing(true);
-      const [forecastRes, insightsRes] = await Promise.all([
-        fetch('/api/ai/forecast'),
-        fetch('/api/ai/insights'),
-      ]);
-
-      if (forecastRes.ok) {
-        const data = await forecastRes.json();
-        const mappedForecasts = (data.predictions || []).map((p: any) => ({
-          period: p.period,
-          prediction: p.value,
-          confidence: p.confidence
-        }));
-        setForecasts(mappedForecasts);
+  return (
+    <AIPageShell
+      title="Command Center"
+      description="Monitor workflow health, approvals, AI coverage, and cross-module automation posture from a single operator workspace."
+      actions={
+        <>
+          <AIActionLink href="/ai/workflows/new" label="Create Workflow" />
+          <AIActionLink href="/ai/inbox" label="Open Approvals" variant="outline" />
+          <AIActionLink href="/ai/analytics" label="View Failures" variant="outline" />
+          <Button variant="outline" disabled>{/* TODO: implement exportReport handler */}Export Report</Button>
+        </>
       }
-      if (insightsRes.ok) setInsights((await insightsRes.json()) ?? []);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+    >
+      <AIStatGrid items={items} />
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">AI & Automation</h1>
-          <p className="text-gray-600">Predictive analytics, intelligent insights, and automated workflows.</p>
-        </div>
-        <Button variant="outline" onClick={fetchData} disabled={refreshing}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="AI Models" value="3" subtitle="Active predictive models" icon={Brain} variant="pink" />
-        <StatCard title="Predictions" value={String(forecasts.length)} subtitle="Generated forecasts" icon={TrendingUp} variant="violet" />
-        <StatCard title="Insights" value={String(insights.length)} subtitle="Actionable recommendations" icon={Sparkles} variant="fuchsia" />
-        <StatCard title="Automations" value="0" subtitle="Active workflows" icon={Zap} variant="rose" />
-      </div>
-
-      <Tabs defaultValue="forecasts" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 lg:w-auto">
-          <TabsTrigger value="forecasts">Forecasts</TabsTrigger>
-          <TabsTrigger value="insights">Insights</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="forecasts" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Revenue Forecasting</CardTitle>
-              <CardDescription>AI-powered sales predictions based on historical data.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <LoadingState message="Generating forecasts..." />
-              ) : forecasts.length === 0 ? (
-                <EmptyState message="No forecasts available. Train model with historical data." />
-              ) : (
-                <div className="space-y-3">
-                  {forecasts.map((forecast, idx) => (
-                    <div key={idx} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gradient-to-r from-pink-50 to-violet-50 p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-pink-100 p-2"><TrendingUp className="h-5 w-5 text-pink-600" /></div>
-                        <div>
-                          <p className="font-semibold text-gray-900">{forecast.period}</p>
-                          <p className="text-xs text-gray-500">Confidence: {(forecast.confidence * 100).toFixed(0)}%</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-gray-900">{formatCurrency(forecast.prediction)}</p>
-                        <div className="flex items-center gap-1 text-xs text-green-600">
-                          <ArrowUp className="h-3 w-3" /> 12% vs last period
-                        </div>
-                      </div>
+      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+        <AISectionCard title="Risk Alerts" description="Unread AI insights and operational exceptions.">
+          {data.alerts.length === 0 ? (
+            <AIEmptyState
+              title="No active alerts"
+              description="AIInsight records have not produced any current exceptions for this tenant."
+            />
+          ) : (
+            <div className="space-y-3">
+              {data.alerts.map((alert) => (
+                <div key={alert.id} className="rounded-lg border border-slate-200 bg-white p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-slate-950">{alert.title}</p>
+                      <p className="mt-1 text-sm text-slate-600">{alert.message}</p>
                     </div>
-                  ))}
+                    <AIStatusBadge status={alert.severity} />
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">{new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(alert.createdAt))}</p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="insights" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>AI-Generated Insights</CardTitle>
-              <CardDescription>Actionable recommendations from your business data.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <LoadingState message="Analyzing data..." />
-              ) : insights.length === 0 ? (
-                <EmptyState message="No insights generated yet." />
-              ) : (
-                <div className="space-y-3">
-                  {insights.map((insight) => (
-                    <div key={insight.id} className="flex items-start gap-3 rounded-lg border border-gray-100 p-3 hover:bg-gray-50">
-                      <div className={`rounded-lg p-2 ${insight.severity === 'HIGH' ? 'bg-red-100' :
-                        insight.severity === 'MEDIUM' ? 'bg-amber-100' :
-                          'bg-blue-100'
-                        }`}>
-                        <AlertCircle className={`h-4 w-4 ${insight.severity === 'HIGH' ? 'text-red-600' :
-                          insight.severity === 'MEDIUM' ? 'text-amber-600' :
-                            'text-blue-600'
-                          }`} />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between">
-                          <p className="font-medium text-gray-900">{insight.message}</p>
-                          <Badge variant={insight.severity === 'HIGH' ? 'destructive' : 'secondary'}>{insight.type}</Badge>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">{new Date(insight.createdAt).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      <Card className="border-2 border-dashed border-pink-200 bg-gradient-to-br from-pink-50 to-violet-50">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="rounded-xl bg-pink-100 p-3"><Brain className="h-8 w-8 text-pink-600" /></div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900">AI Model Training</h3>
-              <p className="text-sm text-gray-600">Continuously learning from your business data to improve predictions and recommendations.</p>
+              ))}
             </div>
-            <Button variant="outline">Configure Models</Button>
+          )}
+        </AISectionCard>
+
+        <AISectionCard title="Module Heatmap" description="Coverage and current execution posture by business module.">
+          <div className="space-y-3">
+            {data.moduleHeatmap.map((row) => (
+              <div key={row.module} className="rounded-lg border border-slate-200 bg-white p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium capitalize text-slate-950">{row.module}</p>
+                    <p className="text-sm text-slate-600">
+                      {row.automationCount} automations, {row.approvalBacklog} approvals in queue
+                    </p>
+                  </div>
+                  <AIStatusBadge status={row.health} />
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  Copilot {row.copilotEnabled ? 'enabled' : 'not enabled'}
+                </p>
+              </div>
+            ))}
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        </AISectionCard>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <AISectionCard title="Pending Approvals" description="Work items awaiting approver intervention.">
+          {data.pendingApprovals.length === 0 ? (
+            <AIEmptyState
+              title="Approval queue is clear"
+              description="No approval-gated actions are waiting in the tenant queue."
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Module</TableHead>
+                  <TableHead>Risk</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.pendingApprovals.map((approval) => (
+                  <TableRow key={approval.id}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium text-slate-900">{approval.title}</p>
+                        <p className="text-sm text-slate-600">{approval.summary}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="capitalize">{approval.module}</TableCell>
+                    <TableCell>{approval.riskScore}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </AISectionCard>
+
+        <AISectionCard title="Failed Runs" description="Recent failed executions from the workflow runtime.">
+          {data.failedRuns.length === 0 ? (
+            <AIEmptyState
+              title="No failed runs"
+              description="Recent workflow executions have not produced any recorded failures."
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Workflow</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Started</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.failedRuns.map((run) => (
+                  <TableRow key={run.id}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium text-slate-900">{run.workflowName}</p>
+                        <p className="text-sm text-slate-600">{run.error}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <AIStatusBadge status={run.status} />
+                    </TableCell>
+                    <TableCell>{new Date(run.startedAt).toLocaleString()}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </AISectionCard>
+      </div>
+    </AIPageShell>
   );
-}
-
-function StatCard({ title, value, subtitle, icon: Icon, variant }: { title: string; value: string; subtitle: string; icon: typeof Zap; variant: 'pink' | 'violet' | 'fuchsia' | 'rose' }) {
-  const accentMap = { pink: 'bg-pink-100 text-pink-600', violet: 'bg-violet-100 text-violet-600', fuchsia: 'bg-fuchsia-100 text-fuchsia-600', rose: 'bg-rose-100 text-rose-600' } as const;
-  return (
-    <Card className="border border-gray-200">
-      <CardContent className="flex items-center justify-between p-6">
-        <div><p className="text-sm font-medium text-gray-500">{title}</p><p className="mt-1 text-2xl font-bold text-gray-900">{value}</p><p className="text-xs text-gray-500">{subtitle}</p></div>
-        <div className={`rounded-xl p-3 ${accentMap[variant]}`}><Icon className="h-6 w-6" /></div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function LoadingState({ message }: { message: string }) {
-  return <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-200 py-12 text-gray-500">{message}</div>;
-}
-
-function EmptyState({ message }: { message: string }) {
-  return <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 py-12 text-sm text-gray-500">{message}</div>;
 }

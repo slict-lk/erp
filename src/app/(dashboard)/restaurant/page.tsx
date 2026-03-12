@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ModuleCopilotPanel } from '@/components/ai/module-copilot-panel';
 import { ChefHat, CreditCard, LayoutGrid, Settings, UtensilsCrossed, Users, TrendingUp, ShoppingBag, ArrowRight, Clock, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -183,6 +184,25 @@ export default function RestaurantDashboard() {
                     bg="bg-indigo-500/10"
                     delay={0.4}
                     subtext="Estimated Dine-in"
+                />
+            </div>
+
+            <div className="mb-10 relative z-10">
+                <ModuleCopilotPanel
+                    module="restaurant"
+                    title="Restaurant Copilot"
+                    description="Summarize service pressure, staffing balance, and kitchen execution risk."
+                    context={{
+                        activeTickets: stats.activeTickets,
+                        dailySales: stats.dailySales,
+                        completedOrders: stats.completedOrders,
+                        capacityPercentage: stats.capacityPercentage,
+                        staffOnDuty: staff.filter((member) => member.shifts?.length > 0).length,
+                    }}
+                    suggestions={[
+                        'Give me a shift briefing for current service.',
+                        'Where is operational pressure building right now?',
+                    ]}
                 />
             </div>
 

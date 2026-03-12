@@ -17,6 +17,7 @@ import {
   SavedSearches,
   type SearchFilters,
 } from '@/components/properties';
+import { ModuleCopilotPanel } from '@/components/ai/module-copilot-panel';
 import {
   Home,
   TrendingUp,
@@ -208,6 +209,24 @@ export default function RealEstateHomePage() {
       {/* Enhanced Features Tabs */}
       <section className="py-8 bg-gray-50">
         <div className="container mx-auto px-4">
+          <div className="mb-6">
+            <ModuleCopilotPanel
+              module="real-estate"
+              title="Real Estate Copilot"
+              description="Review demand signals, listing health, and follow-up priorities from current search context."
+              context={{
+                totalProperties: stats.total,
+                availableProperties: stats.available,
+                featuredProperties: stats.featured,
+                totalViews: stats.totalViews,
+                activeFilters: Object.keys(currentFilters).length,
+              }}
+              suggestions={[
+                'Summarize market demand from the current listings.',
+                'Which properties or inquiries need attention first?',
+              ]}
+            />
+          </div>
           <Tabs defaultValue="grid" className="w-full">
             <div className="flex items-center justify-between mb-6">
               <TabsList className="grid w-full max-w-2xl grid-cols-5">

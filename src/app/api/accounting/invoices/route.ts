@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { publishModuleMutationEvent } from '@/lib/ai/module-events';
 import { requireTenantContext } from '@/lib/server/erp-context';
 
 
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
 // POST /api/accounting/invoices - Create new invoice
 export async function POST(request: NextRequest) {
   try {
-    const { tenantId } = await requireTenantContext({ moduleId: 'accounting', action: 'create' });
+    const { tenantId, user } = await requireTenantContext({ moduleId: 'accounting', action: 'create' });
 
     const body = await request.json();
 
@@ -260,6 +261,24 @@ export async function POST(request: NextRequest) {
 
       return newInvoice;
     });
+
+    try {
+      await publishModuleMutationEvent({
+        tenantId,
+        module: 'accounting',
+        entity: 'invoice',
+        event: 'created',
+        actorId: user.id,
+        payload: {
+          invoiceId: invoice.id,
+          number: invoice.number,
+          status: invoice.status,
+          total: Number(invoice.total || 0),
+        },
+      });
+    } catch (publishError) {
+      console.error('Failed to publish invoice mutation event:', { tenantId, invoiceId: invoice.id, error: publishError });
+    }
 
     return NextResponse.json(invoice, { status: 201 });
   } catch (error: any) {

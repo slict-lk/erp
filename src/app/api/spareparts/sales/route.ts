@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getInvoices, createInvoice } from '@/apps/spareparts/api';
+import { publishModuleMutationEvent } from '@/lib/ai/module-events';
 import { getCurrentUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -50,6 +51,24 @@ export async function POST(request: NextRequest) {
             tenantId: user.tenantId,
             createdById: user.id,
         });
+
+        try {
+            await publishModuleMutationEvent({
+                tenantId: user.tenantId,
+                module: 'spareparts',
+                entity: 'invoice',
+                event: 'created',
+                actorId: user.id,
+                payload: {
+                    invoiceId: invoice.id,
+                    invoiceNumber: invoice.invoiceNumber,
+                    status: invoice.status,
+                    total: Number(invoice.total || 0),
+                },
+            });
+        } catch (publishError) {
+            console.error('Failed to publish invoice mutation event:', { tenantId: user.tenantId, invoiceId: invoice.id, userId: user.id, error: publishError });
+        }
 
         return NextResponse.json(invoice, { status: 201 });
     } catch (error) {

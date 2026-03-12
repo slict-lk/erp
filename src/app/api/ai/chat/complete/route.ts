@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth-options';
 import { prisma } from '@/lib/prisma';
 import { getLocalAIEngine } from '@/lib/ai/local-engine';
 import { getGroqEngine } from '@/lib/ai/groq-engine';
+import { recordModelUsage } from '@/lib/ai/control-plane';
 import { AGENT_FUNCTIONS, executeAgentFunction } from '@/lib/ai/chat-agent';
 
 export const runtime = 'nodejs';
@@ -25,11 +26,21 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { conversationId, message, tenantId } = body;
+    const { conversationId, message } = body;
+    const sessionTenantId = (session.user as any).tenantId as string | undefined;
 
-    if (!message || !conversationId || !tenantId) {
+    if (!sessionTenantId) {
       return NextResponse.json(
-        { error: 'Missing required fields: message, conversationId, tenantId' },
+        { error: 'Forbidden: no tenant in session' },
+        { status: 403 }
+      );
+    }
+
+    const tenantId = sessionTenantId;
+
+    if (!message || !conversationId) {
+      return NextResponse.json(
+        { error: 'Missing required fields: message, conversationId' },
         { status: 400 }
       );
     }
@@ -59,13 +70,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Override tenantId if mismatch (security)
-    const userTenantId = (session.user as any).tenantId || tenantId;
-    if (tenantId !== userTenantId) {
-      console.warn(
-        `Tenant mismatch: user=${session.user.id}, userTenant=${userTenantId}, requestTenant=${tenantId}`
-      );
-    }
+    const configuredModel = await prisma.languageModel.findFirst({
+      where: {
+        tenantId,
+        isActive: true,
+      },
+      orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
+      select: {
+        id: true,
+        provider: true,
+        modelId: true,
+      },
+    });
 
     // Build message history for context
     const chatMessages = [
@@ -84,12 +100,22 @@ export async function POST(request: NextRequest) {
     ];
 
     // Try Groq first (recommended, free with API key)
-    let completionResponse: string;
+    let completionResponse: string = '';
     let engineUsed = 'unknown';
     let functionCall = null;
+    let usedProvider: string | null = null;
+    let usedModelId: string | null = null;
+    let totalTokens = 0;
 
     // Check if Groq API key is configured
     const groqApiKey = process.env.GROQ_API_KEY;
+    const preferredProvider = configuredModel?.provider || null;
+    const shouldUseGroq = preferredProvider ? preferredProvider === 'GROQ' : Boolean(groqApiKey);
+
+    if (preferredProvider === 'GROQ' && !groqApiKey) {
+      console.warn(`Configured provider is GROQ but GROQ_API_KEY is missing. Tenant: ${tenantId}, model: ${configuredModel?.id}. Falling back to Ollama.`);
+    }
+
     console.log('🔍 Checking Groq configuration:', {
       hasApiKey: !!groqApiKey,
       apiKeyLength: groqApiKey?.length || 0,
@@ -97,7 +123,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
 
-    if (groqApiKey) {
+    if (shouldUseGroq && groqApiKey) {
       try {
         console.log('🔒 Groq API Key found (length: ' + groqApiKey.length + ')');
         const groqEngine = getGroqEngine();
@@ -117,21 +143,23 @@ export async function POST(request: NextRequest) {
         engineUsed = 'groq';
 
         const groqResponse = await groqEngine.generateCompletion(chatMessages, {
+          model: preferredProvider === 'GROQ' ? configuredModel?.modelId : undefined,
           temperature: 0.7,
           maxTokens: 2000,
         });
 
         completionResponse = groqResponse.response;
+        usedProvider = 'GROQ';
+        usedModelId = groqResponse.model;
+        totalTokens = groqResponse.tokens || 0;
         console.log('✅ Groq response received successfully');
       } catch (error: any) {
-        console.error('❌ Groq Execution Failed:', error);
-        return NextResponse.json(
-          { error: `Groq Error: ${error.message}` },
-          { status: 500 }
-        );
+        console.error('❌ Groq Execution Failed, falling back to Ollama:', error);
       }
-    } else {
-      console.log('⚠️ No Groq API key configured, using Ollama fallback');
+    }
+
+    if (!usedProvider) {
+      console.log('⚠️ Using Ollama fallback');
       engineUsed = 'ollama-local';
 
       // Fallback to local AI engine
@@ -139,7 +167,10 @@ export async function POST(request: NextRequest) {
 
       // Generate completion with local AI
       const completion = await engine.generateCompletion(chatMessages, {
-        model: process.env.OLLAMA_MODEL || 'llama2',
+        model:
+          preferredProvider === 'OLLAMA'
+            ? configuredModel?.modelId
+            : process.env.OLLAMA_MODEL || 'llama2',
         temperature: 0.7,
         maxTokens: 2000,
         functions: AGENT_FUNCTIONS,
@@ -148,6 +179,15 @@ export async function POST(request: NextRequest) {
 
       completionResponse = completion.response;
       functionCall = completion.functionCall || null;
+      usedProvider = 'OLLAMA';
+      usedModelId =
+        preferredProvider === 'OLLAMA'
+          ? configuredModel?.modelId || process.env.OLLAMA_MODEL || 'llama2'
+          : process.env.OLLAMA_MODEL || 'llama2';
+
+      // Estimate tokens for Ollama (rough approximation: ~4 chars per token)
+      const totalChars = chatMessages.reduce((sum, m) => sum + (m.content?.length || 0), 0) + (completionResponse?.length || 0);
+      totalTokens = Math.ceil(totalChars / 4);
     }
 
     // Check if response contains a function call (for Ollama)
@@ -158,7 +198,7 @@ export async function POST(request: NextRequest) {
         functionResult = await executeAgentFunction(
           functionCall.name,
           functionCall.arguments,
-          userTenantId
+          tenantId
         );
       } catch (error) {
         console.error('Function execution error:', error);
@@ -173,7 +213,7 @@ export async function POST(request: NextRequest) {
         role: 'ASSISTANT',
         content: completionResponse,
         functionCalls: functionCall ? [functionCall] : undefined,
-        tenantId: userTenantId,
+        tenantId,
       },
     });
 
@@ -182,6 +222,25 @@ export async function POST(request: NextRequest) {
       where: { id: conversationId },
       data: { updatedAt: new Date() },
     });
+
+    try {
+      await recordModelUsage({
+        tenantId,
+        modelId: configuredModel?.id || null,
+        provider: usedProvider,
+        providerModelId: usedModelId,
+        conversationId,
+        userId: session.user.id,
+        operation: 'chat_completion',
+        totalTokens,
+        success: true,
+        metadata: {
+          engine: engineUsed,
+        },
+      });
+    } catch (usageError) {
+      console.error('Failed to record model usage:', usageError);
+    }
 
     return NextResponse.json({
       message: assistantMessage,

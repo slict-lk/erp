@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createActivity, listActivities } from '@/apps/crm/api';
+import { publishModuleMutationEvent } from '@/lib/ai/module-events';
 import { requireTenantContext } from '@/lib/server/erp-context';
 import { z } from 'zod';
 
@@ -55,6 +56,22 @@ export async function POST(request: NextRequest) {
     const parsedData = activityCreateSchema.parse(body);
 
     const item = await createActivity(tenantId, user.id, parsedData);
+    try {
+      await publishModuleMutationEvent({
+        tenantId,
+        module: 'crm',
+        entity: 'activity',
+        event: 'created',
+        actorId: user.id,
+        payload: {
+          activityId: item.id,
+          activityType: item.activityType,
+          status: item.status,
+        },
+      });
+    } catch (publishError) {
+      console.error('Failed to publish activity mutation event:', { tenantId, activityId: item.id, userId: user.id, error: publishError });
+    }
     return NextResponse.json({ data: item }, { status: 201 });
   } catch (error: any) {
     if (error instanceof z.ZodError) {

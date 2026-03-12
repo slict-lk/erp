@@ -2,6 +2,7 @@ import prisma from '../prisma';
 
 const client = prisma as any;
 import { IntegrationLogger } from '@/lib/integrations/base';
+import { processAllTenantAutomationQueues } from '@/lib/ai/control-plane';
 
 // Job queue manager
 export class JobQueue {
@@ -25,6 +26,7 @@ export class JobQueue {
     // Start all scheduled jobs
     this.scheduleIntegrationSync();
     this.scheduleCleanupJobs();
+    this.scheduleAIControlPlane();
 
     console.log('✅ Job queue started');
   }
@@ -166,6 +168,31 @@ export class JobQueue {
     setTimeout(async () => {
       await this.cleanupOldLogs();
     }, 60000); // After 1 minute
+  }
+
+  private scheduleAIControlPlane() {
+    const intervalMs = 60 * 1000;
+
+    const controlPlaneJob = setInterval(async () => {
+      await this.processAIControlPlane();
+    }, intervalMs);
+
+    this.jobs.set('ai_control_plane', controlPlaneJob);
+
+    setTimeout(async () => {
+      await this.processAIControlPlane();
+    }, 15000);
+  }
+
+  private async processAIControlPlane() {
+    try {
+      const result = await processAllTenantAutomationQueues();
+      console.log(
+        `🤖 AI control plane processed queues for ${result.tenants} tenants (${result.processed} runs, ${result.escalations} escalations)`
+      );
+    } catch (error) {
+      console.error('AI control plane queue processing failed:', error);
+    }
   }
 
   private async cleanupOldLogs() {

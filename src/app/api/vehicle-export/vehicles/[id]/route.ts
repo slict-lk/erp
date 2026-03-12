@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { publishModuleMutationEvent } from '@/lib/ai/module-events';
 
 // GET /api/vehicle-export/vehicles/[id] - Vehicle detail
 export async function GET(
@@ -91,6 +92,23 @@ export async function PUT(
             },
         });
 
+        try {
+            await publishModuleMutationEvent({
+                tenantId: session.user.tenantId,
+                module: 'vehicle-export',
+                entity: 'vehicle',
+                event: 'updated',
+                actorId: String(session.user?.id || 'vehicle-export-api'),
+                payload: {
+                    vehicleId: vehicle.id,
+                    stockNumber: vehicle.stockNumber,
+                    status: vehicle.status,
+                },
+            });
+        } catch (publishError) {
+            console.error('Failed to publish vehicle update event:', { vehicleId: vehicle.id, stockNumber: vehicle.stockNumber, error: publishError });
+        }
+
         return NextResponse.json({ vehicle });
     } catch (error) {
         console.error('Vehicle update error:', error);
@@ -156,6 +174,22 @@ export async function DELETE(
             // 8. Finally, Delete Vehicle
             await tx.exportVehicle.delete({ where: { id } });
         });
+
+        try {
+            await publishModuleMutationEvent({
+                tenantId: session.user.tenantId,
+                module: 'vehicle-export',
+                entity: 'vehicle',
+                event: 'deleted',
+                actorId: String(session.user?.id || 'vehicle-export-api'),
+                payload: {
+                    vehicleId: id,
+                    stockNumber: vehicle.stockNumber,
+                },
+            });
+        } catch (publishError) {
+            console.error('Failed to publish vehicle delete event:', { vehicleId: id, stockNumber: vehicle.stockNumber, error: publishError });
+        }
 
         return NextResponse.json({ success: true });
     } catch (error) {

@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
-
+import { requireTenantContext } from '@/lib/server/erp-context';
 
 export const dynamic = 'force-dynamic';
 // GET /api/tenant/current - Get current tenant
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
-    // In a real app, you would get this from the session or subdomain
-    // For now, we'll get or create a default tenant
-    const tenant = await getOrCreateDefaultTenant();
+    const { tenantId } = await requireTenantContext();
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+
+    if (!tenant) {
+      return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
+    }
 
     return NextResponse.json(tenant);
   } catch (error: any) {

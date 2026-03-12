@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Activity, Users, DollarSign, Target, CalendarClock, Phone, Mail, FileText, CheckCircle2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { ModuleCopilotPanel } from "@/components/ai/module-copilot-panel";
 
 interface CrmMetrics {
     pipelineValue: number;
@@ -206,6 +207,23 @@ export default function CRMOverview() {
                     </CardContent>
                 </Card>
             </div>
+
+            <ModuleCopilotPanel
+                module="crm"
+                title="CRM Copilot"
+                description="Summarize pipeline risk, follow-up pressure, and account-level next actions."
+                context={{
+                    pipelineValue: metrics?.pipelineValue || 0,
+                    activeOpportunities: metrics?.activeOpportunities || 0,
+                    qualifiedLeads: metrics?.leadCount || 0,
+                    upcomingActivities: upcomingActivities.length,
+                    overdueActivities: overdueActivities.length,
+                }}
+                suggestions={[
+                    'Summarize current pipeline risk and next best actions.',
+                    'Which opportunities need immediate follow-up?',
+                ]}
+            />
 
             <div className="grid gap-6 grid-cols-1 xl:grid-cols-7 ">
                 <Card className="xl:col-span-4 glass shadow-sm animate-scale-in">

@@ -26,6 +26,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { useSession } from 'next-auth/react';
 
 interface Message {
     id: string;
@@ -44,6 +45,7 @@ interface Conversation {
 }
 
 export default function AIChatAssistant() {
+    const { data: session } = useSession();
     const [isOpen, setIsOpen] = useState(false);
     // Sidebar closed by default on mobile (handled via CSS/Logic checking? No, just default true is fine if responsively hidden, but for overlay logic, maybe start false if mobile?)
     // Let's rely on standard state but user requests optimization.
@@ -59,15 +61,14 @@ export default function AIChatAssistant() {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // TODO: wire up real auth/session for user and tenant
-    const userId = 'user-1';
-    const tenantId = 'tenant-1';
+    const tenantId = session?.user?.tenantId || null;
+    const sessionLoading = !session && typeof session === 'undefined';
 
     useEffect(() => {
-        if (isOpen && conversations.length === 0) {
+        if (isOpen && conversations.length === 0 && tenantId && !sessionLoading) {
             fetchConversations();
         }
-    }, [isOpen]);
+    }, [isOpen, conversations.length, tenantId, sessionLoading]);
 
     useEffect(() => {
         scrollToBottom();
@@ -94,6 +95,7 @@ export default function AIChatAssistant() {
     };
 
     const fetchConversations = async () => {
+        if (!tenantId) return;
         try {
             const response = await fetch(
                 `/api/ai/chat/conversations?tenantId=${tenantId}`
@@ -110,6 +112,7 @@ export default function AIChatAssistant() {
     };
 
     const fetchConversation = async (conversationId: string) => {
+        if (!tenantId) return;
         setIsLoading(true);
         // Optional: clear messages immediately to show loading state if desired, or keep old ones until new load
         setMessages([]);
@@ -130,6 +133,7 @@ export default function AIChatAssistant() {
     };
 
     const startNewConversation = async (message: string) => {
+        if (!tenantId) return;
         setIsLoading(true);
         try {
             const response = await fetch('/api/ai/chat/conversations', {
@@ -157,6 +161,7 @@ export default function AIChatAssistant() {
     };
 
     const deleteConversation = async (e: React.MouseEvent, conversationId: string) => {
+        if (!tenantId) return;
         e.stopPropagation(); // Prevent opening the chat
         if (!confirm('Are you sure you want to delete this chat?')) return;
 
@@ -179,7 +184,7 @@ export default function AIChatAssistant() {
     };
 
     const sendMessage = async (message: string) => {
-        if (!message.trim()) return;
+        if (!message.trim() || !tenantId) return;
 
         if (!currentConversation) {
             await startNewConversation(message);
@@ -251,6 +256,10 @@ export default function AIChatAssistant() {
         { icon: Users, label: 'Recent customers', query: 'Show me recent customers' },
         { icon: Clock, label: 'Pending tasks', query: 'What are my pending tasks?' },
     ];
+
+    if (!tenantId) {
+        return null;
+    }
 
     return (
         <>

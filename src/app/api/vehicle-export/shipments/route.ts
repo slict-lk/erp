@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { validateShipmentReadiness } from '@/apps/vehicle-export/utils';
+import { publishModuleMutationEvent } from '@/lib/ai/module-events';
 
 // GET /api/vehicle-export/shipments - List shipments (Module F)
 export async function GET(request: NextRequest) {
@@ -88,6 +89,23 @@ export async function POST(request: NextRequest) {
                 status: 'BOOKED',
             },
         });
+
+        try {
+            await publishModuleMutationEvent({
+                tenantId,
+                module: 'vehicle-export',
+                entity: 'shipment',
+                event: 'created',
+                actorId: String(session.user?.id || 'vehicle-export-api'),
+                payload: {
+                    shipmentId: shipment.id,
+                    shipmentNumber: shipment.shipmentNumber,
+                    status: shipment.status,
+                },
+            });
+        } catch (publishError) {
+            console.error('Failed to publish shipment created event:', { shipmentId: shipment.id, shipmentNumber: shipment.shipmentNumber, error: publishError });
+        }
 
         return NextResponse.json({ shipment }, { status: 201 });
     } catch (error) {
@@ -182,6 +200,32 @@ export async function PUT(request: NextRequest) {
             where: { id: shipmentId },
             include: { vehicles: true },
         });
+
+        const eventMap: Record<string, string> = {
+            assign: 'vehicles_assigned',
+            ship: 'shipped',
+            deliver: 'delivered',
+        };
+        const eventName = eventMap[action];
+
+        if (eventName) {
+            try {
+                await publishModuleMutationEvent({
+                    tenantId: session.user.tenantId,
+                    module: 'vehicle-export',
+                    entity: 'shipment',
+                    event: eventName,
+                    actorId: String(session.user?.id || 'vehicle-export-api'),
+                    payload: {
+                        shipmentId,
+                        action,
+                        ...(vehicleIds ? { vehicleIds } : {}),
+                    },
+                });
+            } catch (publishError) {
+                console.error('Failed to publish shipment mutation event:', { shipmentId, actorId: session.user?.id, error: publishError });
+            }
+        }
 
         return NextResponse.json({ shipment });
     } catch (error) {

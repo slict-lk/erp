@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { publishModuleMutationEvent } from '@/lib/ai/module-events';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
 
 export async function GET(request: NextRequest) {
@@ -58,6 +59,23 @@ export async function POST(request: NextRequest) {
             },
         });
 
+        try {
+            await publishModuleMutationEvent({
+                tenantId,
+                module: 'restaurant',
+                entity: 'menu-item',
+                event: 'created',
+                actorId: 'restaurant-menu-api',
+                payload: {
+                    menuItemId: newItem.id,
+                    name: newItem.name,
+                    category: newItem.category,
+                },
+            });
+        } catch (publishError) {
+            console.error('Failed to publish menu-item created event:', { tenantId, menuItemId: newItem.id, error: publishError });
+        }
+
         return NextResponse.json(newItem, { status: 201 });
     } catch (error) {
         console.error('Error creating menu item:', error);
@@ -92,6 +110,23 @@ export async function PUT(request: NextRequest) {
             },
         });
 
+        try {
+            await publishModuleMutationEvent({
+                tenantId,
+                module: 'restaurant',
+                entity: 'menu-item',
+                event: 'updated',
+                actorId: 'restaurant-menu-api',
+                payload: {
+                    menuItemId: updatedItem.id,
+                    name: updatedItem.name,
+                    category: updatedItem.category,
+                },
+            });
+        } catch (publishError) {
+            console.error('Failed to publish menu-item updated event:', { tenantId, menuItemId: updatedItem.id, error: publishError });
+        }
+
         return NextResponse.json(updatedItem, { status: 200 });
     } catch (error) {
         console.error('Error updating menu item:', error);
@@ -117,6 +152,21 @@ export async function DELETE(request: NextRequest) {
         await prisma.product.delete({
             where: { id, tenantId },
         });
+
+        try {
+            await publishModuleMutationEvent({
+                tenantId,
+                module: 'restaurant',
+                entity: 'menu-item',
+                event: 'deleted',
+                actorId: 'restaurant-menu-api',
+                payload: {
+                    menuItemId: id,
+                },
+            });
+        } catch (publishError) {
+            console.error('Failed to publish menu-item deleted event:', { tenantId, menuItemId: id, error: publishError });
+        }
 
         return NextResponse.json({ success: true }, { status: 200 });
     } catch (error) {

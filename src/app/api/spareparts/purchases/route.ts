@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPurchaseOrders, createPurchaseOrder } from '@/apps/spareparts/api';
+import { publishModuleMutationEvent } from '@/lib/ai/module-events';
 import { getCurrentUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -47,6 +48,24 @@ export async function POST(request: NextRequest) {
             createdById: user.id,
             isTaxEnabled: body.isTaxEnabled,
         });
+
+        try {
+            await publishModuleMutationEvent({
+                tenantId: user.tenantId,
+                module: 'spareparts',
+                entity: 'purchase-order',
+                event: 'created',
+                actorId: user.id,
+                payload: {
+                    purchaseOrderId: order.id,
+                    orderNumber: order.orderNumber,
+                    status: order.status,
+                    total: Number(order.total || 0),
+                },
+            });
+        } catch (publishError) {
+            console.error('Failed to publish purchase-order mutation event:', { tenantId: user.tenantId, orderId: order.id, userId: user.id, error: publishError });
+        }
 
         return NextResponse.json(order, { status: 201 });
     } catch (error) {

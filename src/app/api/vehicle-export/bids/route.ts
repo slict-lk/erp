@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { publishModuleMutationEvent } from '@/lib/ai/module-events';
 
 // GET /api/vehicle-export/bids - List bids (Module B: Sales)
 export async function GET(request: NextRequest) {
@@ -92,6 +93,24 @@ export async function POST(request: NextRequest) {
             },
             include: { customer: true },
         });
+
+        const actorId = String(session.user?.id || 'vehicle-export-api');
+        try {
+            await publishModuleMutationEvent({
+                tenantId,
+                module: 'vehicle-export',
+                entity: 'bid',
+                event: 'created',
+                actorId,
+                payload: {
+                    bidId: bid.id,
+                    status: bid.status,
+                    customerId: bid.customerId,
+                },
+            });
+        } catch (publishError) {
+            console.error('Failed to publish bid created event:', { actorId, bidId: bid.id, error: publishError });
+        }
 
         return NextResponse.json({ bid }, { status: 201 });
     } catch (error) {

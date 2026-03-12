@@ -34,6 +34,7 @@ import { formatCurrency } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ModuleCopilotPanel } from "@/components/ai/module-copilot-panel";
 import {
   Table,
   TableBody,
@@ -513,6 +514,26 @@ export default function AccountingDashboard() {
           </>
         )}
       </div>
+
+      <ModuleCopilotPanel
+        module="accounting"
+        title="Accounting Copilot"
+        description="Review collections risk, module profitability, and close-process exceptions."
+        context={{
+          activeModule,
+          revenue: stats.revenue,
+          expenses: stats.expenses,
+          receivables: stats.receivables,
+          netProfit: stats.netProfit,
+          overdueCount,
+          invoiceCount: invoices.length,
+          paymentCount: payments.length,
+        }}
+        suggestions={[
+          'Explain today’s biggest accounting risks.',
+          'Summarize collections pressure and recommended actions.',
+        ]}
+      />
 
       {/* Revenue Chart + Module Breakdown */}
       {moduleSummary && moduleSummary.modules.length > 0 && (

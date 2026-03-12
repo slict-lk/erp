@@ -17,6 +17,9 @@ export async function GET(
 ) {
     try {
         const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
         const { conversationId } = await params;
         const { searchParams } = new URL(request.url);
         let tenantId = searchParams.get('tenantId');
@@ -34,6 +37,7 @@ export async function GET(
             where: {
                 id: conversationId,
                 tenantId,
+                userId: session.user.id,
             },
             include: {
                 messages: {
@@ -68,6 +72,9 @@ export async function POST(
 ) {
     try {
         const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
         const { conversationId } = await params;
         const body = await request.json();
         let { message, tenantId } = body;
@@ -89,6 +96,7 @@ export async function POST(
             where: {
                 id: conversationId,
                 tenantId,
+                userId: session.user.id,
             },
             include: {
                 messages: {
@@ -167,6 +175,9 @@ export async function DELETE(
 ) {
     try {
         const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
         const { conversationId } = await params;
         const { searchParams } = new URL(request.url);
         let tenantId = searchParams.get('tenantId');
@@ -180,10 +191,21 @@ export async function DELETE(
             return NextResponse.json({ error: 'Missing tenantId' }, { status: 400 });
         }
 
-        await prisma.conversation.delete({
+        const conversation = await prisma.conversation.findFirst({
             where: {
                 id: conversationId,
                 tenantId,
+                userId: session.user.id,
+            },
+        });
+
+        if (!conversation) {
+            return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+        }
+
+        await prisma.conversation.delete({
+            where: {
+                id: conversationId,
             },
         });
 

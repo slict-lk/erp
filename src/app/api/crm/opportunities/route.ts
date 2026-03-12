@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createOpportunity, listOpportunities } from '@/apps/crm/api';
+import { publishModuleMutationEvent } from '@/lib/ai/module-events';
 import { requireTenantContext } from '@/lib/server/erp-context';
 import { z } from 'zod';
 
@@ -39,6 +40,22 @@ export async function POST(request: NextRequest) {
     const parsedData = oppCreateSchema.parse(body);
 
     const opportunity = await createOpportunity(tenantId, user.id, parsedData);
+    try {
+      await publishModuleMutationEvent({
+        tenantId,
+        module: 'crm',
+        entity: 'opportunity',
+        event: 'created',
+        actorId: user.id,
+        payload: {
+          opportunityId: opportunity.id,
+          name: opportunity.name,
+          status: opportunity.status,
+        },
+      });
+    } catch (publishError) {
+      console.error('Failed to publish opportunity mutation event:', { tenantId, opportunityId: opportunity.id, userId: user.id, error: publishError });
+    }
     return NextResponse.json({ data: opportunity }, { status: 201 });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
