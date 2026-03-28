@@ -70,7 +70,7 @@ export async function requirePermission(
   // Actually, generateDefaultModulePermissions ensures Admins have all permissions enabled.
   // But let's add an explicit super admin / admin bypass for safety.
 
-  if (user.isSuperAdmin || user.role === 'ADMIN') {
+  if (user.isSuperAdmin || user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
     return user;
   }
 

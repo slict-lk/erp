@@ -25,7 +25,7 @@ type ApprovalMode = 'always' | 'policy' | 'never';
 
 type SimpleActionValue = string | boolean;
 
-const MODULE_OPTIONS: DomainModule[] = ['crm', 'accounting', 'spareparts', 'real-estate', 'restaurant', 'vehicle-export', 'studio'];
+const MODULE_OPTIONS: DomainModule[] = ['crm', 'accounting', 'spareparts', 'real-estate', 'restaurant', 'vehicle-export', 'hr', 'projects', 'studio'];
 const STEP_OPTIONS: StepRow['kind'][] = ['condition', 'ai_decision', 'action', 'delay', 'notification'];
 const MODULE_LABELS: Record<DomainModule, string> = {
   crm: 'CRM',
@@ -34,6 +34,8 @@ const MODULE_LABELS: Record<DomainModule, string> = {
   'real-estate': 'Real Estate',
   restaurant: 'Restaurant',
   'vehicle-export': 'Vehicle Export',
+  hr: 'HR',
+  projects: 'Projects',
   studio: 'Studio',
 };
 const GOAL_OPTIONS: Record<DomainModule, string[]> = {
@@ -43,6 +45,8 @@ const GOAL_OPTIONS: Record<DomainModule, string[]> = {
   'real-estate': ['Schedule a client interaction', 'Coordinate property follow-up', 'Prepare viewing workflow'],
   restaurant: ['Guide the next shift', 'Push an operations reminder', 'Prepare a service follow-up'],
   'vehicle-export': ['Coordinate shipment progress', 'Update dispatch status', 'Prepare logistics follow-up'],
+  hr: ['Onboard a new employee', 'Flag a policy violation', 'Coordinate leave approval'],
+  projects: ['Track project milestone', 'Coordinate task assignment', 'Prepare project status update'],
   studio: ['Create a custom record automatically', 'Route custom module work', 'Capture operational data'],
 };
 

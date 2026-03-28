@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma';
-import { createActivity, createTask } from '@/apps/crm/api';
+import { createActivity, createTask as createCrmTask } from '@/apps/crm/api';
+import { createEmployee } from '@/apps/hr/api';
+import { createTask as createProjectTask } from '@/apps/projects/api';
 import { createPurchaseOrder } from '@/apps/spareparts/api';
 import { createCustomRecord } from '@/apps/studio/api';
 import { assignVehiclesToShipment, updateVehicle } from '@/apps/vehicle-export/api';
@@ -838,7 +840,7 @@ const ACTION_ADAPTERS: ActionAdapter[] = [
       return { valid: errors.length === 0, errors };
     },
     async execute(input, ctx) {
-      const task = await createTask(
+      const task = await createCrmTask(
         ctx.tenantId,
         ctx.userId === 'workflow-engine' ? undefined : ctx.userId,
         {
@@ -1121,6 +1123,107 @@ const ACTION_ADAPTERS: ActionAdapter[] = [
       };
     },
   }),
+  createActionAdapter({
+    module: 'hr',
+    action: 'add_employee',
+    category: 'regulatory',
+    description: 'Add a new employee to the HR system with full profile data.',
+    async validate(input) {
+      const errors = requireFields(input, [
+        { key: 'firstName' },
+        { key: 'lastName' },
+        { key: 'email' },
+        { key: 'position' },
+        { key: 'employeeId' },
+      ]);
+      return { valid: errors.length === 0, errors };
+    },
+    async execute(input, ctx) {
+      const employee = await createEmployee({
+        tenantId: ctx.tenantId,
+        firstName: String(input.firstName),
+        lastName: String(input.lastName),
+        email: String(input.email),
+        position: String(input.position),
+        employeeNumber: String(input.employeeId),
+        phone: stringValue(input.phone),
+        salary: numericValue(input.salary),
+        departmentId: stringValue(input.departmentId),
+      } as any);
+
+      return {
+        id: employee.id,
+        employeeId: employee.employeeId,
+        status: employee.isActive ? 'ACTIVE' : 'INACTIVE',
+      };
+    },
+  }),
+  createActionAdapter({
+    module: 'hr',
+    action: 'leave_request',
+    category: 'regulatory',
+    description: 'Log a leave request for an employee on behalf of HR/Management.',
+    async validate(input) {
+      const errors = requireFields(input, [
+        { key: 'employeeId' },
+        { key: 'leaveType' },
+        { key: 'startDate' },
+        { key: 'endDate' },
+        { key: 'days' },
+      ]);
+      return { valid: errors.length === 0, errors };
+    },
+    async execute(input, ctx) {
+      const leave = await db.leaveRequest.create({
+        data: {
+          tenantId: ctx.tenantId,
+          employeeId: String(input.employeeId),
+          leaveType: String(input.leaveType),
+          startDate: new Date(String(input.startDate)),
+          endDate: new Date(String(input.endDate)),
+          days: numericValue(input.days) || 0,
+          reason: stringValue(input.reason),
+          status: 'PENDING',
+        },
+      });
+
+      return {
+        requestId: leave.id,
+        status: leave.status,
+      };
+    },
+  }),
+  createActionAdapter({
+    module: 'projects',
+    action: 'create_task',
+    category: 'inventory',
+    description: 'Create a new project task with priority and due date.',
+    async validate(input) {
+      const errors = requireFields(input, [
+        { key: 'projectId' },
+        { key: 'title' },
+      ]);
+      return { valid: errors.length === 0, errors };
+    },
+    async execute(input, ctx) {
+      const task = await createProjectTask({
+        tenantId: ctx.tenantId,
+        projectId: String(input.projectId),
+        title: String(input.title),
+        description: stringValue(input.description) ?? undefined,
+        priority: (stringValue(input.priority) as any) || 'MEDIUM',
+        status: (stringValue(input.status) as any) || 'TODO',
+        dueDate: stringValue(input.dueDate) ? new Date(String(input.dueDate)) : undefined,
+        assigneeId: stringValue(input.assigneeId) ?? undefined,
+      });
+
+      return {
+        taskId: task.id,
+        title: task.title,
+        status: task.status,
+      };
+    },
+  }),
 ];
 
 export function getActionAdapters(module?: DomainModule) {
@@ -1213,7 +1316,7 @@ export async function executeAdapterAction(args: {
       message: pendingItem.summary,
       metadata: {
         approvalId: pendingItem.id,
-        assignedRole,
+        assignedRole: assignedRole ?? undefined,
         correlationId,
       },
     });
@@ -1284,10 +1387,10 @@ export async function assignApprovalItem(args: {
     return null;
   }
 
-  const assignedRole = stringValue(args.assignedRole) || current.assignedRole || current.assignmentChain[0] || null;
+  const assignedRole = stringValue(args.assignedRole) || current.assignedRole || current.assignmentChain[0] || undefined;
   const updated: ApprovalItem = {
     ...current,
-    assignedRole: assignedRole || undefined,
+    assignedRole: assignedRole,
     assignedToUserId: stringValue(args.assignedToUserId) || undefined,
     notifications: [
       buildApprovalNotification(
@@ -3146,7 +3249,7 @@ export async function getPredictiveInsights(tenantId: string): Promise<Predictiv
           where: {
             tenantId,
             eta: { lt: new Date() },
-            status: { not: 'DELIVERED' },
+            status: { not: 'ARRIVED' },
           },
           select: { id: true, shipmentNumber: true, eta: true, destinationPort: true },
           take: 20,

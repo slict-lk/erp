@@ -254,7 +254,10 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Error in chat completion:', error);
     return NextResponse.json(
-      { error: 'Failed to generate completion' },
+      { 
+        error: 'Failed to generate completion', 
+        details: error.message || error.toString() 
+      },
       { status: 500 }
     );
   }

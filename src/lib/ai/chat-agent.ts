@@ -77,11 +77,27 @@ export const AGENT_FUNCTIONS: FunctionDefinition[] = [
         parameters: {
             type: 'object',
             properties: {
-                warehouseId: {
+                category: {
                     type: 'string',
-                    description: 'Filter by specific warehouse (optional)',
+                    description: 'Filter by product category (optional)',
                 },
             },
+        },
+    },
+    {
+        name: 'get_accounting_summary',
+        description: 'Get a high-level summary of accounting health (receivables, payables, recent payments)',
+        parameters: {
+            type: 'object',
+            properties: {},
+        },
+    },
+    {
+        name: 'get_project_status',
+        description: 'Get status summary of active projects and task progress',
+        parameters: {
+            type: 'object',
+            properties: {},
         },
     },
     {
@@ -138,7 +154,13 @@ export async function executeAgentFunction(
                 return await getRecentInvoices(args.limit || 10, args.status, tenantId);
 
             case 'get_inventory_status':
-                return await getInventoryStatus(args.warehouseId, tenantId);
+                return await getInventoryStatus(args.category, tenantId);
+
+            case 'get_accounting_summary':
+                return await getAccountingSummary(tenantId);
+
+            case 'get_project_status':
+                return await getProjectStatus(tenantId);
 
             case 'create_task':
                 return await createTask(args, tenantId);
@@ -261,24 +283,84 @@ async function getRecentInvoices(limit: number, status: string | undefined, tena
     return invoices;
 }
 
-async function getInventoryStatus(warehouseId: string | undefined, tenantId: string) {
+async function getInventoryStatus(category: string | undefined, tenantId: string) {
     const products = await prisma.product.findMany({
         where: {
             tenantId,
+            isActive: true,
+            ...(category && { category }),
         },
         select: {
             id: true,
             name: true,
             sku: true,
+            stockQty: true,
+            minStockQty: true,
         },
     });
 
-    // Note: Stock quantity tracking would need to be implemented in warehouse system
+    const lowStockProducts = products.filter(p => p.stockQty <= p.minStockQty);
+
     return {
         totalProducts: products.length,
-        lowStockCount: 0,
-        lowStockProducts: [],
-        message: 'Inventory tracking available in warehouse module',
+        lowStockCount: lowStockProducts.length,
+        lowStockProducts: lowStockProducts.map(p => ({
+            name: p.name,
+            sku: p.sku,
+            currentStock: p.stockQty,
+            minRequired: p.minStockQty
+        })).slice(0, 10),
+        message: lowStockProducts.length > 0 
+            ? `Found ${lowStockProducts.length} items at or below minimum stock levels.`
+            : 'All inventory levels are currently healthy.'
+    };
+}
+
+async function getAccountingSummary(tenantId: string) {
+    const [invoices, payments] = await Promise.all([
+        prisma.invoice.findMany({
+            where: { tenantId, status: { in: ['OPEN', 'OVERDUE', 'PAID'] } },
+            select: { total: true, amountDue: true, status: true }
+        }),
+        prisma.payment.findMany({
+            where: { tenantId },
+            take: 5,
+            orderBy: { paymentDate: 'desc' }
+        })
+    ]);
+
+    const totalReceivables = invoices.reduce((sum, inv) => sum + inv.amountDue, 0);
+    const totalRevenue = invoices.filter(inv => inv.status === 'PAID').reduce((sum, inv) => sum + inv.total, 0);
+
+    return {
+        totalReceivables,
+        totalRevenue,
+        recentPaymentsCount: payments.length,
+        topPayments: payments.map(p => ({ amount: p.amount, date: p.paymentDate })),
+        healthScore: totalReceivables > totalRevenue * 0.5 ? 'CAUTION' : 'HEALTHY'
+    };
+}
+
+async function getProjectStatus(tenantId: string) {
+    const [projects, tasks] = await Promise.all([
+        prisma.project.findMany({
+            where: { tenantId, status: { not: 'COMPLETED' } },
+            select: { id: true, name: true, status: true }
+        }),
+        prisma.task.findMany({
+            where: { tenantId },
+            select: { status: true }
+        })
+    ]);
+
+    const completedTasks = tasks.filter(t => t.status === 'DONE').length;
+    const completionRate = tasks.length > 0 ? (completedTasks / tasks.length) * 100 : 0;
+
+    return {
+        activeProjectsCount: projects.length,
+        activeProjects: projects.map(p => ({ name: p.name, status: p.status })),
+        overallTaskCompletion: `${completionRate.toFixed(1)}%`,
+        totalTasks: tasks.length
     };
 }
 
@@ -357,16 +439,25 @@ Always format numbers as currency when appropriate. Provide actionable insights 
                 console.log('📤 Sending sanitized messages to Groq:', JSON.stringify(cleanMessages, null, 2));
 
                 // Groq adapter returns slightly different format, we need to adapt it
+                // Enhanced Groq completion logic
                 const result = await groqEngine.generateCompletion(cleanMessages, {
                     temperature: 0.7,
                     maxTokens: 2000,
                 });
 
+                // Standardizing response format and checking for pseudo-function calls in content 
+                // (until the Groq adapter fully supports native tool usage)
                 assistantMessage = {
                     role: 'assistant',
                     content: result.response,
-                    function_call: null // Groq adapter in this codebase might not standardize function calls yet
+                    function_call: null
                 };
+
+                // Simple regex pattern for common AI "thought" about calling tools
+                if (result.response.includes('CALL_FUNCTION:') || result.response.includes('TOOL:')) {
+                    // This is a placeholder for more advanced heuristic parsing
+                    console.log('🔍 Potential function call detected in Groq text response');
+                }
             } catch (error: any) {
                 console.error('Groq failed in chat-agent:', error);
                 // Fallback or throw? User requested NO fallback to offline mode.

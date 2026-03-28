@@ -5,6 +5,8 @@ export type DomainModule =
   | 'real-estate'
   | 'restaurant'
   | 'vehicle-export'
+  | 'hr'
+  | 'projects'
   | 'studio';
 
 export type PolicyCategory =

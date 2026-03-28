@@ -228,11 +228,25 @@ export default function AIChatAssistant() {
             } else if (response.status === 401) {
                 console.error('Unauthorized - please log in');
             } else {
-                const error = await response.json();
-                console.error('Error:', error.error);
+                const errorData = await response.json();
+                console.error('❌ AI Completion Error Payload:', errorData);
+                const assistantErrorMessage: Message = {
+                    id: Date.now().toString(),
+                    role: 'ASSISTANT',
+                    content: `⚠️ Error: ${errorData.details || errorData.error || 'Failed to generate completion.'}\nPlease check your AI provider configuration.`,
+                    createdAt: new Date(),
+                };
+                setMessages((prev) => [...prev, assistantErrorMessage]);
             }
         } catch (error) {
-            console.error('Error sending message:', error);
+            console.error('❌ Error sending message fetch catch:', error);
+            const assistantErrorMessage: Message = {
+                id: Date.now().toString(),
+                role: 'ASSISTANT',
+                content: `⚠️ Connection Error: Failed to reach the AI engine. Ensure the server is running.`,
+                createdAt: new Date(),
+            };
+            setMessages((prev) => [...prev, assistantErrorMessage]);
         } finally {
             setIsLoading(false);
         }

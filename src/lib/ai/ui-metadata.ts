@@ -13,6 +13,8 @@ const MODULE_LABELS: Record<DomainModule, string> = {
   'real-estate': 'Real Estate',
   restaurant: 'Restaurant',
   'vehicle-export': 'Vehicle Export',
+  hr: 'HR',
+  projects: 'Projects',
   studio: 'Studio',
 };
 
