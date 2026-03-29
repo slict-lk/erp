@@ -124,11 +124,19 @@ export function AgentComposer({
                 <SelectItem value="none">No explicit model</SelectItem>
                 {models.map((model) => (
                   <SelectItem key={model.id} value={model.id}>
+                    {model.provider === 'GOOGLE' && '🔮 '}
+                    {model.provider === 'GROQ' && '⚡ '}
+                    {model.provider === 'OLLAMA' && '🦙 '}
                     {model.name} ({model.provider})
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {models.length === 0 && (
+              <p className="text-xs text-slate-500 mt-1">
+                No active models found. Configure models in AI Settings.
+              </p>
+            )}
           </div>
         </div>
         <div className="space-y-2">

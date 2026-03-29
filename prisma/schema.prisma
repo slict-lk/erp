@@ -2344,6 +2344,7 @@ model LanguageModel {
   conversations    ConversationModel[]
   modelUsages      ModelUsage[]
   prompts          PromptTemplate[]
+  lockedForChats   Conversation[]      @relation("ConversationLockedModel")
 
   @@unique([tenantId, modelId, provider])
   @@index([tenantId])
@@ -2375,14 +2376,17 @@ model Conversation {
   tenantId  String
   userId    String
   title     String?
+  modelId   String?
   createdAt DateTime              @default(now())
   updatedAt DateTime              @updatedAt
   user      User                  @relation("UserConversations", fields: [userId], references: [id], onDelete: Cascade)
+  model     LanguageModel?        @relation("ConversationLockedModel", fields: [modelId], references: [id], onDelete: SetNull)
   messages  ConversationMessage[]
   models    ConversationModel[]
 
   @@index([tenantId])
   @@index([userId])
+  @@index([modelId])
 }
 
 model ConversationMessage {

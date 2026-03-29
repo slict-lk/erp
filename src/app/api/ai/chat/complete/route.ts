@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth-options';
 import { prisma } from '@/lib/prisma';
 import { getLocalAIEngine } from '@/lib/ai/local-engine';
 import { getGroqEngine } from '@/lib/ai/groq-engine';
+import { generateGeminiCompletion } from '@/lib/ai/google-engine';
 import { recordModelUsage } from '@/lib/ai/control-plane';
 import { AGENT_FUNCTIONS, executeAgentFunction } from '@/lib/ai/chat-agent';
 
@@ -70,18 +71,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const configuredModel = await prisma.languageModel.findFirst({
-      where: {
-        tenantId,
-        isActive: true,
-      },
-      orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
-      select: {
-        id: true,
-        provider: true,
-        modelId: true,
-      },
-    });
+    const targetModelId = conversation.modelId || body.modelId;
+
+    const configuredModel = targetModelId
+      ? await prisma.languageModel.findFirst({
+          where: { tenantId, id: targetModelId, isActive: true },
+          select: {
+            id: true,
+            provider: true,
+            modelId: true,
+            apiKey: true,
+            apiEndpoint: true,
+          },
+        })
+      : await prisma.languageModel.findFirst({
+          where: { tenantId, isActive: true },
+          orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
+          select: {
+            id: true,
+            provider: true,
+            modelId: true,
+            apiKey: true,
+            apiEndpoint: true,
+          },
+        });
 
     // Build message history for context
     const chatMessages = [
@@ -111,6 +124,34 @@ export async function POST(request: NextRequest) {
     const groqApiKey = process.env.GROQ_API_KEY;
     const preferredProvider = configuredModel?.provider || null;
     const shouldUseGroq = preferredProvider ? preferredProvider === 'GROQ' : Boolean(groqApiKey);
+
+    // ── Google Gemini path ──
+    if (preferredProvider === 'GOOGLE' && configuredModel?.apiKey) {
+      try {
+        console.log('🔮 Using Google Gemini engine for chat completion');
+        engineUsed = 'google-gemini';
+
+        const geminiResponse = await generateGeminiCompletion(chatMessages, {
+          apiKey: configuredModel.apiKey,
+          model: configuredModel.modelId || undefined,
+          temperature: 0.7,
+          maxTokens: 2000,
+        });
+
+        completionResponse = geminiResponse.response;
+        usedProvider = 'GOOGLE';
+        usedModelId = geminiResponse.model;
+        totalTokens = geminiResponse.tokens || 0;
+        console.log('✅ Gemini response received successfully');
+      } catch (error: any) {
+        console.error('❌ Gemini Execution Failed:', error);
+        // Instead of falling back silently, tell the user the explicit error
+        completionResponse = `⚠️ Gemini API Error: ${error.message || error.toString()}`;
+        usedProvider = 'GOOGLE';
+        usedModelId = configuredModel?.modelId || 'gemini';
+        totalTokens = 0;
+      }
+    }
 
     if (preferredProvider === 'GROQ' && !groqApiKey) {
       console.warn(`Configured provider is GROQ but GROQ_API_KEY is missing. Tenant: ${tenantId}, model: ${configuredModel?.id}. Falling back to Ollama.`);

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireTenantContext } from '@/lib/server/erp-context';
 import { z } from 'zod';
+import { publishModuleMutationEvent } from '@/lib/ai/module-events';
+import { evaluatePolicyDecision, getTenantAIConfig, saveTenantAIConfig, logControlPlaneEvent } from '@/lib/ai/control-plane';
+import type { ApprovalItem } from '@/lib/ai/control-plane-types';
 
 const client = prisma as any;
 export const dynamic = 'force-dynamic';
@@ -99,7 +102,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { tenantId } = await requireTenantContext({ moduleId: 'sales', action: 'create' });
+    const { tenantId, user } = await requireTenantContext({ moduleId: 'sales', action: 'create' });
     const body = await request.json();
     const parsed = oppCreateSchema.parse(body);
 
@@ -108,16 +111,14 @@ export async function POST(request: NextRequest) {
         name: parsed.name,
         description: parsed.description ?? null,
         amount: Number(parsed.amount ?? parsed.expectedRevenue ?? 0),
-        expectedRevenue: parsed.expectedRevenue != null ? Number(parsed.expectedRevenue) : Number(parsed.amount ?? 0),
         probability: Number(parsed.probability ?? 50),
         stage: mapStage(parsed.stage) || 'QUALIFICATION',
         closeDate: parsed.closeDate ? new Date(parsed.closeDate) : (parsed.expectedCloseDate ? new Date(parsed.expectedCloseDate) : null),
-        expectedCloseDate: parsed.expectedCloseDate ? new Date(parsed.expectedCloseDate) : (parsed.closeDate ? new Date(parsed.closeDate) : null),
-        customerId: parsed.customerId ?? null,
-        leadId: parsed.leadId ?? null,
+        customerId: parsed.customerId || null,
+        leadId: parsed.leadId || null,
         tenantId,
-        ownerUserId: parsed.ownerUserId ?? null,
-        branchId: parsed.branchId ?? null,
+        ownerUserId: parsed.ownerUserId || null,
+        branchId: parsed.branchId || null,
       },
       include: {
         customer: true,
@@ -125,13 +126,111 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // --- Direct approval creation for high-value opportunities ---
+    const opportunityAmount = opportunity.amount ? Number(opportunity.amount) : 0;
+    try {
+      // 1. Always publish the domain event for audit trail
+      await publishModuleMutationEvent({
+        tenantId,
+        module: 'crm',
+        entity: 'opportunity',
+        event: 'created',
+        actorId: user.id,
+        payload: {
+          opportunityId: opportunity.id,
+          name: opportunity.name,
+          status: opportunity.stage,
+          amount: opportunityAmount,
+          currency: 'USD',
+          customerId: opportunity.customerId || null,
+          customerName: opportunity.customer?.name || 'N/A',
+        },
+      });
+
+      // 2. Directly evaluate policy and create approval if needed
+      const decision = evaluatePolicyDecision({
+        category: 'financial',
+        amount: opportunityAmount,
+      });
+
+      if (decision.requiresApproval) {
+        const config = await getTenantAIConfig(tenantId);
+        const approvalItem: ApprovalItem = {
+          id: `approval-${crypto.randomUUID()}`,
+          tenantId,
+          module: 'crm',
+          title: `High-Value Opportunity: ${opportunity.name}`,
+          summary: `A new opportunity worth $${opportunityAmount.toLocaleString()} requires approval (risk score: ${decision.riskScore}).`,
+          requestedBy: user.id,
+          riskScore: decision.riskScore,
+          actionCategory: 'financial',
+          status: 'PENDING',
+          createdAt: new Date().toISOString(),
+          dueAt: new Date(Date.now() + 1000 * 60 * 120).toISOString(), // 2 hours
+          correlationId: `corr-opp-${opportunity.id}`,
+          payload: {
+            opportunityId: opportunity.id,
+            name: opportunity.name,
+            amount: opportunityAmount,
+            stage: opportunity.stage,
+            customerId: opportunity.customerId,
+            customerName: opportunity.customer?.name || 'N/A',
+          },
+          assignedRole: 'AI_ADMIN',
+          assignmentChain: ['AI_ADMIN', 'APPROVER'],
+          escalationLevel: 0,
+          notifications: [{
+            id: `note-${crypto.randomUUID()}`,
+            type: 'created',
+            sentAt: new Date().toISOString(),
+            recipient: 'AI_ADMIN',
+            channel: 'in-app',
+            summary: `Opportunity "${opportunity.name}" ($${opportunityAmount.toLocaleString()}) queued for approval`,
+          }],
+          escalationHistory: [],
+          executionRequest: {
+            module: 'crm',
+            action: 'follow_up_task',
+            input: {
+              title: `Review high-value opportunity: ${opportunity.name}`,
+              description: `This opportunity is worth $${opportunityAmount.toLocaleString()} and was flagged for review. Created by AI governance policy.`,
+              priority: 'HIGH',
+              opportunityId: opportunity.id,
+            },
+            requestedByUserId: user.id,
+          },
+        };
+
+        await saveTenantAIConfig(tenantId, {
+          ...config,
+          pendingApprovals: [approvalItem, ...config.pendingApprovals],
+        });
+
+        await logControlPlaneEvent({
+          tenantId,
+          integration: 'ai-approval',
+          action: 'crm.opportunity.created',
+          status: 'PENDING',
+          requestData: { approvalId: approvalItem.id, riskScore: decision.riskScore, amount: opportunityAmount },
+        });
+
+        console.log(`✅ Created approval item ${approvalItem.id} for opportunity ${opportunity.name} ($${opportunityAmount})`);
+      }
+    } catch (publishError) {
+      console.error('Failed to process opportunity AI automation:', publishError);
+    }
+
     return NextResponse.json({ data: normalizeOpportunity(opportunity) }, { status: 201 });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
     }
-    const status = error?.message?.includes('Forbidden') ? 403 : 500;
+    const message = error instanceof Error ? error.message : String(error);
+    const status = message.includes('Forbidden') ? 403 : 500;
     console.error('Error creating opportunity:', error);
-    return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to create opportunity' }, { status });
+    return NextResponse.json(
+      { error: status === 403 ? 'Forbidden' : 'Failed to create opportunity', debug: message }, 
+      { status }
+    );
   }
 }

@@ -76,7 +76,7 @@ async function getTenantSettingsRecord(tenantId: string) {
   );
 }
 
-async function saveTenantAIConfig(tenantId: string, config: TenantAIConfig) {
+export async function saveTenantAIConfig(tenantId: string, config: TenantAIConfig) {
   const existing = await getTenantSettingsRecord(tenantId);
   const rawSettings = (existing?.settings as Record<string, unknown> | null) || {};
   const nextSettings = {

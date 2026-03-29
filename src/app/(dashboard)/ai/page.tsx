@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { AIActionLink, AIEmptyState, AIPageShell, AISectionCard, AIStatGrid, AIStatusBadge } from '@/components/ai/ai-primitives';
 import { AIOnboardingChecklist } from '@/components/ai/ai-onboarding-checklist';
+import { DemoSimulationButton } from '@/components/ai/demo-simulation-button';
 import { Button } from '@/components/ui/button';
 import { getCommandCenterData } from '@/lib/ai/control-plane';
 import { requireAIAccess } from '@/lib/ai/governance';
@@ -102,33 +103,37 @@ export default async function AIOverviewPage() {
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <AIOnboardingChecklist items={onboardingItems} />
 
-        <AISectionCard
-          title="What this workspace does"
-          description="Plain-language guide for the current user's focus."
-        >
-          <div className="space-y-4">
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-sm font-semibold text-slate-900">Primary focus</p>
-              <p className="mt-2 text-sm text-slate-600">
-                {data.roleFocus.description}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-sm font-semibold text-slate-900">What to do next</p>
-              <div className="mt-3 space-y-2 text-sm text-slate-600">
-                <p>1. Complete the checklist if setup is incomplete.</p>
-                <p>2. Open Tasks to clear pending approvals or failed automations.</p>
-                <p>3. Open Assistants to confirm each module has usable guided help.</p>
+        <div className="space-y-6">
+          <DemoSimulationButton />
+
+          <AISectionCard
+            title="What this workspace does"
+            description="Plain-language guide for the current user's focus."
+          >
+            <div className="space-y-4">
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-900">Primary focus</p>
+                <p className="mt-2 text-sm text-slate-600">
+                  {data.roleFocus.description}
+                </p>
               </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-900">What to do next</p>
+                <div className="mt-3 space-y-2 text-sm text-slate-600">
+                  <p>1. Complete the checklist if setup is incomplete.</p>
+                  <p>2. Open Tasks to clear pending approvals or failed automations.</p>
+                  <p>3. Open Assistants to confirm each module has usable guided help.</p>
+                </div>
+              </div>
+              <Button asChild variant="outline" className="justify-between">
+                <Link href="/ai/tasks">
+                  Open the task view
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
             </div>
-            <Button asChild variant="outline" className="justify-between">
-              <Link href="/ai/tasks">
-                Open the task view
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-        </AISectionCard>
+          </AISectionCard>
+        </div>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">

@@ -22,9 +22,11 @@ import {
     Menu,
     ChevronRight,
     RefreshCw,
+    Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
 
@@ -39,6 +41,7 @@ interface Message {
 interface Conversation {
     id: string;
     title?: string;
+    modelId?: string;
     messages: Message[];
     createdAt: Date | string;
     updatedAt: Date | string;
@@ -56,6 +59,8 @@ export default function AIChatAssistant() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [availableModels, setAvailableModels] = useState<any[]>([]);
+    const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -65,10 +70,11 @@ export default function AIChatAssistant() {
     const sessionLoading = !session && typeof session === 'undefined';
 
     useEffect(() => {
-        if (isOpen && conversations.length === 0 && tenantId && !sessionLoading) {
-            fetchConversations();
+        if (isOpen && tenantId && !sessionLoading) {
+            if (conversations.length === 0) fetchConversations();
+            if (availableModels.length === 0) fetchModels();
         }
-    }, [isOpen, conversations.length, tenantId, sessionLoading]);
+    }, [isOpen, conversations.length, availableModels.length, tenantId, sessionLoading]);
 
     useEffect(() => {
         scrollToBottom();
@@ -92,6 +98,22 @@ export default function AIChatAssistant() {
 
     const deleteMessage = (id: string) => {
         setMessages(messages.filter(m => m.id !== id));
+    };
+
+    const fetchModels = async () => {
+        if (!tenantId) return;
+        try {
+            const response = await fetch(`/api/ai/chat/models`);
+            if (response.ok) {
+                const data = await response.json();
+                setAvailableModels(data);
+                if (data.length > 0 && !selectedModelId) {
+                    setSelectedModelId(data[0].id);
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching models:', error);
+        }
     };
 
     const fetchConversations = async () => {
@@ -124,6 +146,9 @@ export default function AIChatAssistant() {
                 const data = await response.json();
                 setCurrentConversation(data);
                 setMessages(data.messages);
+                if (data.modelId) {
+                    setSelectedModelId(data.modelId);
+                }
             }
         } catch (error) {
             console.error('Error fetching conversation:', error);
@@ -142,6 +167,7 @@ export default function AIChatAssistant() {
                 body: JSON.stringify({
                     tenantId,
                     message,
+                    modelId: selectedModelId,
                 }),
             });
 
@@ -212,6 +238,7 @@ export default function AIChatAssistant() {
                     conversationId: currentConversation.id,
                     message,
                     tenantId,
+                    modelId: selectedModelId,
                 }),
             });
 
@@ -335,6 +362,32 @@ export default function AIChatAssistant() {
                                         </div>
                                     </div>
                                 </div>
+                                {availableModels.length > 0 && (
+                                    <div className="hidden md:flex items-center mx-4 flex-1 justify-end px-4">
+                                        <Select
+                                            value={selectedModelId || undefined}
+                                            onValueChange={setSelectedModelId}
+                                            disabled={!!currentConversation}
+                                        >
+                                            <SelectTrigger className="h-8 bg-white/10 border-white/20 text-white min-w-[160px] max-w-[220px] text-xs font-medium focus:ring-0 focus:ring-offset-0">
+                                                <div className="flex items-center gap-1.5 truncate">
+                                                    {!!currentConversation && <Lock className="h-3 w-3 opacity-70" />}
+                                                    <SelectValue placeholder="Select Model" />
+                                                </div>
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {availableModels.map(model => (
+                                                    <SelectItem key={model.id} value={model.id} className="text-xs font-medium flex items-center gap-2">
+                                                        {model.provider === 'GOOGLE' && '🔮 '}
+                                                        {model.provider === 'GROQ' && '⚡ '}
+                                                        {model.provider === 'OLLAMA' && '🦙 '}
+                                                        {model.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
                                 <div className="flex items-center gap-1.5">
                                     <Button
                                         variant="ghost"

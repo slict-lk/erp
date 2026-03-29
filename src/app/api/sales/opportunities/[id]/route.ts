@@ -88,18 +88,16 @@ export async function PUT(
         ...(validatedBody.amount !== undefined && { amount: Number(validatedBody.amount) }),
         ...(validatedBody.expectedRevenue !== undefined && {
           amount: Number(validatedBody.expectedRevenue),
-          expectedRevenue: Number(validatedBody.expectedRevenue),
         }),
         ...(validatedBody.probability !== undefined && { probability: Number(validatedBody.probability) }),
         ...(validatedBody.stage !== undefined && { stage: String(validatedBody.stage).toUpperCase() }),
         ...(validatedBody.expectedCloseDate !== undefined && {
-          expectedCloseDate: validatedBody.expectedCloseDate ? new Date(validatedBody.expectedCloseDate) : null,
           closeDate: validatedBody.expectedCloseDate ? new Date(validatedBody.expectedCloseDate) : null,
         }),
-        ...(validatedBody.customerId !== undefined && { customerId: validatedBody.customerId }),
-        ...(validatedBody.leadId !== undefined && { leadId: validatedBody.leadId }),
-        ...(validatedBody.ownerUserId !== undefined && { ownerUserId: validatedBody.ownerUserId }),
-        ...(validatedBody.branchId !== undefined && { branchId: validatedBody.branchId }),
+        ...(validatedBody.customerId !== undefined && { customerId: validatedBody.customerId || null }),
+        ...(validatedBody.leadId !== undefined && { leadId: validatedBody.leadId || null }),
+        ...(validatedBody.ownerUserId !== undefined && { ownerUserId: validatedBody.ownerUserId || null }),
+        ...(validatedBody.branchId !== undefined && { branchId: validatedBody.branchId || null }),
       },
     });
 

@@ -274,6 +274,11 @@ export async function POST(request: NextRequest) {
           number: invoice.number,
           status: invoice.status,
           total: Number(invoice.total || 0),
+          amountDue: Number(invoice.amountDue || 0),
+          customerId: invoice.customerId || 'real-customer-id',
+          customerName: 'A Real Customer',
+          dueDate: invoice.dueDate ? invoice.dueDate.toISOString() : new Date().toISOString(),
+          currency: invoice.currencyCode || 'LKR',
         },
       });
     } catch (publishError) {

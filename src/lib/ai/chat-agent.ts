@@ -389,7 +389,8 @@ export async function processUserMessage(
     message: string,
     conversationHistory: ChatMessage[],
     tenantId: string,
-    maxIterations: number = 3
+    maxIterations: number = 3,
+    requestedModelId?: string
 ): Promise<{ response: string; functionCalls?: any[] }> {
     const messages: ChatMessage[] = [
         {
@@ -418,12 +419,58 @@ Always format numbers as currency when appropriate. Provide actionable insights 
     while (iterations < maxIterations) {
         iterations++;
 
-        // Check for Groq FIRST
-        const groqApiKey = process.env.GROQ_API_KEY;
-        let assistantMessage: any;
+        // Check for tenant-configured default model (Google, Groq, etc.)
+        let assistantMessage: any = null;
         let finishReason = 'stop';
 
-        if (groqApiKey) {
+        const configuredModel = requestedModelId
+            ? await prisma.languageModel.findFirst({
+                where: { tenantId, id: requestedModelId, isActive: true },
+                select: { provider: true, modelId: true, apiKey: true },
+            })
+            : await prisma.languageModel.findFirst({
+                where: { tenantId, isActive: true },
+                orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
+                select: { provider: true, modelId: true, apiKey: true },
+            });
+
+        const provider = configuredModel?.provider || null;
+
+        // ── Google Gemini path ──
+        if (provider === 'GOOGLE' && configuredModel?.apiKey) {
+            try {
+                const { generateGeminiCompletion } = require('./google-engine');
+                const cleanMessages = messages.map(m => ({
+                    role: m.role.toLowerCase() as 'user' | 'assistant' | 'system',
+                    content: m.content || ''
+                }));
+
+                const result = await generateGeminiCompletion(cleanMessages, {
+                    apiKey: configuredModel.apiKey,
+                    model: configuredModel.modelId || undefined,
+                    temperature: 0.7,
+                    maxTokens: 2000,
+                });
+
+                assistantMessage = {
+                    role: 'assistant',
+                    content: result.response,
+                    function_call: null
+                };
+            } catch (error: any) {
+                console.error('Gemini failed in chat-agent, returning explicit error:', error);
+                // Return explicit error
+                assistantMessage = {
+                    role: 'assistant',
+                    content: `⚠️ Gemini API Error: ${error.message || error.toString()}`,
+                    function_call: null
+                };
+            }
+        }
+
+        // ── Groq path ──
+        const groqApiKey = process.env.GROQ_API_KEY;
+        if (!assistantMessage && groqApiKey) {
             try {
                 const { getGroqEngine } = require('./groq-engine');
                 const groqEngine = getGroqEngine();
@@ -438,15 +485,11 @@ Always format numbers as currency when appropriate. Provide actionable insights 
 
                 console.log('📤 Sending sanitized messages to Groq:', JSON.stringify(cleanMessages, null, 2));
 
-                // Groq adapter returns slightly different format, we need to adapt it
-                // Enhanced Groq completion logic
                 const result = await groqEngine.generateCompletion(cleanMessages, {
                     temperature: 0.7,
                     maxTokens: 2000,
                 });
 
-                // Standardizing response format and checking for pseudo-function calls in content 
-                // (until the Groq adapter fully supports native tool usage)
                 assistantMessage = {
                     role: 'assistant',
                     content: result.response,
@@ -455,23 +498,32 @@ Always format numbers as currency when appropriate. Provide actionable insights 
 
                 // Simple regex pattern for common AI "thought" about calling tools
                 if (result.response.includes('CALL_FUNCTION:') || result.response.includes('TOOL:')) {
-                    // This is a placeholder for more advanced heuristic parsing
                     console.log('🔍 Potential function call detected in Groq text response');
                 }
             } catch (error: any) {
                 console.error('Groq failed in chat-agent:', error);
-                // Fallback or throw? User requested NO fallback to offline mode.
-                throw new Error(`Groq failed: ${error.message || String(error)}`);
+                // Fall through to Ollama below
             }
-        } else {
-            // Default to Ollama
-            const completion = await generateChatCompletion(messages, {
-                functions: AGENT_FUNCTIONS,
-                functionCall: 'auto',
-            });
-            const choice = completion.choices[0];
-            finishReason = choice.finish_reason;
-            assistantMessage = choice.message;
+        }
+
+        // ── Ollama fallback ──
+        if (!assistantMessage) {
+            try {
+                const completion = await generateChatCompletion(messages, {
+                    functions: AGENT_FUNCTIONS,
+                    functionCall: 'auto',
+                });
+                const choice = completion.choices[0];
+                finishReason = choice.finish_reason;
+                assistantMessage = choice.message;
+            } catch (ollamaError: any) {
+                console.error('Ollama fallback failed:', ollamaError);
+                assistantMessage = {
+                    role: 'assistant',
+                    content: `⚠️ Ollama is not running. To use the Local Ollama model, please start Ollama on your machine (http://localhost:11434).\n\nAlternatively, switch to a cloud model (Gemini or Groq) using the model selector in the chat header.`,
+                    function_call: null,
+                };
+            }
         }
 
         if (finishReason === 'function_call' && assistantMessage.function_call) {

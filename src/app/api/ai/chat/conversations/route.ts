@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        let { tenantId, message } = body as { tenantId?: string; message?: string };
+        let { tenantId, message, modelId } = body as { tenantId?: string; message?: string; modelId?: string };
 
         // Prefer tenantId from the authenticated session if available
         // This prevents clients from spoofing tenantId and causing foreign key errors.
@@ -134,6 +134,7 @@ export async function POST(request: NextRequest) {
             data: {
                 userId: session.user.id,
                 tenantId,
+                modelId: modelId || null,
                 title: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
                 messages: {
                     create: [
@@ -151,7 +152,7 @@ export async function POST(request: NextRequest) {
         });
 
         // Process the message with AI
-        const aiResponse = await processUserMessage(message, [], tenantId);
+        const aiResponse = await processUserMessage(message, [], tenantId, 3, modelId || undefined);
 
         // Add AI response to conversation
         await prisma.conversationMessage.create({
