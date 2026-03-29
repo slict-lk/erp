@@ -441,8 +441,10 @@ Always format numbers as currency when appropriate. Provide actionable insights 
             try {
                 const { generateGeminiCompletion } = require('./google-engine');
                 const cleanMessages = messages.map(m => ({
-                    role: m.role.toLowerCase() as 'user' | 'assistant' | 'system',
-                    content: m.content || ''
+                    role: m.role.toLowerCase() as any,
+                    content: m.content || '',
+                    name: (m as any).name,
+                    function_call: (m as any).function_call
                 }));
 
                 const result = await generateGeminiCompletion(cleanMessages, {
@@ -450,16 +452,25 @@ Always format numbers as currency when appropriate. Provide actionable insights 
                     model: configuredModel.modelId || undefined,
                     temperature: 0.7,
                     maxTokens: 2000,
+                    tools: AGENT_FUNCTIONS
                 });
 
-                assistantMessage = {
-                    role: 'assistant',
-                    content: result.response,
-                    function_call: null
-                };
+                if (result.function_call) {
+                    finishReason = 'function_call';
+                    assistantMessage = {
+                        role: 'assistant',
+                        content: '',
+                        function_call: result.function_call
+                    };
+                } else {
+                    assistantMessage = {
+                        role: 'assistant',
+                        content: result.response,
+                        function_call: null
+                    };
+                }
             } catch (error: any) {
                 console.error('Gemini failed in chat-agent, returning explicit error:', error);
-                // Return explicit error
                 assistantMessage = {
                     role: 'assistant',
                     content: `⚠️ Gemini API Error: ${error.message || error.toString()}`,

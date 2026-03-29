@@ -23,6 +23,8 @@ import {
     ChevronRight,
     RefreshCw,
     Lock,
+    Maximize2,
+    Minimize2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -54,6 +56,7 @@ export default function AIChatAssistant() {
     // Let's rely on standard state but user requests optimization.
     // Better to default sidebarOpen to false so mobile users see chat immediately.
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [isFullScreen, setIsFullScreen] = useState(false);
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
@@ -342,7 +345,12 @@ export default function AIChatAssistant() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 50, scale: 0.95 }}
                         transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                        className="fixed inset-0 md:inset-auto md:bottom-6 md:right-6 z-50 w-full h-[100dvh] md:w-[600px] lg:w-[750px] md:h-[80vh] md:max-h-[750px] flex flex-col md:rounded-3xl shadow-2xl bg-white/95 backdrop-blur-xl border-none md:border md:border-white/20 overflow-hidden ring-0 md:ring-1 md:ring-black/5"
+                        className={cn(
+                            "fixed z-50 flex flex-col shadow-2xl bg-white/95 backdrop-blur-xl overflow-hidden ring-0 transition-all duration-300",
+                            isFullScreen 
+                                ? "inset-0 w-full h-[100dvh] rounded-none border-none md:ring-0" 
+                                : "inset-0 md:inset-auto md:bottom-6 md:right-6 w-full h-[100dvh] md:w-[600px] lg:w-[750px] md:h-[80vh] md:max-h-[750px] md:rounded-3xl border-none md:border md:border-white/20 md:ring-1 md:ring-black/5"
+                        )}
                     >
                         {/* Header */}
                         <div className="bg-gradient-to-r from-violet-600/95 to-indigo-600/95 backdrop-blur-md p-4 text-white shadow-sm shrink-0 z-10">
@@ -406,6 +414,15 @@ export default function AIChatAssistant() {
                                         title={sidebarOpen ? "Close Sidebar" : "Open Sidebar"}
                                     >
                                         <Menu className="h-5 w-5" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-white hover:bg-white/20 rounded-full transition-colors hidden md:flex"
+                                        onClick={() => setIsFullScreen(!isFullScreen)}
+                                        title={isFullScreen ? "Exit Full Screen" : "Full Screen"}
+                                    >
+                                        {isFullScreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                                     </Button>
                                     <Button
                                         variant="ghost"

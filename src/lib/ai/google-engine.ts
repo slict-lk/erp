@@ -4,8 +4,14 @@
  */
 
 export interface GeminiChatMessage {
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant' | 'system' | 'function';
   content: string;
+  name?: string;
+  function_call?: {
+    name: string;
+    arguments: string;
+    original_parts?: any[];
+  };
 }
 
 /**
@@ -18,13 +24,19 @@ export async function generateGeminiCompletion(
     model?: string;
     temperature?: number;
     maxTokens?: number;
+    tools?: any[];
   }
 ): Promise<{
   response: string;
   tokens: number;
   model: string;
+  function_call?: {
+    name: string;
+    arguments: string;
+    original_parts?: any[];
+  };
 }> {
-  const modelId = options.model || 'gemini-2.5-flash';
+  const modelId = options.model || 'gemini-1.5-flash';
 
   // Separate system instruction from conversation messages
   const systemMessages = messages.filter((m) => m.role === 'system');
@@ -34,10 +46,37 @@ export async function generateGeminiCompletion(
   const systemInstruction = systemMessages.map((m) => m.content).join('\n');
 
   // Build the contents array for Gemini
-  const contents = conversationMessages.map((m) => ({
-    role: m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content }],
-  }));
+  const contents = conversationMessages.map((m) => {
+    const parts: any[] = [];
+    
+    if (m.role === 'function') {
+      parts.push({
+        functionResponse: {
+          name: m.name,
+          response: { content: m.content }
+        }
+      });
+    } else if (m.function_call) {
+      if (m.function_call.original_parts && m.function_call.original_parts.length > 0) {
+        // Essential for Gemini 3: Preserve thought_signature and thought parts completely
+        parts.push(...m.function_call.original_parts);
+      } else {
+        parts.push({
+          functionCall: {
+            name: m.function_call.name,
+            args: JSON.parse(m.function_call.arguments || '{}')
+          }
+        });
+      }
+    } else {
+      parts.push({ text: m.content });
+    }
+
+    return {
+      role: m.role === 'assistant' || m.role === 'function' ? 'model' : 'user',
+      parts,
+    };
+  });
 
   // Ensure the conversation starts with a user message (Gemini requirement)
   if (contents.length === 0 || contents[0].role !== 'user') {
@@ -65,6 +104,17 @@ export async function generateGeminiCompletion(
     };
   }
 
+  // Add tools if provided
+  if (options.tools && options.tools.length > 0) {
+    requestBody.tools = [{
+      function_declarations: options.tools.map(tool => ({
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters
+      }))
+    }];
+  }
+
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${options.apiKey}`;
 
   const fetchResponse = await fetch(url, {
@@ -85,10 +135,26 @@ export async function generateGeminiCompletion(
   const data = await fetchResponse.json();
 
   // Extract text from response
-  const text =
-    data.candidates?.[0]?.content?.parts
+  const firstCandidate = data.candidates?.[0];
+  const firstPart = firstCandidate?.content?.parts?.[0];
+  
+  let text = '';
+  let function_call: any = undefined;
+
+  // Search for a functionCall part in case it's not the first one (e.g. after a thought part)
+  const functionCallPart = firstCandidate?.content?.parts?.find((p: any) => p.functionCall);
+
+  if (functionCallPart) {
+    function_call = {
+      name: functionCallPart.functionCall.name,
+      arguments: JSON.stringify(functionCallPart.functionCall.args || {}),
+      original_parts: firstCandidate?.content?.parts // Preserve ALL parts (including thought_signature)
+    };
+  } else {
+    text = firstCandidate?.content?.parts
       ?.map((p: any) => p.text || '')
       .join('') || '';
+  }
 
   // Extract token usage
   const usageMetadata = data.usageMetadata;
@@ -104,5 +170,6 @@ export async function generateGeminiCompletion(
     response: text,
     tokens: totalTokens,
     model: modelId,
+    function_call
   };
 }
