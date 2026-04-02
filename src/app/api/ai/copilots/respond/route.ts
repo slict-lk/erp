@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       .filter(Boolean)
       .join('\n');
 
-    const result = await processUserMessage(prompt, [], tenantId, 2);
+    const result = await processUserMessage(prompt, [], tenantId, session.user.id, 2);
 
     await logControlPlaneEvent({
       tenantId,

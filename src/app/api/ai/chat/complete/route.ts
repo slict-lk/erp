@@ -6,7 +6,7 @@ import { getLocalAIEngine } from '@/lib/ai/local-engine';
 import { getGroqEngine } from '@/lib/ai/groq-engine';
 import { generateGeminiCompletion } from '@/lib/ai/google-engine';
 import { recordModelUsage } from '@/lib/ai/control-plane';
-import { AGENT_FUNCTIONS, executeAgentFunction } from '@/lib/ai/chat-agent';
+import { AGENT_FUNCTIONS, executeAgentFunction, processUserMessage } from '@/lib/ai/chat-agent';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -112,140 +112,21 @@ export async function POST(request: NextRequest) {
       },
     ];
 
-    // Try Groq first (recommended, free with API key)
-    let completionResponse: string = '';
-    let engineUsed = 'unknown';
-    let functionCall = null;
-    let usedProvider: string | null = null;
-    let usedModelId: string | null = null;
-    let totalTokens = 0;
+    // Process message using the centralized agent logic (handles Gemini, Groq, and Ollama with tool calling)
+    const { response: completionResponse, functionCalls } = await processUserMessage(
+      message,
+      conversation.messages.map(msg => ({
+        role: msg.role.toLowerCase() as any,
+        content: msg.content
+      })),
+      tenantId,
+      session.user.id,
+      3, // max iterations
+      targetModelId
+    );
 
-    // Check if Groq API key is configured
-    const groqApiKey = process.env.GROQ_API_KEY;
-    const preferredProvider = configuredModel?.provider || null;
-    const shouldUseGroq = preferredProvider ? preferredProvider === 'GROQ' : Boolean(groqApiKey);
-
-    // ── Google Gemini path ──
-    if (preferredProvider === 'GOOGLE' && configuredModel?.apiKey) {
-      try {
-        console.log('🔮 Using Google Gemini engine for chat completion');
-        engineUsed = 'google-gemini';
-
-        const geminiResponse = await generateGeminiCompletion(chatMessages, {
-          apiKey: configuredModel.apiKey,
-          model: configuredModel.modelId || undefined,
-          temperature: 0.7,
-          maxTokens: 2000,
-        });
-
-        completionResponse = geminiResponse.response;
-        usedProvider = 'GOOGLE';
-        usedModelId = geminiResponse.model;
-        totalTokens = geminiResponse.tokens || 0;
-        console.log('✅ Gemini response received successfully');
-      } catch (error: any) {
-        console.error('❌ Gemini Execution Failed:', error);
-        // Instead of falling back silently, tell the user the explicit error
-        completionResponse = `⚠️ Gemini API Error: ${error.message || error.toString()}`;
-        usedProvider = 'GOOGLE';
-        usedModelId = configuredModel?.modelId || 'gemini';
-        totalTokens = 0;
-      }
-    }
-
-    if (preferredProvider === 'GROQ' && !groqApiKey) {
-      console.warn(`Configured provider is GROQ but GROQ_API_KEY is missing. Tenant: ${tenantId}, model: ${configuredModel?.id}. Falling back to Ollama.`);
-    }
-
-    console.log('🔍 Checking Groq configuration:', {
-      hasApiKey: !!groqApiKey,
-      apiKeyLength: groqApiKey?.length || 0,
-      model: process.env.GROQ_MODEL,
-      timestamp: new Date().toISOString(),
-    });
-
-    if (shouldUseGroq && groqApiKey) {
-      try {
-        console.log('🔒 Groq API Key found (length: ' + groqApiKey.length + ')');
-        const groqEngine = getGroqEngine();
-        console.log('🚀 Initializing Groq engine...');
-        // Relaxed initialization: try to use it even if ping fails, as it might just be a timeout
-        await groqEngine.initialize();
-
-        const status = groqEngine.getStatus();
-        console.log('✅ Groq status:', JSON.stringify(status));
-
-        // Force availability if we have a key, even if strict check failed
-        if (!status.available) {
-          console.warn('⚠️ Groq reported unavailable, but key is present. Attempting to force execution.');
-        }
-
-        console.log('✅ Using Groq engine for chat completion');
-        engineUsed = 'groq';
-
-        const groqResponse = await groqEngine.generateCompletion(chatMessages, {
-          model: preferredProvider === 'GROQ' ? configuredModel?.modelId : undefined,
-          temperature: 0.7,
-          maxTokens: 2000,
-        });
-
-        completionResponse = groqResponse.response;
-        usedProvider = 'GROQ';
-        usedModelId = groqResponse.model;
-        totalTokens = groqResponse.tokens || 0;
-        console.log('✅ Groq response received successfully');
-      } catch (error: any) {
-        console.error('❌ Groq Execution Failed, falling back to Ollama:', error);
-      }
-    }
-
-    if (!usedProvider) {
-      console.log('⚠️ Using Ollama fallback');
-      engineUsed = 'ollama-local';
-
-      // Fallback to local AI engine
-      const engine = getLocalAIEngine();
-
-      // Generate completion with local AI
-      const completion = await engine.generateCompletion(chatMessages, {
-        model:
-          preferredProvider === 'OLLAMA'
-            ? configuredModel?.modelId
-            : process.env.OLLAMA_MODEL || 'llama2',
-        temperature: 0.7,
-        maxTokens: 2000,
-        functions: AGENT_FUNCTIONS,
-        functionCall: 'auto',
-      });
-
-      completionResponse = completion.response;
-      functionCall = completion.functionCall || null;
-      usedProvider = 'OLLAMA';
-      usedModelId =
-        preferredProvider === 'OLLAMA'
-          ? configuredModel?.modelId || process.env.OLLAMA_MODEL || 'llama2'
-          : process.env.OLLAMA_MODEL || 'llama2';
-
-      // Estimate tokens for Ollama (rough approximation: ~4 chars per token)
-      const totalChars = chatMessages.reduce((sum, m) => sum + (m.content?.length || 0), 0) + (completionResponse?.length || 0);
-      totalTokens = Math.ceil(totalChars / 4);
-    }
-
-    // Check if response contains a function call (for Ollama)
-    let functionResult = null;
-
-    if (functionCall) {
-      try {
-        functionResult = await executeAgentFunction(
-          functionCall.name,
-          functionCall.arguments,
-          tenantId
-        );
-      } catch (error) {
-        console.error('Function execution error:', error);
-        functionResult = { error: 'Failed to execute function' };
-      }
-    }
+    const mainFunctionCall = functionCalls && functionCalls.length > 0 ? functionCalls[0] : null;
+    const functionResult = mainFunctionCall ? mainFunctionCall.result : null;
 
     // Save assistant message to database
     const assistantMessage = await prisma.conversationMessage.create({
@@ -253,7 +134,7 @@ export async function POST(request: NextRequest) {
         conversationId,
         role: 'ASSISTANT',
         content: completionResponse,
-        functionCalls: functionCall ? [functionCall] : undefined,
+        functionCalls: functionCalls ? functionCalls as any : undefined,
         tenantId,
       },
     });
@@ -268,16 +149,13 @@ export async function POST(request: NextRequest) {
       await recordModelUsage({
         tenantId,
         modelId: configuredModel?.id || null,
-        provider: usedProvider,
-        providerModelId: usedModelId,
+        provider: configuredModel?.provider || 'OLLAMA',
+        providerModelId: configuredModel?.modelId || 'local',
         conversationId,
         userId: session.user.id,
         operation: 'chat_completion',
-        totalTokens,
+        totalTokens: Math.ceil((message.length + completionResponse.length) / 4), // Simple fallback estimate
         success: true,
-        metadata: {
-          engine: engineUsed,
-        },
       });
     } catch (usageError) {
       console.error('Failed to record model usage:', usageError);
@@ -285,10 +163,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       message: assistantMessage,
-      functionCall,
+      functionCall: mainFunctionCall,
       functionResult,
       engineStatus: {
-        engine: engineUsed,
+        engine: configuredModel?.provider?.toLowerCase() || 'ollama',
         available: true,
       },
     });

@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { AIActionLink, AIEmptyState, AIPageShell, AISectionCard, AIStatGrid, AIStatusBadge } from '@/components/ai/ai-primitives';
 import { AIOnboardingChecklist } from '@/components/ai/ai-onboarding-checklist';
-import { DemoSimulationButton } from '@/components/ai/demo-simulation-button';
 import { Button } from '@/components/ui/button';
 import { getCommandCenterData } from '@/lib/ai/control-plane';
 import { requireAIAccess } from '@/lib/ai/governance';
@@ -104,7 +103,6 @@ export default async function AIOverviewPage() {
         <AIOnboardingChecklist items={onboardingItems} />
 
         <div className="space-y-6">
-          <DemoSimulationButton />
 
           <AISectionCard
             title="What this workspace does"

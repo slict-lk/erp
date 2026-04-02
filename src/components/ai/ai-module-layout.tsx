@@ -123,8 +123,13 @@ export function AIModuleLayout({
   const pathname = usePathname();
   const activeSection = useMemo(() => getActiveSection(pathname), [pathname]);
   const canUseAdvanced = aiRoles.includes('AI_ADMIN') || aiRoles.includes('AUTOMATION_DESIGNER');
-  const [mode, setModeState] = useState<AIExperienceMode>(canUseAdvanced ? initialMode : 'simple');
+  const [mode, setModeState] = useState<AIExperienceMode>('simple');
   const lastPatchSignature = useRef<string>('');
+  
+  const visibleSections = useMemo(
+    () => SECTIONS.filter((section) => canUseAdvanced || section.key !== 'admin' || section.key === activeSection.key),
+    [activeSection.key, canUseAdvanced]
+  );
 
   const patchPreferences = async (patch: Record<string, unknown>) => {
     await fetch('/api/ai/preferences', {
@@ -135,9 +140,7 @@ export function AIModuleLayout({
   };
 
   const setMode = (nextMode: AIExperienceMode) => {
-    const safeMode = canUseAdvanced ? nextMode : 'simple';
-    setModeState(safeMode);
-    void patchPreferences({ mode: safeMode });
+    setModeState(nextMode);
   };
 
   useEffect(() => {
@@ -160,134 +163,34 @@ export function AIModuleLayout({
 
   return (
     <AIExperienceProvider value={{ mode, setMode, canUseAdvanced }}>
-      <div className="space-y-8 px-1 pb-12 pt-6 md:px-4">
-        <Card className="overflow-hidden border-slate-200/60 shadow-xl shadow-slate-200/20 bg-white/70 backdrop-blur-md">
-          <CardContent className="space-y-6 p-0">
-            <div className="relative flex flex-col gap-10 border-b border-slate-200/60 bg-[radial-gradient(circle_at_top_left,_rgba(186,230,253,0.35),_transparent_40%),radial-gradient(circle_at_bottom_right,_rgba(224,231,255,0.3),_transparent_40%),linear-gradient(135deg,_#fcfdff_0%,_#ffffff_50%,_#f8faff_100%)] px-8 py-10">
-              <div className="absolute top-0 right-0 h-full w-1/3 bg-gradient-to-l from-sky-50/20 to-transparent pointer-events-none" />
-              
-              <div className="relative grid gap-10 xl:grid-cols-[1fr_auto] xl:items-center">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-1.5 w-16 rounded-full bg-gradient-to-r from-sky-500 to-indigo-600 shadow-sm shadow-sky-200" />
-                    <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-sky-600/90">Central Intelligence</p>
-                  </div>
-                  
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h1 className="bg-gradient-to-br from-slate-950 via-slate-800 to-slate-900 bg-clip-text text-5xl font-extrabold tracking-tight text-transparent">
-                      AI &amp; Automation
-                    </h1>
-                    <div className="animate-in fade-in zoom-in-95 duration-500 delay-300">
-                      {mode === 'simple' ? (
-                        <span className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50/80 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-700 shadow-sm">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          Guided
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100/80 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-700 shadow-sm">
-                          <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                          Advanced
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <p className="max-w-3xl text-lg leading-relaxed text-slate-500/90 font-medium">
-                    A task-oriented workspace for approvals, automations, assistants, and governance. 
-                    The default view keeps technical controls out of the way until they are needed.
+      <div className="space-y-5 px-1 pb-8 pt-4 md:px-4">
+        <Card className="overflow-hidden border border-slate-200 bg-white shadow-sm">
+          <CardContent className="p-0">
+            <div className="border-b border-slate-200 px-4 py-4 md:px-6">
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                <div className="space-y-2">
+                  <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">AI &amp; Automation</h1>
+                  <p className="max-w-2xl text-sm leading-6 text-slate-600">
+                    A task-oriented workspace for approvals, automations, assistants, and governance without overwhelming daily operations.
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3 xl:justify-end animate-in fade-in slide-in-from-right-8 duration-700">
-                  <Button asChild size="lg" className="h-12 min-w-[200px] rounded-xl bg-slate-950 text-white shadow-lg hover:shadow-slate-300 transition-all hover:translate-y-[-2px]">
+                <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                  <Button asChild className="h-9 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
                     <Link href="/ai/workflows/new">New Automation</Link>
                   </Button>
-                  <Button asChild variant="outline" className="h-12 rounded-xl border-slate-200 bg-white/90 shadow-sm hover:shadow-md transition-all">
+                  <Button asChild variant="outline" className="h-9 rounded-lg border-slate-200 bg-white">
                     <Link href="/ai/agents/new">New Assistant</Link>
                   </Button>
-                  <Button asChild variant="outline" className="h-12 rounded-xl border-slate-200 bg-white/90 shadow-sm hover:shadow-md transition-all">
-                    <Link href="/ai/policies">Policy Center</Link>
-                  </Button>
+                  {canUseAdvanced ? (
+                    <Button asChild variant="outline" className="h-9 rounded-lg border-slate-200 bg-white">
+                      <Link href="/ai/policies">Policy Center</Link>
+                    </Button>
+                  ) : null}
                 </div>
               </div>
 
-              <div className="relative grid gap-8 xl:grid-cols-[1fr_320px] xl:items-start">
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {SECTIONS.map((section) => {
-                    const isActive = section.key === activeSection.key;
-                    const Icon = section.icon;
-
-                    return (
-                      <Link
-                        key={section.key}
-                        href={section.href}
-                        className={cn(
-                          'group rounded-2xl border p-4 transition-all',
-                          isActive
-                            ? 'border-sky-200 bg-sky-50/90 shadow-sm shadow-sky-100'
-                            : 'border-slate-200 bg-white/92 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-sm'
-                        )}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={cn(
-                              'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border',
-                              isActive
-                                ? 'border-sky-200 bg-white text-sky-700'
-                                : 'border-slate-200 bg-slate-50 text-slate-500 group-hover:text-slate-700'
-                            )}
-                          >
-                            <Icon className="h-4 w-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className={cn('text-base font-semibold', isActive ? 'text-sky-950' : 'text-slate-900')}>
-                              {section.label}
-                            </p>
-                            <p className="mt-1 text-sm leading-6 text-slate-600">{section.description}</p>
-                          </div>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white/92 p-4 shadow-sm">
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-slate-900">Workspace mode</p>
-                    <p className="text-sm leading-6 text-slate-600">
-                      {canUseAdvanced
-                        ? 'Use Guided mode for business users and Advanced mode only when technical setup is required.'
-                        : 'Your role uses the guided experience by default.'}
-                    </p>
-                  </div>
-                  <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
-                    <button
-                      type="button"
-                      onClick={() => setMode('simple')}
-                      className={cn(
-                        'rounded-xl px-3 py-3 text-left transition-colors',
-                        mode === 'simple' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600'
-                      )}
-                    >
-                      <span className="block text-sm font-semibold">Simple</span>
-                      <span className="mt-1 block text-xs leading-5 text-slate-500">Guided business workflow</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => canUseAdvanced && setMode('advanced')}
-                      disabled={!canUseAdvanced}
-                      className={cn(
-                        'rounded-xl px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-                        mode === 'advanced' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600'
-                      )}
-                    >
-                      <span className="block text-sm font-semibold">Advanced</span>
-                      <span className="mt-1 block text-xs leading-5 text-slate-500">Power-user controls</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2 border-t border-slate-200/80 pt-1">
+              <div className="mt-3 flex gap-2 overflow-x-auto border-t border-slate-200 pt-3 pb-1">
                 {activeSection.children.map((item) => {
                   const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
                   return (
@@ -295,13 +198,55 @@ export function AIModuleLayout({
                       key={item.href}
                       href={item.href}
                       className={cn(
-                        'rounded-full border px-4 py-2 text-sm font-medium transition-colors',
+                        'whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition-colors',
                         active
-                          ? 'border-sky-600 bg-sky-600 text-white shadow-sm'
+                          ? 'border-blue-600 bg-blue-600 text-white'
                           : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                       )}
                     >
                       {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="px-4 py-4 md:px-6">
+              <p className="mb-2 text-sm font-semibold text-slate-900">Command Hub</p>
+              <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {visibleSections.map((section) => {
+                  const isActive = section.key === activeSection.key;
+                  const Icon = section.icon;
+
+                  return (
+                    <Link
+                      key={section.key}
+                      href={section.href}
+                      className={cn(
+                        'group rounded-xl border p-3 transition-all',
+                        isActive
+                          ? 'border-blue-200 bg-blue-50'
+                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={cn(
+                            'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border',
+                            isActive
+                              ? 'border-blue-200 bg-white text-blue-700'
+                              : 'border-slate-200 bg-slate-50 text-slate-500 group-hover:text-slate-700'
+                          )}
+                        >
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className={cn('text-sm font-semibold', isActive ? 'text-blue-900' : 'text-slate-900')}>
+                            {section.label}
+                          </p>
+                          <p className="mt-1 text-xs leading-5 text-slate-600">{section.description}</p>
+                        </div>
+                      </div>
                     </Link>
                   );
                 })}

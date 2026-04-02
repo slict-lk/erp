@@ -386,18 +386,11 @@ const navigation: NavigationItem[] = [
     moduleId: 'ai',
     children: [
       { name: 'Command Center', href: '/ai', icon: LayoutDashboard, moduleId: 'ai' },
-      { name: 'Approvals', href: '/ai/inbox', icon: Shield, moduleId: 'ai' },
-      { name: 'Workflows', href: '/ai/workflows', icon: Workflow, moduleId: 'ai' },
-      { name: 'Agents', href: '/ai/agents', icon: Sparkles, moduleId: 'ai' },
-      { name: 'Copilots', href: '/ai/copilots', icon: Activity, moduleId: 'ai' },
-      { name: 'Events', href: '/ai/events', icon: Zap, moduleId: 'ai' },
-      { name: 'Policies', href: '/ai/policies', icon: Shield, moduleId: 'ai' },
-      { name: 'Models', href: '/ai/models', icon: Brain, moduleId: 'ai' },
-      { name: 'Prompts', href: '/ai/prompts', icon: MessageSquare, moduleId: 'ai' },
-      { name: 'Integrations', href: '/ai/integrations', icon: LinkIcon, moduleId: 'ai' },
-      { name: 'Analytics', href: '/ai/analytics', icon: BarChart3, moduleId: 'ai' },
-      { name: 'Audit', href: '/ai/audit', icon: FileText, moduleId: 'ai' },
-      { name: 'Settings', href: '/ai/settings', icon: Settings, moduleId: 'ai' },
+      { name: 'Tasks & Approvals', href: '/ai/tasks', icon: Shield, moduleId: 'ai' },
+      { name: 'Automations', href: '/ai/automations', icon: Workflow, moduleId: 'ai' },
+      { name: 'Assistants', href: '/ai/assistants', icon: Sparkles, moduleId: 'ai' },
+      { name: 'Insights', href: '/ai/insights', icon: BarChart3, moduleId: 'ai' },
+      { name: 'Admin & Setup', href: '/ai/admin', icon: Settings, moduleId: 'ai' },
     ]
   },
   {

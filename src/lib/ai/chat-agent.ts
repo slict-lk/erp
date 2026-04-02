@@ -106,26 +106,28 @@ export const AGENT_FUNCTIONS: FunctionDefinition[] = [
         parameters: {
             type: 'object',
             properties: {
-                title: {
-                    type: 'string',
-                    description: 'Task title',
-                },
-                description: {
-                    type: 'string',
-                    description: 'Task description',
-                },
-                projectId: {
-                    type: 'string',
-                    description: 'Project ID to assign the task to',
-                },
-                priority: {
-                    type: 'string',
-                    enum: ['LOW', 'MEDIUM', 'HIGH', 'URGENT'],
-                    description: 'Task priority',
-                },
+                title: { type: 'string', description: 'Task title' },
+                description: { type: 'string', description: 'Task description' },
+                projectId: { type: 'string', description: 'Project ID to assign the task' },
+                priority: { type: 'string', enum: ['LOW', 'MEDIUM', 'HIGH', 'URGENT'], description: 'Priority' },
             },
             required: ['title', 'projectId'],
         },
+    },
+    {
+        name: 'get_automation_status',
+        description: 'Get counts and status of active business automations/workflows',
+        parameters: { type: 'object', properties: {} },
+    },
+    {
+        name: 'get_ai_module_overview',
+        description: 'Get high-level health of the AI module (approvals, failed runs, readiness)',
+        parameters: { type: 'object', properties: {} },
+    },
+    {
+        name: 'get_pending_tasks',
+        description: 'Get list of pending tasks and approvals assigned to you',
+        parameters: { type: 'object', properties: {} },
     },
 ];
 
@@ -135,7 +137,8 @@ export const AGENT_FUNCTIONS: FunctionDefinition[] = [
 export async function executeAgentFunction(
     functionName: string,
     args: Record<string, any>,
-    tenantId: string
+    tenantId: string,
+    userId?: string
 ): Promise<any> {
     console.log(`Executing function: ${functionName}`, args);
 
@@ -164,6 +167,15 @@ export async function executeAgentFunction(
 
             case 'create_task':
                 return await createTask(args, tenantId);
+
+            case 'get_automation_status':
+                return await getAutomationStatus(tenantId);
+
+            case 'get_ai_module_overview':
+                return await getAIModuleOverview(tenantId);
+
+            case 'get_pending_tasks':
+                return await getPendingTasks(tenantId, userId);
 
             default:
                 return { error: `Unknown function: ${functionName}` };
@@ -382,6 +394,82 @@ async function createTask(args: any, tenantId: string) {
     };
 }
 
+// AI Module & Task Tools
+
+async function getAutomationStatus(tenantId: string) {
+    const db = prisma as any;
+    const workflows = await db.studioWorkflow.findMany({
+        where: { tenantId },
+        select: { name: true, isActive: true, triggerType: true }
+    });
+
+    const active = workflows.filter((w: any) => w.isActive).length;
+    const paused = workflows.length - active;
+
+    return {
+        total: workflows.length,
+        active,
+        paused,
+        message: `There are currently ${active} live automations and ${paused} paused workflows.`,
+        workflows: workflows.map((w: any) => ({ name: w.name, status: w.isActive ? 'Live' : 'Paused' }))
+    };
+}
+
+async function getAIModuleOverview(tenantId: string) {
+    const db = prisma as any;
+    
+    // Approvals are in Tenant settings JSON
+    const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { settings: true }
+    });
+    
+    const aiConfig = ((tenant?.settings as any)?.aiControlPlane) || {};
+    const pendingApprovals = (aiConfig.pendingApprovals || []).length;
+
+    const [workflows, executions, agents] = await Promise.all([
+        db.studioWorkflow.count({ where: { tenantId, isActive: true } }),
+        db.workflowExecution.count({ where: { workflow: { tenantId }, status: 'failed' } }),
+        db.languageModel.count({ where: { tenantId, isActive: true } })
+    ]);
+
+    return {
+        liveAutomations: workflows,
+        pendingApprovals,
+        failedRuns: executions,
+        activeAgents: agents,
+        summary: `The AI module has ${workflows} live automations, ${pendingApprovals} pending approvals, and ${executions} recorded failures that might need attention.`
+    };
+}
+
+async function getPendingTasks(tenantId: string, userId?: string) {
+    if (!userId) return { error: 'User context missing' };
+    const db = prisma as any;
+
+    const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { settings: true }
+    });
+    
+    const aiConfig = ((tenant?.settings as any)?.aiControlPlane) || {};
+    const allApprovals = (aiConfig.pendingApprovals || []) as any[];
+    const myApprovals = allApprovals.filter(a => 
+        a.status === 'PENDING' && (a.assignedToUserId === userId || !a.assignedToUserId)
+    );
+
+    const tasks = await prisma.task.findMany({
+        where: { tenantId, status: { not: 'DONE' }, assigneeId: userId },
+        take: 5
+    });
+
+    return {
+        approvals: myApprovals.map(a => ({ title: a.title, risk: a.riskScore })),
+        assignedTasks: tasks.map(t => ({ title: t.title, priority: t.priority })),
+        count: myApprovals.length + tasks.length,
+        message: `You have ${myApprovals.length} pending approvals and ${tasks.length} active tasks assigned to you.`
+    };
+}
+
 /**
  * Process a user message and generate AI response with function calling
  */
@@ -389,6 +477,7 @@ export async function processUserMessage(
     message: string,
     conversationHistory: ChatMessage[],
     tenantId: string,
+    userId?: string,
     maxIterations: number = 3,
     requestedModelId?: string
 ): Promise<{ response: string; functionCalls?: any[] }> {
@@ -550,7 +639,7 @@ Always format numbers as currency when appropriate. Provide actionable insights 
             } as any);
 
             // Execute the function
-            const functionResult = await executeAgentFunction(functionName, functionArgs, tenantId);
+            const functionResult = await executeAgentFunction(functionName, functionArgs, tenantId, userId);
 
             functionCalls.push({
                 name: functionName,

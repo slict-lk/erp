@@ -42,8 +42,7 @@ export function WorkflowDetailView({
   queuedRuns: DetailQueueItem[];
   deadLetters: DetailQueueItem[];
 }) {
-  const { mode } = useAIExperience();
-  const advancedMode = mode === 'advanced';
+  const { canUseAdvanced } = useAIExperience();
   const triggerLabel = getEventCatalogItem(definition.trigger.event)?.label || definition.trigger.event;
   const summary = summarizeWorkflow(definition, moduleScope as DomainModule);
 
@@ -102,9 +101,9 @@ export function WorkflowDetailView({
           <TabsTrigger value="issues" className="rounded-full border border-slate-200 bg-white px-4 py-2 data-[state=active]:border-sky-600 data-[state=active]:bg-sky-600 data-[state=active]:text-white">
             Issues
           </TabsTrigger>
-          {advancedMode ? (
-            <TabsTrigger value="advanced" className="rounded-full border border-slate-200 bg-white px-4 py-2 data-[state=active]:border-sky-600 data-[state=active]:bg-sky-600 data-[state=active]:text-white">
-              Advanced
+          {canUseAdvanced ? (
+            <TabsTrigger value="technical" className="rounded-full border border-slate-200 bg-white px-4 py-2 data-[state=active]:border-sky-600 data-[state=active]:bg-sky-600 data-[state=active]:text-white">
+              Technical Details
             </TabsTrigger>
           ) : null}
         </TabsList>
@@ -166,7 +165,7 @@ export function WorkflowDetailView({
                       <p className="mt-1 text-sm text-slate-600">
                         Attempt {item.attemptCount} of {item.maxAttempts}
                       </p>
-                      {!advancedMode ? null : <p className="mt-1 text-xs text-slate-500">Queue status: {item.status}</p>}
+                      {!canUseAdvanced ? null : <p className="mt-1 text-xs text-slate-500">Queue status: {item.status}</p>}
                     </div>
                   ))}
                 </div>
@@ -184,7 +183,7 @@ export function WorkflowDetailView({
                       <p className="mt-1 text-sm text-slate-600">
                         Failure count: {item.failureHistory?.length || 0}
                       </p>
-                      {!advancedMode ? null : <p className="mt-1 text-xs text-slate-500">Queue status: {item.status}</p>}
+                      {!canUseAdvanced ? null : <p className="mt-1 text-xs text-slate-500">Queue status: {item.status}</p>}
                     </div>
                   ))}
                 </div>
@@ -193,8 +192,8 @@ export function WorkflowDetailView({
           </div>
         </TabsContent>
 
-        {advancedMode ? (
-          <TabsContent value="advanced" className="space-y-6">
+        {canUseAdvanced ? (
+          <TabsContent value="technical" className="space-y-6">
             <div className="grid gap-6 xl:grid-cols-2">
               <AISectionCard title="Version timeline" description="Saved workflow snapshots available for rollback.">
                 {versions.length === 0 ? (

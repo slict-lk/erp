@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
         });
 
         // Process the message with AI
-        const aiResponse = await processUserMessage(message, [], tenantId, 3, modelId || undefined);
+        const aiResponse = await processUserMessage(message, [], tenantId, session.user.id, 3, modelId || undefined);
 
         // Add AI response to conversation
         await prisma.conversationMessage.create({

@@ -24,8 +24,7 @@ export function WorkflowDetailActions({
 }) {
   const router = useRouter();
   const { toast } = useToast();
-  const { mode } = useAIExperience();
-  const simpleMode = mode === 'simple';
+  const { canUseAdvanced } = useAIExperience();
   const [payload, setPayload] = useState('{\n  "source": "manual-test"\n}');
   const [workingAction, setWorkingAction] = useState<string | null>(null);
   const [rollbackVersionId, setRollbackVersionId] = useState<string>(versions[0]?.id || '');
@@ -321,12 +320,8 @@ export function WorkflowDetailActions({
       </AIFormSection>
 
       <AIFormSection
-        title={simpleMode ? 'Test details' : 'Test Payload'}
-        description={
-          simpleMode
-            ? 'Testing runs a real automation and may create approvals or downstream business records.'
-            : 'This runs a real workflow execution and may create approval items or downstream records, depending on the workflow steps.'
-        }
+        title="Test Payload"
+        description="This runs a real workflow execution and may create approval items or downstream records, depending on the workflow steps."
       >
         <Textarea
           value={payload}

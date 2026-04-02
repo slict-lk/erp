@@ -25,8 +25,7 @@ export function ModuleCopilotPanel({
   suggestions = [],
 }: ModuleCopilotPanelProps) {
   const { toast } = useToast();
-  const { mode } = useAIExperience();
-  const simpleMode = mode === 'simple';
+  const { canUseAdvanced } = useAIExperience();
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
@@ -137,7 +136,7 @@ export function ModuleCopilotPanel({
         {response ? (
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <p className="whitespace-pre-wrap text-sm text-slate-800">{response}</p>
-            {functionCalls.length > 0 && !simpleMode ? (
+            {functionCalls.length > 0 && canUseAdvanced ? (
               <p className="mt-3 text-xs text-slate-500">
                 Used {functionCalls.length} tool call{functionCalls.length > 1 ? 's' : ''}.
               </p>

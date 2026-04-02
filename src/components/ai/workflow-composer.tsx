@@ -61,8 +61,7 @@ export function WorkflowComposer({
 }) {
   const hasPolicies = policyProfiles.length > 0;
   const router = useRouter();
-  const { mode, canUseAdvanced } = useAIExperience();
-  const advancedMode = canUseAdvanced && mode === 'advanced';
+  const { canUseAdvanced } = useAIExperience();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -123,16 +122,16 @@ export function WorkflowComposer({
   }, [moduleScope]);
 
   useEffect(() => {
-    if (!name.trim() && !advancedMode) {
+    if (!name.trim()) {
       setName(`${MODULE_LABELS[moduleScope]} - ${goal}`);
     }
-  }, [advancedMode, goal, moduleScope, name]);
+  }, [goal, moduleScope, name]);
 
   useEffect(() => {
-    if (!description.trim() && !advancedMode) {
+    if (!description.trim()) {
       setDescription(simpleSummary);
     }
-  }, [advancedMode, description, simpleSummary]);
+  }, [description, simpleSummary]);
 
   const updateStep = (id: string, patch: Partial<StepRow>) => {
     setSteps((current) => current.map((step) => (step.id === id ? { ...step, ...patch } : step)));
@@ -239,7 +238,7 @@ export function WorkflowComposer({
     };
   };
 
-  const buildPayload = () => (advancedMode ? buildAdvancedPayload() : buildSimplePayload());
+  const buildPayload = () => buildSimplePayload();
 
   const submitWorkflow = async (isDraft: boolean) => {
     setError(null);
@@ -386,295 +385,171 @@ export function WorkflowComposer({
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
-      {!advancedMode ? (
-        <>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-            <div className="flex flex-wrap items-center gap-2">
-              {wizardLabels.map((label, index) => (
-                <div key={label} className={`rounded-full px-3 py-1.5 text-sm font-medium ${index === wizardStep ? 'bg-sky-600 text-white' : index < wizardStep ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-slate-500 border border-slate-200'}`}>
-                  {index + 1}. {label}
-                </div>
-              ))}
+      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {wizardLabels.map((label, index) => (
+            <div key={label} className={`rounded-full px-3 py-1.5 text-sm font-medium ${index === wizardStep ? 'bg-sky-600 text-white' : index < wizardStep ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-slate-500 border border-slate-200'}`}>
+              {index + 1}. {label}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {wizardStep === 0 ? (
+        <AIFormSection title="Goal" description="Choose the business outcome first. The automation name and description can stay plain-language.">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Business area</Label>
+              <Select value={moduleScope} onValueChange={(value) => setModuleScope(value as DomainModule)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select module" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MODULE_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {MODULE_LABELS[option]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-500">Why this matters: this keeps the automation focused on one business area and its safe actions.</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="automation-name">Automation name</Label>
+              <Input id="automation-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="CRM - Follow up with a customer" />
+              <p className="text-xs text-slate-500">Why this matters: staff should understand the purpose without opening technical details.</p>
             </div>
           </div>
+          <div className="space-y-2">
+            <Label>Outcome</Label>
+            <div className="grid gap-3 md:grid-cols-3">
+              {GOAL_OPTIONS[moduleScope].map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setGoal(option)}
+                  className={`rounded-xl border px-4 py-3 text-left ${goal === option ? 'border-sky-200 bg-sky-50 text-sky-900' : 'border-slate-200 bg-white text-slate-700'}`}
+                >
+                  <span className="text-sm font-medium">{option}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500">Why this matters: the builder keeps the setup grounded in a business outcome instead of a raw event name.</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="automation-description">What this automation should do</Label>
+            <Textarea id="automation-description" value={description} onChange={(event) => setDescription(event.target.value)} rows={4} />
+            <p className="text-xs text-slate-500">Why this matters: business users should be able to read the purpose in one sentence.</p>
+          </div>
+        </AIFormSection>
+      ) : null}
 
-          {wizardStep === 0 ? (
-            <AIFormSection title="Goal" description="Choose the business outcome first. The automation name and description can stay plain-language.">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Business area</Label>
-                  <Select value={moduleScope} onValueChange={(value) => setModuleScope(value as DomainModule)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select module" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MODULE_OPTIONS.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {MODULE_LABELS[option]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-slate-500">Why this matters: this keeps the automation focused on one business area and its safe actions.</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="automation-name">Automation name</Label>
-                  <Input id="automation-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="CRM - Follow up with a customer" />
-                  <p className="text-xs text-slate-500">Why this matters: staff should understand the purpose without opening technical details.</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Outcome</Label>
-                <div className="grid gap-3 md:grid-cols-3">
-                  {GOAL_OPTIONS[moduleScope].map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => setGoal(option)}
-                      className={`rounded-xl border px-4 py-3 text-left ${goal === option ? 'border-sky-200 bg-sky-50 text-sky-900' : 'border-slate-200 bg-white text-slate-700'}`}
-                    >
-                      <span className="text-sm font-medium">{option}</span>
-                    </button>
-                  ))}
-                </div>
-                <p className="text-xs text-slate-500">Why this matters: the builder keeps the setup grounded in a business outcome instead of a raw event name.</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="automation-description">What this automation should do</Label>
-                <Textarea id="automation-description" value={description} onChange={(event) => setDescription(event.target.value)} rows={4} />
-                <p className="text-xs text-slate-500">Why this matters: business users should be able to read the purpose in one sentence.</p>
-              </div>
-            </AIFormSection>
-          ) : null}
+      {wizardStep === 1 ? (
+        <AIFormSection title="Trigger" description="Choose the event in plain language. The technical event name stays behind the scenes.">
+          <div className="grid gap-3">
+            {availableTriggers.map((trigger) => (
+              <button
+                key={trigger.event}
+                type="button"
+                onClick={() => setSimpleTriggerEvent(trigger.event)}
+                className={`rounded-xl border p-4 text-left ${simpleTriggerEvent === trigger.event ? 'border-sky-200 bg-sky-50 text-sky-900' : 'border-slate-200 bg-white text-slate-700'}`}
+              >
+                <p className="font-medium">{trigger.label}</p>
+                <p className="mt-1 text-sm text-slate-600">{trigger.description}</p>
+              </button>
+            ))}
+          </div>
+        </AIFormSection>
+      ) : null}
 
-          {wizardStep === 1 ? (
-            <AIFormSection title="Trigger" description="Choose the event in plain language. The technical event name stays behind the scenes.">
-              <div className="grid gap-3">
-                {availableTriggers.map((trigger) => (
+      {wizardStep === 2 ? (
+        <AIFormSection title="Action" description="Choose the business action and fill in the required details without touching raw JSON.">
+          {availableActions.length === 0 ? (
+            <AIEmptyState title="No actions available" description="This business area does not have a guided action form yet." />
+          ) : (
+            <div className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                {availableActions.map((action) => (
                   <button
-                    key={trigger.event}
+                    key={action.action}
                     type="button"
-                    onClick={() => setSimpleTriggerEvent(trigger.event)}
-                    className={`rounded-xl border p-4 text-left ${simpleTriggerEvent === trigger.event ? 'border-sky-200 bg-sky-50 text-sky-900' : 'border-slate-200 bg-white text-slate-700'}`}
+                    onClick={() => setSimpleAction(action.action)}
+                    className={`rounded-xl border p-4 text-left ${simpleAction === action.action ? 'border-sky-200 bg-sky-50 text-sky-900' : 'border-slate-200 bg-white text-slate-700'}`}
                   >
-                    <p className="font-medium">{trigger.label}</p>
-                    <p className="mt-1 text-sm text-slate-600">{trigger.description}</p>
+                    <p className="font-medium">{action.label}</p>
+                    <p className="mt-1 text-sm text-slate-600">{action.shortDescription}</p>
+                    <p className="mt-3 text-xs font-medium uppercase tracking-[0.18em] text-slate-500">{action.category}</p>
                   </button>
                 ))}
               </div>
-            </AIFormSection>
-          ) : null}
 
-          {wizardStep === 2 ? (
-            <AIFormSection title="Action" description="Choose the business action and fill in the required details without touching raw JSON.">
-              {availableActions.length === 0 ? (
-                <AIEmptyState title="No actions available" description="This business area does not have a guided action form yet." />
-              ) : (
-                <div className="space-y-4">
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {availableActions.map((action) => (
-                      <button
-                        key={action.action}
-                        type="button"
-                        onClick={() => setSimpleAction(action.action)}
-                        className={`rounded-xl border p-4 text-left ${simpleAction === action.action ? 'border-sky-200 bg-sky-50 text-sky-900' : 'border-slate-200 bg-white text-slate-700'}`}
-                      >
-                        <p className="font-medium">{action.label}</p>
-                        <p className="mt-1 text-sm text-slate-600">{action.shortDescription}</p>
-                        <p className="mt-3 text-xs font-medium uppercase tracking-[0.18em] text-slate-500">{action.category}</p>
-                      </button>
-                    ))}
-                  </div>
+              {selectedActionMeta ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {selectedActionMeta.fields.map((field) => renderField(field))}
+                </div>
+              ) : null}
+            </div>
+          )}
+        </AIFormSection>
+      ) : null}
 
-                  {selectedActionMeta ? (
-                    <div className="grid gap-4 md:grid-cols-2">
-                      {selectedActionMeta.fields.map((field) => renderField(field))}
-                    </div>
-                  ) : null}
-                </div>
-              )}
-            </AIFormSection>
-          ) : null}
-
-          {wizardStep === 3 ? (
-            <AIFormSection title="Approval" description="Choose how much human review this automation needs before it can act.">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Approval policy</Label>
-                  {hasPolicies ? (
-                    <Select value={policyProfileId} onValueChange={setPolicyProfileId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select policy" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {policyProfiles.map((profile) => (
-                          <SelectItem key={profile.id} value={profile.id}>
-                            {profile.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input value={policyProfileId} onChange={(event) => setPolicyProfileId(event.target.value)} placeholder="Enter policy profile ID" />
-                  )}
-                  <p className="text-xs text-slate-500">Why this matters: policies decide when people must review a sensitive action.</p>
-                </div>
-                <div className="space-y-2">
-                  <Label>Approval behavior</Label>
-                  <Select value={approvalsMode} onValueChange={(value) => setApprovalsMode(value as ApprovalMode)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select approvals mode" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="policy">Use the selected approval policy</SelectItem>
-                      <SelectItem value="always">Always ask for approval</SelectItem>
-                      <SelectItem value="never">Allow it to run without approval</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-slate-500">Why this matters: this is the main safety setting for the automation.</p>
-                </div>
-              </div>
-            </AIFormSection>
-          ) : null}
-
-          {wizardStep === 4 ? (
-            <AIFormSection title="Review" description="Read the summary below before publishing or testing the automation.">
-              <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
-                <div className="flex items-center gap-2 text-sky-700">
-                  <Sparkles className="h-4 w-4" />
-                  <p className="text-sm font-semibold">Automation summary</p>
-                </div>
-                <p className="text-sm text-slate-800">{simpleSummary}</p>
-                <div className="grid gap-3 md:grid-cols-3 text-sm text-slate-600">
-                  <p><span className="font-medium text-slate-900">Area:</span> {MODULE_LABELS[moduleScope]}</p>
-                  <p><span className="font-medium text-slate-900">Trigger:</span> {sentenceCase(listEventCatalog(moduleScope).find((item) => item.event === simpleTriggerEvent)?.label || simpleTriggerEvent)}</p>
-                  <p><span className="font-medium text-slate-900">Approval:</span> {approvalsMode === 'policy' ? 'Policy based' : approvalsMode === 'always' ? 'Always review' : 'No approval required'}</p>
-                </div>
-              </div>
-            </AIFormSection>
-          ) : null}
-        </>
-      ) : (
-        <>
-          <AIFormSection title="Trigger" description="Define which module event enters the orchestration pipeline.">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="workflow-name">Workflow name</Label>
-                <Input id="workflow-name" value={name} onChange={(event) => setName(event.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label>Module scope</Label>
-                <Select value={moduleScope} onValueChange={(value) => setModuleScope(value as DomainModule)}>
+      {wizardStep === 3 ? (
+        <AIFormSection title="Approval" description="Choose how much human review this automation needs before it can act.">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Approval policy</Label>
+              {hasPolicies ? (
+                <Select value={policyProfileId} onValueChange={setPolicyProfileId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select module" />
+                    <SelectValue placeholder="Select policy" />
                   </SelectTrigger>
                   <SelectContent>
-                    {MODULE_OPTIONS.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {MODULE_LABELS[option]}
+                    {policyProfiles.map((profile) => (
+                      <SelectItem key={profile.id} value={profile.id}>
+                        {profile.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="trigger-event">Trigger event</Label>
-                <Input id="trigger-event" value={triggerEvent} onChange={(event) => setTriggerEvent(event.target.value)} placeholder="record.updated" required />
-              </div>
-              <div className="space-y-2">
-                <Label>Policy profile</Label>
-                {hasPolicies ? (
-                  <Select value={policyProfileId} onValueChange={setPolicyProfileId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select policy" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {policyProfiles.map((profile) => (
-                        <SelectItem key={profile.id} value={profile.id}>
-                          {profile.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input value={policyProfileId} onChange={(event) => setPolicyProfileId(event.target.value)} placeholder="Enter policy profile ID" />
-                )}
-              </div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Approvals mode</Label>
-                <Select value={approvalsMode} onValueChange={(value) => setApprovalsMode(value as ApprovalMode)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select approvals mode" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="policy">Policy-driven</SelectItem>
-                    <SelectItem value="always">Always require approval</SelectItem>
-                    <SelectItem value="never">Never require approval</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="workflow-description">Description</Label>
-                <Input id="workflow-description" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="What business outcome should this automate?" />
-              </div>
+              ) : (
+                <Input value={policyProfileId} onChange={(event) => setPolicyProfileId(event.target.value)} placeholder="Enter policy profile ID" />
+              )}
+              <p className="text-xs text-slate-500">Why this matters: policies decide when people must review a sensitive action.</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="workflow-filters">Trigger filters (JSON)</Label>
-              <Textarea id="workflow-filters" value={filters} onChange={(event) => setFilters(event.target.value)} className="min-h-[120px] font-mono" />
+              <Label>Approval behavior</Label>
+              <Select value={approvalsMode} onValueChange={(value) => setApprovalsMode(value as ApprovalMode)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select approvals mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="policy">Use the selected approval policy</SelectItem>
+                  <SelectItem value="always">Always ask for approval</SelectItem>
+                  <SelectItem value="never">Allow it to run without approval</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-500">Why this matters: this is the main safety setting for the automation.</p>
             </div>
-          </AIFormSection>
+          </div>
+        </AIFormSection>
+      ) : null}
 
-          <AIFormSection title="Execution Steps" description="Model the action chain as discrete, auditable steps.">
-            <div className="space-y-4">
-              {steps.map((step, index) => (
-                <div key={step.id} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">Step {index + 1}</p>
-                      <p className="text-xs text-slate-500">{step.id}</p>
-                    </div>
-                    <Button type="button" variant="outline" size="sm" onClick={() => removeStep(step.id)}>
-                      Remove
-                    </Button>
-                  </div>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Step type</Label>
-                      <Select value={step.kind} onValueChange={(value) => updateStep(step.id, { kind: value as StepRow['kind'] })}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select step type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {STEP_OPTIONS.map((option) => (
-                            <SelectItem key={option} value={option}>
-                              {option}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Label</Label>
-                      <Input value={step.label} onChange={(event) => updateStep(step.id, { label: event.target.value })} />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Step config (JSON)</Label>
-                    <Textarea value={step.config} onChange={(event) => updateStep(step.id, { config: event.target.value })} className="min-h-[110px] font-mono" />
-                  </div>
-                </div>
-              ))}
-              <Button type="button" variant="outline" onClick={addStep}>
-                Add Step
-              </Button>
+      {wizardStep === 4 ? (
+        <AIFormSection title="Review" description="Read the summary below before publishing or testing the automation.">
+          <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center gap-2 text-sky-700">
+              <Sparkles className="h-4 w-4" />
+              <p className="text-sm font-semibold">Automation summary</p>
             </div>
-          </AIFormSection>
-        </>
-      )}
+            <p className="text-sm text-slate-800">{simpleSummary}</p>
+            <div className="grid gap-3 md:grid-cols-3 text-sm text-slate-600">
+              <p><span className="font-medium text-slate-900">Area:</span> {MODULE_LABELS[moduleScope]}</p>
+              <p><span className="font-medium text-slate-900">Trigger:</span> {sentenceCase(listEventCatalog(moduleScope).find((item) => item.event === simpleTriggerEvent)?.label || simpleTriggerEvent)}</p>
+              <p><span className="font-medium text-slate-900">Approval:</span> {approvalsMode === 'policy' ? 'Policy based' : approvalsMode === 'always' ? 'Always review' : 'No approval required'}</p>
+            </div>
+          </div>
+        </AIFormSection>
+      ) : null}
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {feedback ? <p className="text-sm text-emerald-700">{feedback}</p> : null}
@@ -682,22 +557,18 @@ export function WorkflowComposer({
       <div className="sticky bottom-4 z-10 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-lg backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm text-slate-600">
-            {advancedMode ? 'Advanced builder: full trigger and step control.' : simpleSummary}
+            {simpleSummary}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {!advancedMode ? (
-              <>
-                <Button type="button" variant="outline" onClick={() => setWizardStep((current) => Math.max(0, current - 1))} disabled={wizardStep === 0 || submitting}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back
-                </Button>
-                {wizardStep < wizardLabels.length - 1 ? (
-                  <Button type="button" onClick={() => setWizardStep((current) => Math.min(wizardLabels.length - 1, current + 1))}>
-                    Next
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                ) : null}
-              </>
+            <Button type="button" variant="outline" onClick={() => setWizardStep((current) => Math.max(0, current - 1))} disabled={wizardStep === 0 || submitting}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+            {wizardStep < wizardLabels.length - 1 ? (
+              <Button type="button" onClick={() => setWizardStep((current) => Math.min(wizardLabels.length - 1, current + 1))}>
+                Next
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
             ) : null}
             <Button type="button" variant="outline" onClick={() => submitWorkflow(true)} disabled={submitting || !policyProfileId.trim()}>
               Save Draft
@@ -706,7 +577,7 @@ export function WorkflowComposer({
               Validate
             </Button>
             <Button type="button" variant="outline" onClick={simulateDraft}>
-              {advancedMode ? 'Run Simulation' : 'Preview Outcome'}
+              Preview Outcome
             </Button>
             <Button type="submit" disabled={submitting || !policyProfileId.trim()}>
               {submitting ? 'Publishing...' : 'Publish'}

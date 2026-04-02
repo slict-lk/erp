@@ -36,8 +36,7 @@ function getRecommendation(approval: ApprovalItem) {
 export function ApprovalQueue({ approvals }: { approvals: ApprovalItem[] }) {
   const router = useRouter();
   const { toast } = useToast();
-  const { mode } = useAIExperience();
-  const simpleMode = mode === 'simple';
+  const { canUseAdvanced } = useAIExperience();
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -195,14 +194,14 @@ export function ApprovalQueue({ approvals }: { approvals: ApprovalItem[] }) {
                   <div className="flex flex-wrap items-center gap-2">
                     <AIStatusBadge status={approval.status} />
                     <AIStatusBadge status={`Risk ${approval.riskScore}`} />
-                    {!simpleMode ? <AIStatusBadge status={approval.assignedRole || approval.assignedToUserId || 'Unassigned'} /> : null}
+                    {canUseAdvanced ? <AIStatusBadge status={approval.assignedRole || approval.assignedToUserId || 'Unassigned'} /> : null}
                   </div>
 
                   <div className="space-y-2 text-sm text-slate-600">
                     <p className="flex items-center gap-2"><Clock3 className="h-4 w-4 text-slate-400" /> Due {new Date(approval.dueAt).toLocaleString()}</p>
                     <p className={overdue ? 'text-red-600' : ''}>{formatSla(approval.dueAt)}</p>
                     <p className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-slate-400" /> Requested by {approval.requestedBy || 'system'}</p>
-                    {simpleMode ? null : <p>Assignment: {approval.assignedRole || approval.assignedToUserId || 'Unassigned'}</p>}
+                    {canUseAdvanced ? <p>Assignment: {approval.assignedRole || approval.assignedToUserId || 'Unassigned'}</p> : null}
                   </div>
 
                   <div className="space-y-2">
