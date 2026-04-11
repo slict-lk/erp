@@ -55,7 +55,7 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
     : 'U';
 
   return (
-    <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/60 px-4 md:px-6 py-3 transition-all duration-200">
+    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/60 px-4 md:px-6 py-3 transition-all duration-200">
       <div className="flex items-center justify-between gap-4 max-w-[1920px] mx-auto">
         {/* Mobile menu button */}
         <button

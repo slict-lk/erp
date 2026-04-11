@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
@@ -180,28 +180,37 @@ export default function DashboardPage() {
   const tenantId = session?.user?.tenantId;
   const enabledModuleIds: string[] = session?.user?.enabledModuleIds || [];
 
-  useEffect(() => {
+  const fetchDashboard = useCallback(async (silent = false) => {
     if (!tenantId) {
       setLoading(false);
       return;
     }
+    if (!silent) setLoading(true);
 
-    // Simulate loading for smoother transition if API is fast
-    const timer = setTimeout(() => {
-      fetch(`/api/dashboard/stats?tenantId=${tenantId}`)
-        .then((res) => res.json())
-        .then((json) => {
-          setResponse(json);
-          setLoading(false);
-        })
-        .catch((err) => {
-          console.error('Failed to fetch dashboard data:', err);
-          setLoading(false);
-        });
-    }, 500);
-
-    return () => clearTimeout(timer);
+    try {
+      const res = await fetch(`/api/dashboard/stats?tenantId=${tenantId}`);
+      const json = await res.json();
+      setResponse(json);
+    } catch (err) {
+      // Use warning instead of error to prevent Next.js dev overlay 
+      // from popping up when browser extensions intercept/block fetches
+      console.warn('Failed to fetch dashboard data:', err);
+    } finally {
+      setLoading(false);
+    }
   }, [tenantId]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchDashboard();
+  }, [fetchDashboard]);
+
+  // Auto-refresh every 30 seconds (silent)
+  useEffect(() => {
+    if (!tenantId) return;
+    const interval = setInterval(() => fetchDashboard(true), 30_000);
+    return () => clearInterval(interval);
+  }, [tenantId, fetchDashboard]);
 
   const stats = response?.stats ?? {};
   const recentActivity = response?.recentActivity ?? [];

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence, useInView, useMotionValue, useSpring, useScroll, useTransform } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -887,11 +889,16 @@ function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
-            className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto"
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto"
           >
             <Link href="/register" className="w-full sm:w-auto">
               <Button size="lg" className="w-full sm:w-auto h-14 px-8 text-lg rounded-full bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-200/50 transition-all hover:scale-105 active:scale-95">
                 Start Free Trial <ChevronRight className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
+            <Link href="/login" className="w-full sm:w-auto bg-white rounded-full">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto h-14 px-8 text-lg rounded-full border-gray-200 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-300 transition-all active:scale-95">
+                Sign In
               </Button>
             </Link>
             <div
@@ -899,11 +906,11 @@ function Hero() {
                 const element = document.getElementById('features');
                 element?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className="w-full sm:w-auto cursor-pointer"
+              className="w-full sm:w-auto cursor-pointer flex justify-center mt-2 sm:mt-0"
             >
-              <Button size="lg" variant="outline" className="w-full sm:w-auto h-14 px-8 text-lg rounded-full border-gray-200 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-300 transition-all active:scale-95">
+              <span className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors underline-offset-4 hover:underline px-4">
                 Explore Features
-              </Button>
+              </span>
             </div>
           </motion.div>
 
@@ -1461,6 +1468,22 @@ function Footer() {
 }
 
 export default function HomePage() {
+  const { status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      router.push('/dashboard');
+    }
+  }, [status, router]);
+
+  // Prevent flash of landing page content while redirecting
+  if (status === 'authenticated') {
+    return <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+    </div>;
+  }
+
   return (
     <main className="min-h-screen bg-white font-sans selection:bg-blue-100">
       <Navbar />

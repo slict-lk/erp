@@ -145,11 +145,20 @@ export default function EditWorkflowPage({ params }: { params: Promise<{ id: str
         if (!name.trim()) return;
 
         try {
+            const triggerNode = nodes.find(n => n.type === 'triggerNode' || n.data?.type === 'trigger');
+            if (!triggerNode) {
+                toast.error('Workflow must have at least one trigger node');
+                return;
+            }
+
             const payload = {
                 name,
+                trigger: triggerNode.data.config?.event || 'event',
+                triggerType: triggerNode.data.config?.event || 'event',
+                triggerConfig: triggerNode.data.config || {},
                 nodes: nodes.map(n => ({
                     id: n.id,
-                    type: n.data.type,
+                    type: n.data.type || n.type,
                     config: n.data.config,
                     position: n.position
                 })),

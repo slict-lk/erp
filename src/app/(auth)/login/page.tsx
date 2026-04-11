@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -12,11 +12,20 @@ import { LogIn, Mail, Lock, Sparkles, Shield, Zap, ArrowRight, Eye, EyeOff } fro
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('demo@slict.lk');
-  const [password, setPassword] = useState('demo@slict');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem('erp_remembered_email');
+    if (rememberedEmail) {
+      setEmail(rememberedEmail);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +42,11 @@ export default function LoginPage() {
       if (result?.error) {
         setError('Invalid email or password. Please try again.');
       } else {
+        if (rememberMe) {
+          localStorage.setItem('erp_remembered_email', email);
+        } else {
+          localStorage.removeItem('erp_remembered_email');
+        }
         router.push('/dashboard');
         router.refresh();
       }
@@ -166,6 +180,19 @@ export default function LoginPage() {
                 </div>
               </div>
 
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="remember"
+                  className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 w-4 h-4 cursor-pointer"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                <Label htmlFor="remember" className="text-sm font-medium text-gray-700 cursor-pointer">
+                  Remember me
+                </Label>
+              </div>
+
               <Button
                 type="submit"
                 disabled={loading}
@@ -185,34 +212,7 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            {/* Demo Credentials */}
-            <div className="relative mt-8">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-white text-gray-500 font-medium">Quick Access</span>
-              </div>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100 space-y-3">
-              <div className="flex items-center gap-2 text-blue-900 font-semibold">
-                <Sparkles className="h-4 w-4" />
-                <span className="text-sm">Demo Credentials</span>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-blue-600" />
-                  <span className="font-mono text-blue-700">demo@slict.lk</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Lock className="h-4 w-4 text-blue-600" />
-                  <span className="font-mono text-blue-700">demo@slict</span>
-                </div>
-              </div>
-            </div>
-
-            <p className="text-center text-sm text-gray-500">
+            <p className="text-center text-sm text-gray-500 mt-6 md:mt-8">
               Don't have an account?{' '}
               <a href="/register" className="text-primary font-semibold hover:underline transition-all">
                 Start Free Trial

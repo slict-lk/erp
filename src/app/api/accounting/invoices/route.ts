@@ -153,11 +153,34 @@ export async function POST(request: NextRequest) {
         let arApCode = newInvoice.type === 'SALES' ? '1200' : '2000';
         let offsetCode = newInvoice.type === 'SALES' ? '4000' : '6000'; // Revenue or Expense
 
-        const controlAccount = await tx.account.findFirst({ where: { tenantId, code: arApCode } });
-        const offsetAccount = await tx.account.findFirst({ where: { tenantId, code: offsetCode } });
+        let controlAccount = await tx.account.findFirst({ where: { tenantId, code: arApCode } });
+        if (!controlAccount) {
+          controlAccount = await tx.account.create({
+            data: {
+              tenantId,
+              code: arApCode,
+              name: newInvoice.type === 'SALES' ? 'Accounts Receivable' : 'Accounts Payable',
+              type: newInvoice.type === 'SALES' ? 'ASSET' : 'LIABILITY',
+              currency: newInvoice.currencyCode || 'LKR',
+              isSystemAccount: true,
+              normalBalance: newInvoice.type === 'SALES' ? 'DEBIT' : 'CREDIT'
+            }
+          });
+        }
 
-        if (!controlAccount || !offsetAccount) {
-          throw new Error('System accounts missing (AR/AP or Revenue/Expense). Setup chart of accounts properly.');
+        let offsetAccount = await tx.account.findFirst({ where: { tenantId, code: offsetCode } });
+        if (!offsetAccount) {
+          offsetAccount = await tx.account.create({
+            data: {
+              tenantId,
+              code: offsetCode,
+              name: newInvoice.type === 'SALES' ? 'Sales Revenue' : 'Cost of Goods Sold / Expense',
+              type: newInvoice.type === 'SALES' ? 'REVENUE' : 'EXPENSE',
+              currency: newInvoice.currencyCode || 'LKR',
+              isSystemAccount: true,
+              normalBalance: newInvoice.type === 'SALES' ? 'CREDIT' : 'DEBIT'
+            }
+          });
         }
 
         const journalLines = [];
@@ -186,8 +209,20 @@ export async function POST(request: NextRequest) {
 
           if (newInvoice.tax > 0) {
             // Need a Tax Liability account (Code 2100)
-            const taxAccount = await tx.account.findFirst({ where: { tenantId, code: '2100' } });
-            if (!taxAccount) throw new Error('Tax Liability account (2100) missing');
+            let taxAccount = await tx.account.findFirst({ where: { tenantId, code: '2100' } });
+            if (!taxAccount) {
+              taxAccount = await tx.account.create({
+                data: {
+                  tenantId,
+                  code: '2100',
+                  name: 'Tax Liability',
+                  type: 'LIABILITY',
+                  currency: newInvoice.currencyCode || 'LKR',
+                  isSystemAccount: true,
+                  normalBalance: 'CREDIT'
+                }
+              });
+            }
             journalLines.push({
               accountId: taxAccount.id,
               description: `Tax Liability for Invoice ${newInvoice.number}`,
@@ -220,8 +255,20 @@ export async function POST(request: NextRequest) {
           });
 
           if (newInvoice.tax > 0) {
-            const taxAccount = await tx.account.findFirst({ where: { tenantId, code: '1300' } }); // e.g. Tax Asset or Input Tax
-            if (!taxAccount) throw new Error('Input Tax asset account (1300) missing');
+            let taxAccount = await tx.account.findFirst({ where: { tenantId, code: '1300' } }); // e.g. Tax Asset or Input Tax
+            if (!taxAccount) {
+              taxAccount = await tx.account.create({
+                data: {
+                  tenantId,
+                  code: '1300',
+                  name: 'Input Tax Asset',
+                  type: 'ASSET',
+                  currency: newInvoice.currencyCode || 'LKR',
+                  isSystemAccount: true,
+                  normalBalance: 'DEBIT'
+                }
+              });
+            }
             journalLines.push({
               accountId: taxAccount.id,
               description: `Input Tax for Bill ${newInvoice.number}`,

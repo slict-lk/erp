@@ -18,7 +18,7 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
 
     return (
         <div className="flex flex-col h-full bg-slate-50 min-h-[calc(100vh-4rem)]">
-            <div className="border-b bg-white top-0 z-10 sticky">
+            <div className="border-b bg-white top-0 z-30 sticky">
                 <div className="px-6 flex h-14 items-center gap-6 overflow-x-auto no-scrollbar">
                     {navItems.map((item) => {
                         const isActive =
@@ -46,7 +46,7 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
                     })}
                 </div>
             </div>
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1">
                 {children}
             </div>
         </div>
