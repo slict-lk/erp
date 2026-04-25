@@ -13,22 +13,54 @@ import { useToast } from '@/components/ui/use-toast';
 import {
     Package, Plus, X, Clock, CheckCircle, XCircle,
     Loader2, Ship, Store, Users, Building2, Heart,
-    Factory, Truck, Utensils, Hotel, FileText, BarChart3
+    Factory, Truck, Utensils, Hotel, FileText, BarChart3,
+    Car, Wrench, FileEdit, Mail, CalendarDays, ClipboardList,
+    BookOpen, Headphones, MessageCircle, UserCircle, BookText,
+    MessageSquare, Brain, Palette, Link as LinkIcon, Settings,
+    LayoutDashboard, Activity, CheckCircle as CheckCircle2,
+    Calendar
 } from 'lucide-react';
 
-// Available modules configuration
+// Available modules configuration based on sidebar categories
 const AVAILABLE_MODULES = [
+    // ── Business Verticals ──
     { id: 'vehicle-export', name: 'Vehicle Export', icon: Ship, description: 'Japanese car export business' },
+    { id: 'automotive', name: 'Automotive', icon: Car, description: 'Auto Workshop & Dealership' },
     { id: 'spareparts', name: 'Spare Parts Shop', icon: Store, description: 'Auto parts retail & POS' },
-    { id: 'real-estate', name: 'Real Estate', icon: Building2, description: 'Property management' },
+    { id: 'properties', name: 'Real Estate', icon: Building2, description: 'Property management' },
     { id: 'healthcare', name: 'Healthcare', icon: Heart, description: 'Hospital & clinic management' },
+    { id: 'hotel', name: 'Hotel & Hospitality', icon: Hotel, description: 'Room booking & front desk' },
+    { id: 'restaurant', name: 'Restaurant', icon: Utensils, description: 'POS & kitchen display' },
+
+    // ── Core ERP Operations ──
+    { id: 'sales', name: 'Sales & CRM', icon: Users, description: 'Customer relationship & Sales Pipelines' },
+    { id: 'accounting', name: 'Accounting', icon: FileText, description: 'Financial ledgers, payments, and invoices' },
+    { id: 'inventory', name: 'Inventory', icon: Package, description: 'Stock, warehouses, and reorder alerts' },
     { id: 'manufacturing', name: 'Manufacturing', icon: Factory, description: 'Production & BOM' },
     { id: 'purchasing', name: 'Purchasing', icon: Truck, description: 'Vendor & purchase orders' },
-    { id: 'restaurant', name: 'Restaurant', icon: Utensils, description: 'POS & kitchen display' },
-    { id: 'hotel', name: 'Hotel', icon: Hotel, description: 'Room booking & front desk' },
-    { id: 'crm', name: 'CRM', icon: Users, description: 'Customer relationship' },
-    { id: 'hr', name: 'HR', icon: Users, description: 'Human resources' },
-    { id: 'reports', name: 'Reports', icon: BarChart3, description: 'Advanced analytics' },
+    { id: 'quality', name: 'Quality Control', icon: CheckCircle2, description: 'Quality checks & inspections' },
+    { id: 'hr', name: 'HR & People', icon: Users, description: 'Human resources and timesheets' },
+    { id: 'projects', name: 'Projects', icon: Calendar, description: 'Project tracking and tasks' },
+
+    // ── Marketing & Engagement ──
+    { id: 'marketing', name: 'Marketing', icon: Mail, description: 'Campaigns, websites, and events' },
+    { id: 'blog', name: 'Blog', icon: FileEdit, description: 'Blog management' },
+    { id: 'calendar', name: 'Calendar & Events', icon: CalendarDays, description: 'Appointments and events' },
+    { id: 'surveys', name: 'Surveys', icon: ClipboardList, description: 'Feedback and forms' },
+    { id: 'courses', name: 'eLearning', icon: BookOpen, description: 'Course management' },
+
+    // ── Support & Communication ──
+    { id: 'helpdesk', name: 'Helpdesk', icon: Headphones, description: 'Support ticketing' },
+    { id: 'livechat', name: 'Live Chat', icon: MessageCircle, description: 'Real-time messaging' },
+    { id: 'contacts', name: 'Contacts', icon: UserCircle, description: 'Centralized directory' },
+    { id: 'knowledge', name: 'Knowledge Base', icon: BookText, description: 'Documentation center' },
+    { id: 'forum', name: 'Community Forum', icon: MessageSquare, description: 'Community discussions' },
+
+    // ── Platform & Intelligence ──
+    { id: 'ai', name: 'AI & Automation', icon: Brain, description: 'Agents and automated tasks' },
+    { id: 'studio', name: 'No-Code Studio', icon: Palette, description: 'Custom apps and dashboards' },
+    { id: 'integrations', name: 'Integrations', icon: LinkIcon, description: 'Messages & Couriers' },
+    { id: 'audit', name: 'Reports & Auditing', icon: BarChart3, description: 'Global advanced analytics' },
 ];
 
 interface ModuleRequest {
@@ -158,55 +190,66 @@ export default function ModulesPage() {
                             Request Module
                         </Button>
                     </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Request Module Access</DialogTitle>
+                    <DialogContent className="sm:max-w-[500px] bg-white border-slate-200 p-0 overflow-hidden shadow-2xl">
+                        <DialogHeader className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+                            <DialogTitle className="text-2xl font-semibold tracking-tight text-slate-900">Module Access</DialogTitle>
+                            <CardDescription className="text-slate-500 mt-1.5">Manage which ERP modules are enabled for your workspace.</CardDescription>
                         </DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                                <Label>Action</Label>
-                                <Select value={requestAction} onValueChange={(v: 'ADD' | 'REMOVE') => setRequestAction(v)}>
-                                    <SelectTrigger>
-                                        <SelectValue />
+                        <div className="space-y-5 px-6 pb-2">
+                            <div className="space-y-3">
+                                <Label className="text-slate-700 font-medium">Request Type</Label>
+                                <Select value={requestAction} onValueChange={(v: 'ADD' | 'REMOVE') => {
+                                    setRequestAction(v);
+                                    setSelectedModule(''); // reset module when action changes
+                                }}>
+                                    <SelectTrigger className="h-12 bg-slate-50 border-slate-200">
+                                        <SelectValue placeholder="Select type of request" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="ADD">Add Module</SelectItem>
-                                        <SelectItem value="REMOVE">Remove Module</SelectItem>
+                                        <SelectItem value="ADD" className="cursor-pointer py-2">Enable New Module</SelectItem>
+                                        <SelectItem value="REMOVE" className="cursor-pointer py-2">Disable Active Module</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="space-y-2">
-                                <Label>Module</Label>
+                            <div className="space-y-3">
+                                <Label className="text-slate-700 font-medium">Select Module</Label>
                                 <Select value={selectedModule} onValueChange={setSelectedModule}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select a module" />
+                                    <SelectTrigger className="h-14 bg-slate-50 border-slate-200">
+                                        <SelectValue placeholder="Choose a module from the list" />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="max-h-[300px] overflow-y-auto">
                                         {(requestAction === 'ADD' ? availableToRequest : availableToRemove).map(m => (
-                                            <SelectItem key={m.id} value={m.id}>
-                                                <div className="flex items-center gap-2">
-                                                    <m.icon className="h-4 w-4" />
-                                                    {m.name}
+                                            <SelectItem key={m.id} value={m.id} className="cursor-pointer py-3 pr-8 hover:bg-slate-50 transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="bg-white border border-slate-200 p-2 rounded-lg shadow-sm">
+                                                        <m.icon className="h-5 w-5 text-primary" />
+                                                    </div>
+                                                    <div className="flex flex-col text-left">
+                                                        <span className="font-semibold text-slate-900">{m.name}</span>
+                                                        <span className="text-xs text-slate-500">{m.description}</span>
+                                                    </div>
                                                 </div>
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="space-y-2">
-                                <Label>Reason (Optional)</Label>
+                            <div className="space-y-3">
+                                <Label className="text-slate-700 font-medium">Reason (Optional)</Label>
                                 <Textarea
                                     value={reason}
                                     onChange={(e) => setReason(e.target.value)}
                                     placeholder="Why do you need this module?"
+                                    className="min-h-[100px] resize-none bg-slate-50 border-slate-200"
                                 />
                             </div>
                         </div>
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                            <Button onClick={handleSubmitRequest} disabled={!selectedModule || submitting}>
-                                {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                                Submit Request
+                        <DialogFooter className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex items-center gap-3 w-full">
+                            <Button variant="outline" className="w-[120px] h-10 font-medium border-slate-200 hover:bg-slate-100 text-slate-700" onClick={() => setDialogOpen(false)} disabled={submitting}>Cancel</Button>
+                            <Button onClick={handleSubmitRequest} className="flex-1 h-10 font-medium bg-slate-900 border border-slate-800 text-white hover:bg-slate-800 transition-colors shadow-sm" disabled={!selectedModule || submitting}>
+                                {submitting ? (
+                                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing Request...</>
+                                ) : "Submit Request"}
                             </Button>
                         </DialogFooter>
                     </DialogContent>
