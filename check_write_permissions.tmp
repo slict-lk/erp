@@ -1,5 +1,0 @@
-export async function GET(request: Request) {
-  // Placeholder to verify if I can write to backend if needed.
-  // I won't actually write this file yet, just keeping the tool ready in mind.
-  return new Response('check');
-}

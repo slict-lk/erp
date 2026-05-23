@@ -39,6 +39,7 @@ const ROUTE_TO_MODULE_ID_MAP: Record<string, string> = {
   '/integrations': 'integrations',
   '/studio': 'studio',
   '/ai': 'ai',
+  '/intelligence': 'ai',
 };
 
 export default withAuth(

@@ -26,6 +26,7 @@ model Tenant {
   fiscalYearStart       Int                   @default(1)
   taxRegistrationNumber String?
   customModules         CustomModule[]
+  dataReadinessAudits   DataReadinessAudit[]
   moduleAccessRequests  ModuleAccessRequest[]
   properties            Property[]
   propertyAgents        PropertyAgent[]
@@ -35,6 +36,23 @@ model Tenant {
 
   @@index([subdomain])
   @@index([domain])
+}
+
+model DataReadinessAudit {
+  id          String   @id @default(cuid())
+  tenantId    String
+  score       Float
+  status      String
+  domains     Json
+  details     Json
+  warnings    Json
+  actionItems Json
+  createdAt   DateTime @default(now())
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, createdAt])
+  @@index([status])
 }
 
 model User {
@@ -1007,18 +1025,22 @@ model Employee {
   country       String?
   isActive      Boolean        @default(true)
   tenantId      String
+  managerId     String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   attendances   Attendance[]
   department    Department?    @relation(fields: [departmentId], references: [id])
   expenses      Expense[]
   leaveRequests LeaveRequest[]
+  manager       Employee?      @relation("EmployeeManager", fields: [managerId], references: [id])
+  directReports Employee[]     @relation("EmployeeManager")
   timesheets    Timesheet[]
   user          User?
 
   @@index([employeeId])
   @@index([email])
   @@index([departmentId])
+  @@index([managerId])
   @@index([isActive])
   @@index([tenantId])
 }

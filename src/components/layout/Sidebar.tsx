@@ -417,6 +417,21 @@ const categorizedNavigation: NavigationCategory[] = [
     label: 'Platform & Intelligence',
     items: [
       {
+        name: 'Organizational Intelligence',
+        href: '/intelligence',
+        icon: Target,
+        moduleId: 'ai',
+        children: [
+          { name: 'Control Center', href: '/intelligence', icon: LayoutDashboard, moduleId: 'ai' },
+          { name: 'Data Readiness', href: '/intelligence/readiness', icon: Shield, moduleId: 'ai' },
+          { name: 'Workforce DNA', href: '/intelligence/workforce', icon: Users, moduleId: 'ai' },
+          { name: 'Constraints', href: '/intelligence/constraints', icon: AlertTriangle, moduleId: 'ai' },
+          { name: 'TOC Workspace', href: '/intelligence/toc', icon: Workflow, moduleId: 'ai' },
+          { name: 'Simulator', href: '/intelligence/simulator', icon: Activity, moduleId: 'ai' },
+          { name: 'Recommendations', href: '/intelligence/recommendations', icon: Sparkles, moduleId: 'ai' },
+        ],
+      },
+      {
         name: 'AI & Automation',
         href: '/ai',
         icon: Brain,
