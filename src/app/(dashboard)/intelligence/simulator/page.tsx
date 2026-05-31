@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { ConfidenceBadge } from '@/components/intelligence/confidence-badge';
+import { IntelligenceAIOutputCard } from '@/components/intelligence/intelligence-ai-output-card';
 
 type SimulatorBaseline = {
   success: boolean;
@@ -89,7 +90,14 @@ const scenarioLabels: Record<string, string> = {
   REMOVE_EMPLOYEE: 'Remove Employee',
   DELEGATE_APPROVALS: 'Delegate Approvals',
   INCREASE_WORKLOAD: 'Increase Workload',
+  OPEN_BRANCH: 'Open Branch',
+  ADD_ASSISTANT_MANAGER: 'Add Assistant Manager',
+  REDUCE_TEAM_CAPACITY: 'Reduce Team Capacity',
 };
+
+const employeeScenarios = ['PROMOTE_EMPLOYEE', 'REMOVE_EMPLOYEE'];
+const departmentScenarios = ['INCREASE_WORKLOAD', 'OPEN_BRANCH', 'ADD_ASSISTANT_MANAGER', 'REDUCE_TEAM_CAPACITY'];
+const workloadScenarios = ['INCREASE_WORKLOAD', 'OPEN_BRANCH', 'REDUCE_TEAM_CAPACITY'];
 
 function deltaTone(value: number, reverse = false) {
   const effective = reverse ? value * -1 : value;
@@ -109,6 +117,13 @@ export default function IntelligenceSimulatorPage() {
   const [departmentName, setDepartmentName] = useState('');
   const [workloadChangePercent, setWorkloadChangePercent] = useState([15]);
   const [approvalDelegationThreshold, setApprovalDelegationThreshold] = useState([250000]);
+  const [interpretation, setInterpretation] = useState<{
+    content: string;
+    confidence: number;
+    freshness: { workforce: string | null };
+    sourceSections: string[];
+    warnings: string[];
+  } | null>(null);
 
   async function loadBaseline() {
     const response = await fetch('/api/intelligence/simulator');
@@ -146,22 +161,35 @@ export default function IntelligenceSimulatorPage() {
     setRunning(true);
     setError(null);
     try {
+      setInterpretation(null);
+      const simulationPayload = {
+        scenarioType,
+        employeeId: employeeScenarios.includes(scenarioType) ? employeeId : null,
+        departmentName: departmentScenarios.includes(scenarioType) ? departmentName : null,
+        workloadChangePercent: workloadScenarios.includes(scenarioType) ? workloadChangePercent[0] : null,
+        approvalDelegationThreshold: scenarioType === 'DELEGATE_APPROVALS' ? approvalDelegationThreshold[0] : null,
+        branchCount: scenarioType === 'OPEN_BRANCH' ? 1 : null,
+      };
       const response = await fetch('/api/intelligence/simulator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scenarioType,
-          employeeId: scenarioType === 'PROMOTE_EMPLOYEE' || scenarioType === 'REMOVE_EMPLOYEE' ? employeeId : null,
-          departmentName: scenarioType === 'INCREASE_WORKLOAD' ? departmentName : null,
-          workloadChangePercent: scenarioType === 'INCREASE_WORKLOAD' ? workloadChangePercent[0] : null,
-          approvalDelegationThreshold: scenarioType === 'DELEGATE_APPROVALS' ? approvalDelegationThreshold[0] : null,
-        }),
+        body: JSON.stringify(simulationPayload),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) {
         throw new Error(payload?.error?.message || 'Simulation failed.');
       }
       setResult(payload.data);
+
+      const aiResponse = await fetch('/api/intelligence/ai/simulator/interpret', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(simulationPayload),
+      });
+      const aiPayload = await aiResponse.json();
+      if (aiResponse.ok && aiPayload.success) {
+        setInterpretation(aiPayload.data.interpretation);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Simulation failed.');
     } finally {
@@ -262,7 +290,7 @@ export default function IntelligenceSimulatorPage() {
               </Select>
             </div>
 
-            {(scenarioType === 'PROMOTE_EMPLOYEE' || scenarioType === 'REMOVE_EMPLOYEE') && (
+            {employeeScenarios.includes(scenarioType) && (
               <div className="space-y-2">
                 <Label>Employee</Label>
                 <Select value={employeeId} onValueChange={setEmployeeId}>
@@ -302,7 +330,7 @@ export default function IntelligenceSimulatorPage() {
               </div>
             )}
 
-            {scenarioType === 'INCREASE_WORKLOAD' && (
+            {departmentScenarios.includes(scenarioType) && (
               <>
                 <div className="space-y-2">
                   <Label>Department</Label>
@@ -319,10 +347,17 @@ export default function IntelligenceSimulatorPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </>
+            )}
+
+            {workloadScenarios.includes(scenarioType) && (
+              <>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between text-sm">
-                    <Label>Workload change</Label>
-                    <Badge variant="outline">+{workloadChangePercent[0]}%</Badge>
+                    <Label>{scenarioType === 'REDUCE_TEAM_CAPACITY' ? 'Capacity reduction' : 'Workload change'}</Label>
+                    <Badge variant="outline">
+                      {scenarioType === 'REDUCE_TEAM_CAPACITY' ? '-' : '+'}{workloadChangePercent[0]}%
+                    </Badge>
                   </div>
                   <Slider
                     min={5}
@@ -434,6 +469,18 @@ export default function IntelligenceSimulatorPage() {
               </div>
             </CardContent>
           </Card>
+
+          {interpretation ? (
+            <IntelligenceAIOutputCard
+              title="AI Scenario Interpretation"
+              description="Generated from the same AI backend family over the current simulation result and intelligence context."
+              content={interpretation.content}
+              confidence={interpretation.confidence}
+              freshness={interpretation.freshness.workforce}
+              sourceSections={interpretation.sourceSections}
+              warnings={interpretation.warnings}
+            />
+          ) : null}
         </div>
       </div>
     </div>

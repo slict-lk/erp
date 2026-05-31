@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
 import { recordStockIn, recordStockOut } from '@/lib/inventory/inventory-bridge';
+import { recordInventoryOperationalEvent } from '@/lib/intelligence/events/inventory-operational-events';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,6 +40,21 @@ export async function POST(request: NextRequest) {
         } else {
             return NextResponse.json({ error: 'Invalid adjustment type' }, { status: 400 });
         }
+
+        await recordInventoryOperationalEvent({
+            tenantId: tenant.id,
+            entityType: 'stock_adjustment',
+            entityId: result.movement?.id ?? params.reference,
+            action: 'stock.adjusted',
+            metadata: {
+                productId,
+                warehouseId,
+                adjustmentType: type,
+                quantity: numQuantity,
+                reference: params.reference,
+                notes: params.notes,
+            },
+        });
 
         return NextResponse.json(result, { status: 200 });
     } catch (error: any) {

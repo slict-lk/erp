@@ -53,7 +53,7 @@ export async function runConstraintScan(prisma: PrismaClient, tenantId: string) 
       where: { tenantId },
       select: { id: true, assigneeId: true, dueDate: true, completedAt: true, status: true },
     }),
-    listOperationalEvents(prisma, tenantId, { limit: 20 }),
+    listOperationalEvents(prisma, tenantId, { limit: 250 }),
   ]);
 
   await prisma.$executeRaw`
@@ -178,6 +178,9 @@ export async function runConstraintScan(prisma: PrismaClient, tenantId: string) 
     employees: number;
     avgStress: number;
     avgDependency: number;
+    avgSuccession: number;
+    avgConfidence: number;
+    maxDependency: number;
   }>>((acc, snapshot) => {
     const key = snapshot.departmentId ?? 'unassigned';
     if (!acc[key]) {
@@ -187,17 +190,25 @@ export async function runConstraintScan(prisma: PrismaClient, tenantId: string) 
         employees: 0,
         avgStress: 0,
         avgDependency: 0,
+        avgSuccession: 0,
+        avgConfidence: 0,
+        maxDependency: 0,
       };
     }
     acc[key].employees += 1;
     acc[key].avgStress += snapshot.stressLoad;
     acc[key].avgDependency += snapshot.systemDependency;
+    acc[key].avgSuccession += snapshot.successionReadiness;
+    acc[key].avgConfidence += snapshot.confidence;
+    acc[key].maxDependency = Math.max(acc[key].maxDependency, snapshot.systemDependency);
     return acc;
   }, {});
 
   Object.values(departments).forEach((department) => {
     const averageStress = department.avgStress / Math.max(department.employees, 1);
     const averageDependency = department.avgDependency / Math.max(department.employees, 1);
+    const averageSuccession = department.avgSuccession / Math.max(department.employees, 1);
+    const averageConfidence = department.avgConfidence / Math.max(department.employees, 1);
     if (averageStress >= 60) {
       constraints.push({
         id: randomUUID(),
@@ -215,12 +226,111 @@ export async function runConstraintScan(prisma: PrismaClient, tenantId: string) 
           employees: department.employees,
           averageStress: round(averageStress),
           averageDependency: round(averageDependency),
+          averageSuccession: round(averageSuccession),
+        },
+        detectedAt,
+        resolvedAt: null,
+      });
+    }
+
+    if ((department.employees <= 2 && department.maxDependency >= 55) || (averageDependency >= 55 && averageSuccession <= 45)) {
+      constraints.push({
+        id: randomUUID(),
+        tenantId,
+        type: 'SKILL',
+        name: `${department.departmentName} has weak backup coverage`,
+        description: 'The department does not have enough visible succession depth for its current dependency load.',
+        severity: round(clamp((averageDependency * 0.55) + ((100 - averageSuccession) * 0.45))),
+        confidence: round(clamp(averageConfidence)),
+        status: 'IDENTIFIED',
+        linkedEmployeeId: null,
+        linkedDepartmentId: department.departmentId,
+        linkedProcessKey: 'MISSING_BACKUP_COVERAGE',
+        evidence: {
+          employees: department.employees,
+          averageDependency: round(averageDependency),
+          averageSuccession: round(averageSuccession),
+          maxDependency: round(department.maxDependency),
         },
         detectedAt,
         resolvedAt: null,
       });
     }
   });
+
+  const approvalRequests = recentEvents.filter((event) => event.action === 'APPROVAL_REQUESTED');
+  const approvalClosures = recentEvents.filter((event) => event.action === 'APPROVAL_APPROVED' || event.action === 'APPROVAL_REJECTED');
+  const approvalGap = approvalRequests.length - approvalClosures.length;
+  if (approvalRequests.length >= 3 && approvalGap >= 2) {
+    constraints.push({
+      id: randomUUID(),
+      tenantId,
+      type: 'DECISION',
+      name: 'Approval requests are arriving faster than decisions',
+      description: 'Operational events show approval demand outpacing recorded approval decisions.',
+      severity: round(clamp(55 + (approvalGap * 8))),
+      confidence: round(clamp(60 + Math.min(approvalRequests.length * 4, 25))),
+      status: 'IDENTIFIED',
+      linkedEmployeeId: null,
+      linkedDepartmentId: null,
+      linkedProcessKey: 'APPROVAL_EVENT_BACKLOG',
+      evidence: {
+        approvalRequests: approvalRequests.length,
+        approvalClosures: approvalClosures.length,
+        approvalGap,
+        sampleEvents: approvalRequests.slice(0, 5),
+      },
+      detectedAt,
+      resolvedAt: null,
+    });
+  }
+
+  const longDurationEvents = recentEvents.filter((event) => Number(event.durationMs || 0) >= 8 * 60 * 60 * 1000);
+  if (longDurationEvents.length >= 2) {
+    constraints.push({
+      id: randomUUID(),
+      tenantId,
+      type: 'PROCESS',
+      name: 'Long-running operational events indicate process drag',
+      description: 'Multiple events exceeded the operational duration threshold and may represent waiting time or cleanup effort.',
+      severity: round(clamp(50 + (longDurationEvents.length * 6))),
+      confidence: round(clamp(62 + (longDurationEvents.length * 4))),
+      status: 'IDENTIFIED',
+      linkedEmployeeId: null,
+      linkedDepartmentId: null,
+      linkedProcessKey: 'LONG_RUNNING_EVENTS',
+      evidence: {
+        thresholdHours: 8,
+        eventCount: longDurationEvents.length,
+        sampleEvents: longDurationEvents.slice(0, 5),
+      },
+      detectedAt,
+      resolvedAt: null,
+    });
+  }
+
+  const inventoryRollbacks = recentEvents.filter((event) => event.action === 'stock.transfer_rolled_back');
+  if (inventoryRollbacks.length > 0) {
+    constraints.push({
+      id: randomUUID(),
+      tenantId,
+      type: 'OPERATIONAL',
+      name: 'Inventory transfers are requiring rollback',
+      description: 'Rollback events indicate warehouse transfer instability or destination receiving issues.',
+      severity: round(clamp(58 + inventoryRollbacks.length * 10)),
+      confidence: 82,
+      status: 'IDENTIFIED',
+      linkedEmployeeId: null,
+      linkedDepartmentId: null,
+      linkedProcessKey: 'INVENTORY_TRANSFER_ROLLBACK',
+      evidence: {
+        rollbackCount: inventoryRollbacks.length,
+        sampleEvents: inventoryRollbacks.slice(0, 5),
+      },
+      detectedAt,
+      resolvedAt: null,
+    });
+  }
 
   for (const constraint of constraints) {
     await prisma.$executeRaw`

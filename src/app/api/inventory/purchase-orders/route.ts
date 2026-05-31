@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
+import { recordInventoryOperationalEvent } from '@/lib/intelligence/events/inventory-operational-events';
 
 export const dynamic = 'force-dynamic';
 
@@ -125,6 +126,23 @@ export async function POST(request: NextRequest) {
       include: {
         lines: true
       }
+    });
+
+    await recordInventoryOperationalEvent({
+      tenantId: tenant.id,
+      entityType: 'purchase_order',
+      entityId: purchaseOrder.id,
+      action: 'purchase_order.created',
+      metadata: {
+        poNumber: purchaseOrder.poNumber,
+        supplierId,
+        status: purchaseOrder.status,
+        lineCount: purchaseOrder.lines.length,
+        expectedAt: purchaseOrder.expectedAt,
+        subtotal: subtotal,
+        taxAmount: tax,
+        total,
+      },
     });
 
     return NextResponse.json(purchaseOrder, { status: 201 });

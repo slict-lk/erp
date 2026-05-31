@@ -9,7 +9,10 @@ export type ScenarioType =
   | 'PROMOTE_EMPLOYEE'
   | 'REMOVE_EMPLOYEE'
   | 'DELEGATE_APPROVALS'
-  | 'INCREASE_WORKLOAD';
+  | 'INCREASE_WORKLOAD'
+  | 'OPEN_BRANCH'
+  | 'ADD_ASSISTANT_MANAGER'
+  | 'REDUCE_TEAM_CAPACITY';
 
 export interface SimulationScenarioInput {
   scenarioType: ScenarioType;
@@ -17,6 +20,7 @@ export interface SimulationScenarioInput {
   departmentName?: string | null;
   workloadChangePercent?: number | null;
   approvalDelegationThreshold?: number | null;
+  branchCount?: number | null;
 }
 
 function clamp(value: number, min = 0, max = 100) {
@@ -100,6 +104,7 @@ export async function runSimulatorScenario(
     : [];
   const workloadChangePercent = input.workloadChangePercent ?? 10;
   const approvalThreshold = input.approvalDelegationThreshold ?? settings.approvalDelegationThresholdLkr;
+  const branchCount = Math.max(1, Math.round(Number(input.branchCount ?? 1)));
 
   let stressDelta = 0;
   let dependencyDelta = 0;
@@ -117,7 +122,7 @@ export async function runSimulatorScenario(
       dependencyDelta = round(selectedEmployee.systemDependency * 0.12);
       successionDelta = round(-Math.max(6, (100 - selectedEmployee.successionReadiness) * 0.12));
       if (selectedEmployee.successionReadiness < 50) {
-        warnings.push(`${selectedEmployee.name} has weak backup coverage, so promotion creates a local succession gap.`);
+        warnings.push(`${selectedEmployee.firstName} ${selectedEmployee.lastName} has weak backup coverage, so promotion creates a local succession gap.`);
         criticalRiskDelta += 1;
       }
       assumptions.push('Simulation treats promotion as removing part of the employee’s current operating load from the team.');
@@ -160,6 +165,51 @@ export async function runSimulatorScenario(
       }
       break;
     }
+
+    case 'OPEN_BRANCH': {
+      const affectedPeople = Math.max(departmentEmployees.length || snapshots.length, 1);
+      const expansionLoad = workloadChangePercent * branchCount;
+      stressDelta = round((expansionLoad * 0.34) / Math.max(affectedPeople / 4, 1) + 5);
+      dependencyDelta = round(expansionLoad * 0.16 + Math.max(0, before.averageDependency - 45) * 0.08);
+      successionDelta = round(-(8 + expansionLoad * 0.08));
+      criticalRiskDelta = expansionLoad >= 25 || before.averageSuccession < 55 ? 2 : 1;
+      assumptions.push(`Opening ${branchCount} branch(es) is modeled as a ${expansionLoad}% operating-load expansion before new local capacity is fully trained.`);
+      if (input.departmentName) {
+        warnings.push(`${input.departmentName} is treated as the launch support department for this branch expansion.`);
+      }
+      if (before.averageSuccession < 55) {
+        warnings.push('Current succession readiness is weak for branch expansion without backup owners.');
+      }
+      break;
+    }
+
+    case 'ADD_ASSISTANT_MANAGER': {
+      const affectedPeople = Math.max(departmentEmployees.length || snapshots.length, 1);
+      stressDelta = round(-Math.max(5, Math.min(16, 18 / Math.max(affectedPeople / 4, 1))));
+      dependencyDelta = round(-Math.max(4, before.averageDependency * 0.08));
+      successionDelta = round(8);
+      criticalRiskDelta = before.criticalRiskCount > 0 ? -1 : 0;
+      assumptions.push('Assistant manager capacity is modeled as decision relief plus better backup coverage, not instant headcount replacement.');
+      if (!input.departmentName) {
+        warnings.push('No department was selected, so the assistant manager effect was applied across the whole workforce baseline.');
+      }
+      break;
+    }
+
+    case 'REDUCE_TEAM_CAPACITY': {
+      const affectedPeople = Math.max(departmentEmployees.length || snapshots.length, 1);
+      const reduction = Math.max(5, workloadChangePercent);
+      stressDelta = round((reduction * 0.5) / Math.max(affectedPeople / 3, 1) + 4);
+      dependencyDelta = round(reduction * 0.24);
+      successionDelta = round(-(reduction * 0.22 + 5));
+      criticalRiskDelta = reduction >= 20 ? 2 : 1;
+      assumptions.push(`Team capacity reduction is modeled as ${reduction}% less available capacity across ${affectedPeople} profile(s).`);
+      warnings.push('This is a resilience stress test, not a recommended action.');
+      if (input.departmentName) {
+        warnings.push(`${input.departmentName} becomes the immediate impact area for the capacity reduction.`);
+      }
+      break;
+    }
   }
 
   const after = {
@@ -195,5 +245,13 @@ export async function runSimulatorScenario(
     },
     warnings,
     assumptions,
+    confidence: clamp(round((readiness.score * 0.45) + ((snapshots.reduce((sum, snapshot) => sum + snapshot.confidence, 0) / Math.max(snapshots.length, 1)) * 0.45) + 10)),
+    affectedScope: {
+      employeeId: selectedEmployee?.employeeId ?? null,
+      employeeName: selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}` : null,
+      departmentName: input.departmentName ?? null,
+      affectedProfiles: departmentEmployees.length || snapshots.length,
+      activeConstraints: constraints.length,
+    },
   };
 }

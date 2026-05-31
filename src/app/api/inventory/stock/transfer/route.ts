@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
 import { recordStockIn, recordStockOut } from '@/lib/inventory/inventory-bridge';
+import { recordInventoryOperationalEvent } from '@/lib/intelligence/events/inventory-operational-events';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,6 +56,21 @@ export async function POST(request: NextRequest) {
                 reference,
                 notes: `Transfer from warehouse ${fromWarehouseId}. ${notes || ''}`
             });
+            await recordInventoryOperationalEvent({
+                tenantId: tenant.id,
+                entityType: 'stock_transfer',
+                entityId: reference,
+                action: 'stock.transferred',
+                metadata: {
+                    productId,
+                    fromWarehouseId,
+                    toWarehouseId,
+                    quantity: numQuantity,
+                    reference,
+                    outboundMovementId: outResult.movement?.id ?? null,
+                    inboundMovementId: inResult.movement?.id ?? null,
+                },
+            });
             return NextResponse.json({ success: true, from: outResult, to: inResult }, { status: 200 });
         } catch (error: any) {
             console.error('Inbound transfer failed, rolling back outbound transfer', error);
@@ -69,6 +85,20 @@ export async function POST(request: NextRequest) {
                     sourceDocument: 'transfer-rollback',
                     reference: `${reference}-R`,
                     notes: 'Rollback of failed transfer'
+                });
+                await recordInventoryOperationalEvent({
+                    tenantId: tenant.id,
+                    entityType: 'stock_transfer',
+                    entityId: reference,
+                    action: 'stock.transfer_rolled_back',
+                    metadata: {
+                        productId,
+                        fromWarehouseId,
+                        toWarehouseId,
+                        quantity: numQuantity,
+                        reference,
+                        reason: error.message || 'Inbound transfer failed',
+                    },
                 });
             } catch (rollbackError: any) {
                 console.error(`FATAL ROLLBACK FAILURE tenant:${tenant.id} prod:${productId} qty:${quantity} ref:${reference}`, rollbackError);

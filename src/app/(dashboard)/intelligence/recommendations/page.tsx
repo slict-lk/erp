@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfidenceBadge } from '@/components/intelligence/confidence-badge';
+import { IntelligenceAIOutputCard } from '@/components/intelligence/intelligence-ai-output-card';
 
 type Recommendation = {
   id: string;
@@ -45,6 +46,14 @@ export default function IntelligenceRecommendationsPage() {
   const [activeStatus, setActiveStatus] = useState<(typeof statusOrder)[number]>('ALL');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [draftLoading, setDraftLoading] = useState(false);
+  const [draft, setDraft] = useState<{
+    content: string;
+    confidence: number;
+    freshness: { workforce: string | null };
+    sourceSections: string[];
+    warnings: string[];
+  } | null>(null);
 
   async function loadRecommendations() {
     const response = await fetch('/api/intelligence/recommendations');
@@ -93,6 +102,27 @@ export default function IntelligenceRecommendationsPage() {
       setError(err instanceof Error ? err.message : 'Failed to update recommendation status.');
     } finally {
       setSavingId(null);
+    }
+  }
+
+  async function loadDraft(recommendationId: string) {
+    setDraftLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/intelligence/ai/recommendations/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recommendationId }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload?.error?.message || 'Failed to generate AI draft.');
+      }
+      setDraft(payload.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate AI draft.');
+    } finally {
+      setDraftLoading(false);
     }
   }
 
@@ -257,6 +287,28 @@ export default function IntelligenceRecommendationsPage() {
                         </Button>
                       ))}
                     </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold text-slate-950">AI Draft</p>
+                    <Button
+                      variant="outline"
+                      onClick={() => loadDraft(selectedRecommendation.id)}
+                      disabled={draftLoading}
+                    >
+                      {draftLoading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      {draftLoading ? 'Drafting' : 'Generate Executive Wording'}
+                    </Button>
+                    {draft ? (
+                      <IntelligenceAIOutputCard
+                        title="Executive wording"
+                        content={draft.content}
+                        confidence={draft.confidence}
+                        freshness={draft.freshness.workforce}
+                        sourceSections={draft.sourceSections}
+                        warnings={draft.warnings}
+                      />
+                    ) : null}
                   </div>
                 </>
               ) : (

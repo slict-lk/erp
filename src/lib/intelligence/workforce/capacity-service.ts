@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import { getLatestDataReadinessAudit } from '../readiness/readiness-service';
 
-const SNAPSHOT_FORMULA_VERSION = 'v1.0.0';
+const SNAPSHOT_FORMULA_VERSION = 'v1.1.0';
 
 type WorkforceSnapshotRow = {
   id: string;
@@ -57,7 +57,7 @@ export async function generateEmployeeCapacitySnapshots(
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
-  const [employees, users, tasks, approvals, orders, attendances] = await Promise.all([
+  const [employees, users, tasks, approvals, orders, attendances, timesheets, leaveRequests, operationalEvents] = await Promise.all([
     prisma.employee.findMany({
       where: { tenantId, isActive: true },
       include: {
@@ -124,6 +124,66 @@ export async function generateEmployeeCapacitySnapshots(
         status: true,
       },
     }),
+    prisma.timesheet.findMany({
+      where: {
+        tenantId,
+        date: { gte: thirtyDaysAgo },
+      },
+      select: {
+        id: true,
+        employeeId: true,
+        projectId: true,
+        taskId: true,
+        date: true,
+        hours: true,
+        billable: true,
+      },
+    }),
+    prisma.leaveRequest.findMany({
+      where: {
+        tenantId,
+        OR: [
+          { createdAt: { gte: ninetyDaysAgo } },
+          { startDate: { gte: ninetyDaysAgo } },
+          { endDate: { gte: ninetyDaysAgo } },
+        ],
+      },
+      select: {
+        id: true,
+        employeeId: true,
+        status: true,
+        days: true,
+        startDate: true,
+        endDate: true,
+      },
+    }),
+    prisma.$queryRaw<Array<{
+      id: string;
+      moduleKey: string;
+      entityType: string;
+      action: string;
+      actorUserId: string | null;
+      employeeId: string | null;
+      occurredAt: Date;
+      durationMs: number | null;
+      metadata: Record<string, unknown> | null;
+    }>>`
+      SELECT
+        "id",
+        "moduleKey",
+        "entityType",
+        "action",
+        "actorUserId",
+        "employeeId",
+        "occurredAt",
+        "durationMs",
+        "metadata"
+      FROM "OperationalEvent"
+      WHERE "tenantId" = ${tenantId}
+        AND "occurredAt" >= ${ninetyDaysAgo}
+      ORDER BY "occurredAt" DESC
+      LIMIT 1000
+    `,
   ]);
 
   const userByEmployeeId = new Map(users.map((user) => [user.employeeId as string, user.id]));
@@ -137,6 +197,7 @@ export async function generateEmployeeCapacitySnapshots(
   const totalAssignedTasks = Math.max(tasks.filter((task) => task.assigneeId).length, 1);
   const totalOrdersCreated = Math.max(orders.filter((order) => order.createdByUserId).length, 1);
   const totalPendingApprovals = Math.max(approvals.filter((approval) => approval.status === 'PENDING').length, 1);
+  const totalOperationalEvents = Math.max(operationalEvents.length, 1);
   const totalApprovalsHandled = Math.max(approvals.filter((approval) => approval.approverUserId).length, 1);
 
   const insertedRows: WorkforceSnapshotRow[] = [];
@@ -152,6 +213,11 @@ export async function generateEmployeeCapacitySnapshots(
     const approvalsHandled = userId ? approvals.filter((approval) => approval.approverUserId === userId) : [];
     const pendingApprovals = approvalsHandled.filter((approval) => approval.status === 'PENDING');
     const ordersCreated = userId ? orders.filter((order) => order.createdByUserId === userId) : [];
+    const employeeTimesheets = timesheets.filter((timesheet) => timesheet.employeeId === employee.id);
+    const employeeLeaveRequests = leaveRequests.filter((leave) => leave.employeeId === employee.id);
+    const employeeEvents = operationalEvents.filter((event) => {
+      return event.employeeId === employee.id || Boolean(userId && event.actorUserId === userId);
+    });
 
     const attendanceRows = attendances.filter((attendance) => attendance.employeeId === employee.id);
     const validAttendanceRows = attendanceRows.filter((attendance) => {
@@ -166,6 +232,18 @@ export async function generateEmployeeCapacitySnapshots(
     const averageHours = validAttendanceRows.length > 0
       ? validAttendanceRows.reduce((total, attendance) => total + (toHours(attendance.checkIn, attendance.checkOut) ?? 0), 0) / validAttendanceRows.length
       : 0;
+    const timesheetHours = employeeTimesheets.reduce((total, timesheet) => total + Number(timesheet.hours || 0), 0);
+    const billableTimesheetHours = employeeTimesheets
+      .filter((timesheet) => timesheet.billable)
+      .reduce((total, timesheet) => total + Number(timesheet.hours || 0), 0);
+    const pendingLeaveDays = employeeLeaveRequests
+      .filter((leave) => leave.status === 'PENDING')
+      .reduce((total, leave) => total + Number(leave.days || 0), 0);
+    const approvedLeaveDays = employeeLeaveRequests
+      .filter((leave) => leave.status === 'APPROVED')
+      .reduce((total, leave) => total + Number(leave.days || 0), 0);
+    const longRunningEvents = employeeEvents.filter((event) => Number(event.durationMs || 0) > 8 * 60 * 60 * 1000);
+    const activityScore = clamp((employeeEvents.length / totalOperationalEvents) * 100);
 
     const peerEmployees = employees.filter(
       (peer) => peer.id !== employee.id && peer.departmentId && peer.departmentId === employee.departmentId
@@ -175,30 +253,40 @@ export async function generateEmployeeCapacitySnapshots(
     const isDepartmentManager = employee.department?.managerId === employee.id;
     const directReports = directReportCount.get(employee.id) ?? 0;
 
-    const productivity = assignedTasks.length > 0
-      ? clamp((completedTasks.length / assignedTasks.length) * 100)
-      : attendanceRows.length > 0
-        ? 60
-        : 40;
+    const taskCompletionScore = assignedTasks.length > 0
+      ? (completedTasks.length / assignedTasks.length) * 100
+      : null;
+    const timesheetUtilizationScore = timesheetHours > 0
+      ? clamp((billableTimesheetHours / Math.max(timesheetHours, 1)) * 100)
+      : null;
+    const productivity = clamp(
+      (taskCompletionScore ?? 52) * 0.55 +
+      (timesheetUtilizationScore ?? (attendanceRows.length > 0 ? 62 : 45)) * 0.25 +
+      (Math.max(0, 100 - overdueTasks.length * 12)) * 0.2
+    );
 
     const systemDependency = clamp(
       ((assignedTasks.length / totalAssignedTasks) * 45) +
       ((ordersCreated.length / totalOrdersCreated) * 25) +
-      ((pendingApprovals.length / totalPendingApprovals) * 30)
+      ((pendingApprovals.length / totalPendingApprovals) * 20) +
+      (activityScore * 0.1)
     );
 
     const stressLoad = clamp(
       (overdueTasks.length * 15) +
       (overtimeSessions * 12) +
       (pendingApprovals.length * 12) +
-      Math.max(0, averageHours - 8) * 8
+      Math.max(0, averageHours - 8) * 8 +
+      Math.max(0, timesheetHours - 160) * 0.45 +
+      (longRunningEvents.length * 8) +
+      (pendingLeaveDays * 1.5)
     );
 
     const leadershipCapacity = clamp(30 + (directReports * 15) + (isDepartmentManager ? 20 : 0) + (approvalsHandled.length * 5));
-    const cognitiveComplexity = clamp(40 + (urgentTasks.length * 8) + (approvalsHandled.length * 10) + (isDepartmentManager ? 10 : 0));
-    const functionalCapacity = clamp(35 + (completedTasks.length * 8) + Math.min(validAttendanceRows.length, 15) + (ordersCreated.length * 4));
-    const adaptability = clamp(80 - (anomalyCount * 18) - (overdueTasks.length * 4) + (completedTasks.length * 2));
-    const successionReadiness = clamp((peerEmployees.length * 25) + (peersWithUsers.length * 12));
+    const cognitiveComplexity = clamp(40 + (urgentTasks.length * 8) + (approvalsHandled.length * 10) + (isDepartmentManager ? 10 : 0) + (activityScore * 0.08));
+    const functionalCapacity = clamp(35 + (completedTasks.length * 7) + Math.min(validAttendanceRows.length, 15) + (ordersCreated.length * 4) + Math.min(timesheetHours / 8, 18));
+    const adaptability = clamp(82 - (anomalyCount * 16) - (overdueTasks.length * 4) - (approvedLeaveDays * 0.8) + (completedTasks.length * 2) + Math.min(employeeEvents.length, 10));
+    const successionReadiness = clamp((peerEmployees.length * 22) + (peersWithUsers.length * 10) - Math.max(0, systemDependency - 65) * 0.35);
     const growthPotential = clamp(
       (productivity * 0.45) +
       (adaptability * 0.25) +
@@ -211,8 +299,9 @@ export async function generateEmployeeCapacitySnapshots(
     confidence += userId ? 20 : 0;
     confidence += (employee.managerId || directReports > 0 || isDepartmentManager) ? 15 : 0;
     confidence += attendanceRows.length >= 5 ? 15 : attendanceRows.length * 3;
-    confidence += assignedTasks.length > 0 || ordersCreated.length > 0 || approvalsHandled.length > 0 ? 20 : 8;
-    confidence += Math.max(0, 10 - (anomalyCount * 10));
+    confidence += assignedTasks.length > 0 || ordersCreated.length > 0 || approvalsHandled.length > 0 || employeeEvents.length > 0 ? 18 : 6;
+    confidence += employeeTimesheets.length > 0 ? 7 : 0;
+    confidence += Math.max(0, 12 - (anomalyCount * 8));
     confidence = clamp(confidence);
 
     const warnings: string[] = [];
@@ -221,6 +310,9 @@ export async function generateEmployeeCapacitySnapshots(
     if (!employee.managerId && !isDepartmentManager && directReports === 0) warnings.push('Employee is missing a manager chain link.');
     if (anomalyCount > 0) warnings.push(`${anomalyCount} attendance anomaly record(s) were excluded from scoring.`);
     if (assignedTasks.length === 0) warnings.push('No assigned tasks were available for direct productivity scoring.');
+    if (employeeEvents.length === 0) warnings.push('No operational event telemetry was available for this employee.');
+    if (timesheetHours > 180) warnings.push('Timesheet load is above the monthly pressure threshold.');
+    if (pendingLeaveDays > 0 && stressLoad >= 60) warnings.push('Pending leave overlaps with an already pressured workload profile.');
 
     let category = 'STABLE_CAPACITY';
     if (stressLoad >= 75 || (systemDependency >= 70 && successionReadiness < 40)) {
@@ -242,6 +334,13 @@ export async function generateEmployeeCapacitySnapshots(
       approvalsHandled: approvalsHandled.length,
       pendingApprovals: pendingApprovals.length,
       ordersCreated: ordersCreated.length,
+      operationalEvents: employeeEvents.length,
+      longRunningEvents: longRunningEvents.length,
+      timesheetEntries: employeeTimesheets.length,
+      timesheetHours: round(timesheetHours),
+      billableTimesheetHours: round(billableTimesheetHours),
+      pendingLeaveDays: round(pendingLeaveDays),
+      approvedLeaveDays: round(approvedLeaveDays),
       attendanceRecords: attendanceRows.length,
       attendanceAnomalies: anomalyCount,
       overtimeSessions,

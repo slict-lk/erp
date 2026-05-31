@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPOSOrders, createPOSOrder } from '@/apps/pos/api';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
+import { recordSafeOperationalEvent } from '@/lib/intelligence/events/safe-operational-events';
 
 
 export const dynamic = 'force-dynamic';
@@ -31,6 +32,22 @@ export async function POST(request: NextRequest) {
     const order = await createPOSOrder({
       ...data,
       tenantId,
+    });
+
+    await recordSafeOperationalEvent({
+      tenantId,
+      moduleKey: 'pos',
+      entityType: 'POS_ORDER',
+      entityId: order.id,
+      action: 'POS_ORDER_CREATED',
+      metadata: {
+        orderNumber: order.orderNumber,
+        status: order.status,
+        paymentMethod: order.paymentMethod,
+        total: Number(order.total ?? order.totalAmount ?? 0),
+        itemCount: order.items?.length ?? 0,
+        customerId: order.customerId ?? null,
+      },
     });
     
     return NextResponse.json(order, { status: 201 });

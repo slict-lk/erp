@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
 import { formatSuccessResponse, formatPaginatedResponse } from '@/lib/error-handler';
 import { tryCatch } from '@/lib/error-handler';
+import { recordSafeOperationalEvent } from '@/lib/intelligence/events/safe-operational-events';
 
 
 export const dynamic = 'force-dynamic';
@@ -104,6 +105,22 @@ export async function POST(request: NextRequest) {
             },
           },
         },
+      },
+    });
+
+    await recordSafeOperationalEvent({
+      tenantId: tenant.id,
+      moduleKey: 'hr',
+      entityType: 'LEAVE_REQUEST',
+      entityId: leaveRequest.id,
+      action: 'LEAVE_REQUEST_CREATED',
+      employeeId: leaveRequest.employeeId,
+      metadata: {
+        leaveType: leaveRequest.leaveType,
+        status: leaveRequest.status,
+        days: leaveRequest.days,
+        startDate: leaveRequest.startDate.toISOString(),
+        endDate: leaveRequest.endDate.toISOString(),
       },
     });
 

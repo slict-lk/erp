@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
+import { recordSafeOperationalEvent } from '@/lib/intelligence/events/safe-operational-events';
 
 
 export const dynamic = 'force-dynamic';
@@ -42,6 +43,19 @@ export async function POST(request: NextRequest) {
       },
       include: {
         employees: true,
+      },
+    });
+
+    await recordSafeOperationalEvent({
+      tenantId: tenant.id,
+      moduleKey: 'hr',
+      entityType: 'DEPARTMENT',
+      entityId: department.id,
+      action: 'DEPARTMENT_CREATED',
+      metadata: {
+        name: department.name,
+        code: department.code,
+        managerId: department.managerId,
       },
     });
 

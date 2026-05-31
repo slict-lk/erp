@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
 import { recordStockIn, recordStockOut } from '@/lib/inventory/inventory-bridge';
+import { recordInventoryOperationalEvent } from '@/lib/intelligence/events/inventory-operational-events';
 
 export const dynamic = 'force-dynamic';
 
@@ -148,6 +149,24 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
         // TODO: GL POSTING (Phase 6) 
         // Debit Inventory Asset, Credit Accounts Payable if received.
+
+        await recordInventoryOperationalEvent({
+            tenantId: tenant.id,
+            entityType: 'purchase_order_receipt',
+            entityId: order.id,
+            action: 'purchase_order.received',
+            metadata: {
+                poNumber: order.poNumber,
+                destinationWarehouseId,
+                status: newStatus,
+                receivedLineCount: successfullyReceivedLines.length,
+                receivedLines: successfullyReceivedLines.map((line) => ({
+                    productId: line.productId,
+                    quantity: line.quantity,
+                    receivedQty: line.receivedQty,
+                })),
+            },
+        });
 
         return NextResponse.json(updatedOrder, { status: 200 });
 

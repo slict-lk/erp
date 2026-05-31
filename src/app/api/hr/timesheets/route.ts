@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
+import { recordSafeOperationalEvent } from '@/lib/intelligence/events/safe-operational-events';
 
 
 export const dynamic = 'force-dynamic';
@@ -57,6 +58,23 @@ export async function POST(request: NextRequest) {
         employee: true,
         project: true,
         task: true,
+      },
+    });
+
+    await recordSafeOperationalEvent({
+      tenantId: tenant.id,
+      moduleKey: 'hr',
+      entityType: 'TIMESHEET',
+      entityId: timesheet.id,
+      action: 'TIMESHEET_RECORDED',
+      employeeId: timesheet.employeeId,
+      durationMs: Math.round(Number(timesheet.hours || 0) * 60 * 60 * 1000),
+      metadata: {
+        projectId: timesheet.projectId,
+        taskId: timesheet.taskId,
+        date: timesheet.date.toISOString(),
+        hours: timesheet.hours,
+        billable: timesheet.billable,
       },
     });
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
+import { recordInventoryOperationalEvent } from '@/lib/intelligence/events/inventory-operational-events';
 
 
 export const dynamic = 'force-dynamic';
@@ -95,6 +96,22 @@ export async function POST(request: NextRequest) {
     } else {
       result = await recordStockOut(type, params);
     }
+
+    await recordInventoryOperationalEvent({
+      tenantId: tenant.id,
+      entityType: 'stock_movement',
+      entityId: result.movement?.id ?? params.reference,
+      action: 'stock.movement_recorded',
+      metadata: {
+        productId: body.productId,
+        warehouseId: body.warehouseId,
+        movementType: type,
+        direction,
+        quantity,
+        reference: params.reference,
+        sourceDocument: params.sourceDocument,
+      },
+    });
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

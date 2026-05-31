@@ -78,6 +78,24 @@ function effectChainForConstraint(constraint: Awaited<ReturnType<typeof getActiv
   };
 }
 
+function evidenceStrings(constraint: Awaited<ReturnType<typeof getActiveConstraints>>[number]) {
+  const evidence = constraint.evidence ?? {};
+  return [
+    `Constraint type: ${constraint.type}.`,
+    `Severity: ${round(constraint.severity)}%. Confidence: ${round(constraint.confidence)}%.`,
+    `Process key: ${constraint.linkedProcessKey ?? 'not mapped'}.`,
+    ...Object.entries(evidence).slice(0, 4).map(([key, value]) => `${key}: ${typeof value === 'object' ? JSON.stringify(value).slice(0, 180) : String(value)}.`),
+  ];
+}
+
+function recommendedInjectionForConstraint(constraint: Awaited<ReturnType<typeof getActiveConstraints>>[number]) {
+  if (constraint.type === 'DECISION') return 'Delegate low-risk decisions and reduce approval queue concentration';
+  if (constraint.type === 'HUMAN') return 'Redistribute workload and add temporary backup coverage';
+  if (constraint.type === 'SKILL') return 'Create cross-training and named backup ownership';
+  if (constraint.type === 'PROCESS') return 'Triage backlog and define service-level rules';
+  return 'Stabilize the constrained department before adding more demand';
+}
+
 export async function getTocWorkspaceData(prisma: PrismaClient, tenantId: string) {
   const [readiness, workforce, constraints, recommendations, events] = await Promise.all([
     getLatestDataReadinessAudit(prisma, tenantId),
@@ -88,6 +106,7 @@ export async function getTocWorkspaceData(prisma: PrismaClient, tenantId: string
   ]);
 
   const primaryConstraint = constraints[0] ?? null;
+  const secondaryConstraints = constraints.slice(1, 4);
   const primaryRecommendation = recommendations.recommendations[0] ?? null;
   const chain = primaryConstraint ? effectChainForConstraint(primaryConstraint) : null;
 
@@ -176,7 +195,10 @@ export async function getTocWorkspaceData(prisma: PrismaClient, tenantId: string
           kind: 'outcome',
           description: 'Observed organizational risk if the current path continues.',
           confidence: primaryConstraint.confidence,
-          evidence: events.slice(0, 2).map((event) => `${event.action} in ${event.moduleKey} at ${event.occurredAt.toISOString()}`),
+          evidence: [
+            ...events.slice(0, 2).map((event) => `${event.action} in ${event.moduleKey} at ${event.occurredAt.toISOString()}`),
+            ...evidenceStrings(primaryConstraint).slice(0, 2),
+          ],
         },
       },
       {
@@ -211,12 +233,21 @@ export async function getTocWorkspaceData(prisma: PrismaClient, tenantId: string
           description: 'Most likely root cause inferred from the current constraint pattern.',
           severity: primaryConstraint.severity,
           confidence: primaryConstraint.confidence,
-          evidence: [
-            `Constraint type: ${primaryConstraint.type}.`,
-            `Process key: ${primaryConstraint.linkedProcessKey ?? 'not mapped'}.`,
-          ],
+          evidence: evidenceStrings(primaryConstraint),
         },
       },
+      ...secondaryConstraints.map<TocNodeView>((constraint, index) => ({
+        id: `crt-secondary-${index}`,
+        position: { x: 40 + (index * 300), y: 660 },
+        data: {
+          label: constraint.name,
+          kind: 'constraint',
+          description: constraint.description ?? 'Secondary constraint detected by the scanner.',
+          severity: constraint.severity,
+          confidence: constraint.confidence,
+          evidence: evidenceStrings(constraint),
+        },
+      })),
     ] : [
       {
         id: 'crt-empty',
@@ -232,23 +263,35 @@ export async function getTocWorkspaceData(prisma: PrismaClient, tenantId: string
       { id: 'crt-1', source: 'crt-root', target: 'crt-effect', label: 'causes' },
       { id: 'crt-2', source: 'crt-effect', target: 'crt-undesirable', label: 'drives' },
       { id: 'crt-3', source: 'crt-undesirable', target: 'crt-outcome', label: 'becomes' },
+      ...secondaryConstraints.map<TocEdgeView>((_, index) => ({
+        id: `crt-secondary-edge-${index}`,
+        source: `crt-secondary-${index}`,
+        target: 'crt-undesirable',
+        label: 'contributes',
+      })),
     ] : [],
   };
+
+  const fallbackInjection = primaryConstraint ? recommendedInjectionForConstraint(primaryConstraint) : null;
+  const frtInjectionLabel = primaryRecommendation?.title ?? fallbackInjection;
+  const frtConfidence = primaryRecommendation?.confidence ?? primaryConstraint?.confidence ?? 0;
 
   const futureRealityTree: TocTreeView = {
     key: 'frt',
     label: 'Future Reality Tree',
     description: 'A likely future path if the leading recommendation is applied.',
-    nodes: primaryConstraint && primaryRecommendation ? [
+    nodes: primaryConstraint && frtInjectionLabel ? [
       {
         id: 'frt-injection',
         position: { x: 340, y: 20 },
         data: {
-          label: primaryRecommendation.title,
+          label: frtInjectionLabel,
           kind: 'injection',
-          description: 'Primary intervention suggested by the recommendation engine.',
-          confidence: primaryRecommendation.confidence,
-          evidence: primaryRecommendation.actions,
+          description: primaryRecommendation
+            ? 'Primary intervention suggested by the recommendation engine.'
+            : 'Generated intervention from the current primary constraint pattern.',
+          confidence: frtConfidence,
+          evidence: primaryRecommendation?.actions ?? evidenceStrings(primaryConstraint),
         },
       },
       {
@@ -258,8 +301,8 @@ export async function getTocWorkspaceData(prisma: PrismaClient, tenantId: string
           label: 'Constraint pressure eases on the affected process',
           kind: 'effect',
           description: 'The immediate queue or overload should reduce if the change is executed well.',
-          confidence: primaryRecommendation.confidence,
-          evidence: primaryRecommendation.evidence,
+          confidence: frtConfidence,
+          evidence: primaryRecommendation?.evidence ?? [`Constraint evidence: ${primaryConstraint.name}`],
         },
       },
       {
@@ -280,10 +323,22 @@ export async function getTocWorkspaceData(prisma: PrismaClient, tenantId: string
           label: 'Higher throughput with lower overload risk',
           kind: 'outcome',
           description: 'The desired future state that TOC aims to produce.',
-          confidence: primaryRecommendation.confidence,
-          evidence: [`Recommendation status currently: ${primaryRecommendation.status}.`],
+          confidence: frtConfidence,
+          evidence: [primaryRecommendation ? `Recommendation status currently: ${primaryRecommendation.status}.` : 'Generated before formal recommendation review.'],
         },
       },
+      ...secondaryConstraints.map<TocNodeView>((constraint, index) => ({
+        id: `frt-guardrail-${index}`,
+        position: { x: 40 + index * 300, y: 700 },
+        data: {
+          label: `Guardrail: ${constraint.name}`,
+          kind: 'condition',
+          description: 'Secondary constraint that should be monitored while applying the main intervention.',
+          severity: constraint.severity,
+          confidence: constraint.confidence,
+          evidence: evidenceStrings(constraint).slice(0, 3),
+        },
+      })),
     ] : [
       {
         id: 'frt-empty',
@@ -295,10 +350,16 @@ export async function getTocWorkspaceData(prisma: PrismaClient, tenantId: string
         },
       },
     ],
-    edges: primaryConstraint && primaryRecommendation ? [
+    edges: primaryConstraint && frtInjectionLabel ? [
       { id: 'frt-1', source: 'frt-injection', target: 'frt-relief', label: 'creates' },
       { id: 'frt-2', source: 'frt-relief', target: 'frt-capacity', label: 'supports' },
       { id: 'frt-3', source: 'frt-capacity', target: 'frt-outcome', label: 'improves' },
+      ...secondaryConstraints.map<TocEdgeView>((_, index) => ({
+        id: `frt-guardrail-edge-${index}`,
+        source: `frt-guardrail-${index}`,
+        target: 'frt-capacity',
+        label: 'must monitor',
+      })),
     ] : [],
   };
 

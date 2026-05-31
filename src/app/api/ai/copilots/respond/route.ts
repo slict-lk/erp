@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth-options';
 import { getTenantAIConfig, logControlPlaneEvent } from '@/lib/ai/control-plane';
 import { processUserMessage } from '@/lib/ai/chat-agent';
+import { prisma } from '@/lib/prisma';
+import { getIntelligenceAIContext } from '@/lib/intelligence/ai/intelligence-ai-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +16,7 @@ const MODULE_TITLES: Record<string, string> = {
   restaurant: 'Restaurant',
   'vehicle-export': 'Vehicle Export',
   studio: 'Studio',
+  intelligence: 'Organizational Intelligence',
 };
 
 export async function POST(request: NextRequest) {
@@ -42,19 +45,47 @@ export async function POST(request: NextRequest) {
     const config = await getTenantAIConfig(tenantId);
     const copilot = config.copilots.find((item) => item.module === module && item.enabled);
 
-    if (!copilot) {
+    if (!copilot && module !== 'intelligence') {
       return NextResponse.json({ error: 'No enabled copilot for this module' }, { status: 404 });
     }
 
+    const intelligenceContext =
+      module === 'intelligence' ? await getIntelligenceAIContext(prisma, tenantId) : null;
+
+    const effectiveCopilot =
+      copilot ??
+      (module === 'intelligence'
+        ? {
+            id: 'intelligence-copilot',
+            label: 'Organizational Intelligence',
+            allowedIntents: ['summaries', 'explanations', 'recommendation drafting', 'executive briefing'],
+            dataSources: ['readiness', 'workforce', 'constraints', 'toc', 'recommendations'],
+            responseMode: 'grounded-summary',
+            welcomeMessage:
+              'Answer only from organizational intelligence context. Never invent scores, promotions, or unaudited decisions.',
+          }
+        : null);
+
+    const safeContext =
+      module === 'intelligence'
+        ? {
+            ...(context || {}),
+            intelligence: intelligenceContext,
+          }
+        : context;
+
     const prompt = [
-      `You are the ${copilot.label || MODULE_TITLES[module] || module} copilot inside a multi-tenant ERP.`,
+      `You are the ${effectiveCopilot?.label || MODULE_TITLES[module] || module} copilot inside a multi-tenant ERP.`,
       `Module: ${MODULE_TITLES[module] || module}`,
-      `Allowed intents: ${copilot.allowedIntents.join(', ') || 'general assistance'}`,
-      `Data sources: ${copilot.dataSources.join(', ') || 'page context only'}`,
-      `Response mode: ${copilot.responseMode}`,
-      copilot.welcomeMessage ? `Operator guidance: ${copilot.welcomeMessage}` : null,
+      `Allowed intents: ${effectiveCopilot?.allowedIntents.join(', ') || 'general assistance'}`,
+      `Data sources: ${effectiveCopilot?.dataSources.join(', ') || 'page context only'}`,
+      `Response mode: ${effectiveCopilot?.responseMode || 'grounded-summary'}`,
+      effectiveCopilot?.welcomeMessage ? `Operator guidance: ${effectiveCopilot.welcomeMessage}` : null,
       'Use only the provided context and tenant-safe ERP knowledge.',
-      `Current page context: ${JSON.stringify(context)}`,
+      module === 'intelligence'
+        ? 'Important: do not answer from generic ERP knowledge. Only use the intelligence context below.'
+        : null,
+      `Current page context: ${JSON.stringify(safeContext)}`,
       `User request: ${message}`,
     ]
       .filter(Boolean)
@@ -69,7 +100,7 @@ export async function POST(request: NextRequest) {
       status: 'SUCCESS',
       requestData: {
         module,
-        copilotId: copilot.id,
+        copilotId: effectiveCopilot?.id || module,
         messageLength: message.length,
       },
       responseData: {
@@ -79,7 +110,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       module,
-      copilotId: copilot.id,
+      copilotId: effectiveCopilot?.id || module,
       response: result.response,
       functionCalls: result.functionCalls || [],
     });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPOSSessions, openPOSSession } from '@/apps/pos/api';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
+import { recordSafeOperationalEvent } from '@/lib/intelligence/events/safe-operational-events';
 
 
 export const dynamic = 'force-dynamic';
@@ -31,6 +32,20 @@ export async function POST(request: NextRequest) {
     const session = await openPOSSession({
       ...data,
       tenantId,
+    });
+
+    await recordSafeOperationalEvent({
+      tenantId,
+      moduleKey: 'pos',
+      entityType: 'POS_SESSION',
+      entityId: session.id,
+      action: 'POS_SESSION_OPENED',
+      actorUserId: session.userId ?? data.userId ?? null,
+      metadata: {
+        posConfigId: session.posConfigId,
+        openingCash: Number(session.openingCash ?? 0),
+        status: session.status,
+      },
     });
     
     return NextResponse.json(session, { status: 201 });

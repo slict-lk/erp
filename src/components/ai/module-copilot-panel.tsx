@@ -10,7 +10,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAIExperience } from '@/components/ai/ai-experience-context';
 
 type ModuleCopilotPanelProps = {
-  module: 'crm' | 'accounting' | 'spareparts' | 'real-estate' | 'restaurant' | 'vehicle-export';
+  module: 'crm' | 'accounting' | 'spareparts' | 'real-estate' | 'restaurant' | 'vehicle-export' | 'intelligence';
   title: string;
   description: string;
   context: Record<string, unknown>;

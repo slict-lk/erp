@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
+import { recordInventoryOperationalEvent } from '@/lib/intelligence/events/inventory-operational-events';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,6 +70,24 @@ export async function PUT(
                 expectedAt: body.expectedAt !== undefined ? (body.expectedAt === null ? null : new Date(body.expectedAt)) : existingPo.expectedAt,
                 notes: body.notes !== undefined ? body.notes : existingPo.notes
             }
+        });
+
+        await recordInventoryOperationalEvent({
+            tenantId: tenant.id,
+            entityType: 'purchase_order',
+            entityId: updatedPo.id,
+            action: 'purchase_order.updated',
+            metadata: {
+                poNumber: updatedPo.poNumber,
+                previousStatus: existingPo.status,
+                status: updatedPo.status,
+                expectedAt: updatedPo.expectedAt,
+                changedFields: {
+                    status: body.status !== undefined,
+                    expectedAt: body.expectedAt !== undefined,
+                    notes: body.notes !== undefined,
+                },
+            },
         });
 
         return NextResponse.json(updatedPo);
