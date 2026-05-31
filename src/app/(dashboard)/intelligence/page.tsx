@@ -16,6 +16,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { prisma } from '@/lib/prisma';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
 import { getLatestDataReadinessAudit } from '@/lib/intelligence/readiness/readiness-service';
+import { getWorkforceDashboardData } from '@/lib/intelligence/workforce/capacity-service';
+import { getActiveConstraints } from '@/lib/intelligence/constraints/constraint-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +34,21 @@ export default async function IntelligenceControlCenterPage() {
   const latest = await getLatestDataReadinessAudit(prisma, tenant.id);
   const score = latest?.score ?? 0;
   const isReady = latest?.status === 'PASS';
+  let workforceSummary = null as Awaited<ReturnType<typeof getWorkforceDashboardData>>['summary'] | null;
+  let activeConstraints = [] as Awaited<ReturnType<typeof getActiveConstraints>>;
+
+  if (isReady) {
+    try {
+      const [workforce, constraints] = await Promise.all([
+        getWorkforceDashboardData(prisma, tenant.id),
+        getActiveConstraints(prisma, tenant.id),
+      ]);
+      workforceSummary = workforce.summary;
+      activeConstraints = constraints;
+    } catch (error) {
+      console.error('Failed to hydrate intelligence control center metrics:', error);
+    }
+  }
 
   const tiles = [
     {
@@ -46,14 +63,14 @@ export default async function IntelligenceControlCenterPage() {
       description: 'Capacity profiles, dependency concentration, stress load, and succession readiness.',
       href: '/intelligence/workforce',
       icon: Users,
-      status: isReady ? 'Ready next' : 'Locked',
+      status: isReady ? `${workforceSummary?.employeeCount ?? 0} profiles` : 'Locked',
     },
     {
       title: 'Constraint Log',
       description: 'Human, process, decision, skill, system, and operational bottlenecks.',
       href: '/intelligence/constraints',
       icon: AlertTriangle,
-      status: isReady ? 'Planned' : 'Locked',
+      status: isReady ? `${activeConstraints.length} active` : 'Locked',
     },
     {
       title: 'TOC Workspace',
@@ -123,17 +140,51 @@ export default async function IntelligenceControlCenterPage() {
           </CardHeader>
           <CardContent>
             <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5">
-              <div className="flex items-center gap-3">
-                <Target className="h-5 w-5 text-slate-500" />
-                <p className="font-medium text-slate-900">Awaiting Phase 2 scanner</p>
+                <div className="flex items-center gap-3">
+                  <Target className="h-5 w-5 text-slate-500" />
+                  <p className="font-medium text-slate-900">
+                    {activeConstraints[0]?.name ?? 'Awaiting Phase 2 scanner'}
+                  </p>
+                </div>
+                <p className="mt-2 text-sm text-slate-600">
+                  {activeConstraints[0]?.description ?? 'The system will identify the current constraint only after readiness, events, and capacity snapshots are in place.'}
+                </p>
               </div>
-              <p className="mt-2 text-sm text-slate-600">
-                The system will identify the current constraint only after readiness, events, and capacity snapshots are in place.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
       </div>
+
+      {isReady && workforceSummary && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="border-slate-200 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base">Workforce stress</CardTitle>
+              <CardDescription>Average stress load from latest Workforce DNA snapshots.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-slate-950">{workforceSummary.averageStressLoad.toFixed(1)}%</div>
+            </CardContent>
+          </Card>
+          <Card className="border-slate-200 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base">Critical risk profiles</CardTitle>
+              <CardDescription>Employees currently in the highest risk band.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-slate-950">{workforceSummary.criticalRiskCount}</div>
+            </CardContent>
+          </Card>
+          <Card className="border-slate-200 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base">Pressure zone</CardTitle>
+              <CardDescription>Profiles under notable strain but not yet critical.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-slate-950">{workforceSummary.pressureZoneCount}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {tiles.map((tile) => (

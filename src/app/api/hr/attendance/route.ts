@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
 import { formatSuccessResponse, formatPaginatedResponse } from '@/lib/error-handler';
 import { tryCatch } from '@/lib/error-handler';
+import { recordOperationalEvent } from '@/lib/intelligence/events/operational-event-service';
 
 
 export const dynamic = 'force-dynamic';
@@ -72,6 +73,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return tryCatch(async () => {
     const tenant = await getOrCreateDefaultTenant();
+    const { requirePermission } = await import('@/lib/auth');
+    const user = await requirePermission('hr', 'create');
     const body = await request.json();
 
     // Validate required fields
@@ -103,7 +106,7 @@ export async function POST(request: NextRequest) {
       date: new Date(body.date),
       checkIn: new Date(body.checkIn),
       checkOut: body.checkOut ? new Date(body.checkOut) : null,
-      hoursWorked: body.hoursWorked,
+      status: body.status,
       notes: body.notes,
       tenantId: tenant.id
     };
@@ -125,6 +128,26 @@ export async function POST(request: NextRequest) {
             },
           },
         },
+      },
+    });
+
+    const durationMs = attendance.checkIn && attendance.checkOut
+      ? attendance.checkOut.getTime() - attendance.checkIn.getTime()
+      : null;
+
+    await recordOperationalEvent(prisma, {
+      tenantId: tenant.id,
+      moduleKey: 'hr',
+      entityType: 'ATTENDANCE',
+      entityId: attendance.id,
+      action: 'ATTENDANCE_RECORDED',
+      actorUserId: user.id,
+      employeeId: attendance.employeeId,
+      occurredAt: attendance.createdAt,
+      durationMs,
+      metadata: {
+        attendanceDate: attendance.date.toISOString(),
+        status: attendance.status,
       },
     });
 

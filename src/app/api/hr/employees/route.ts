@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
 import { handleApiError, formatSuccessResponse, formatPaginatedResponse } from '@/lib/error-handler';
 import { tryCatch } from '@/lib/error-handler';
+import { recordOperationalEvent } from '@/lib/intelligence/events/operational-event-service';
 
 
 export const dynamic = 'force-dynamic';
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
 
     // Check permissions
     const { requirePermission } = await import('@/lib/auth');
-    await requirePermission('hr', 'create');
+    const user = await requirePermission('hr', 'create');
 
     const body = await request.json();
 
@@ -98,12 +99,29 @@ export async function POST(request: NextRequest) {
         hireDate: body.hireDate ? new Date(body.hireDate) : new Date(),
         type: (body.type as any) || 'FULL_TIME',
         departmentId: body.departmentId,
+        managerId: body.managerId ?? null,
         salary: body.salary,
         isActive: body.isActive !== undefined ? body.isActive : true,
         tenantId: tenant.id,
       },
       include: {
         department: true,
+      },
+    });
+
+    await recordOperationalEvent(prisma, {
+      tenantId: tenant.id,
+      moduleKey: 'hr',
+      entityType: 'EMPLOYEE',
+      entityId: employee.id,
+      action: 'EMPLOYEE_CREATED',
+      actorUserId: user.id,
+      employeeId: employee.id,
+      occurredAt: employee.createdAt,
+      metadata: {
+        departmentId: employee.departmentId,
+        managerId: employee.managerId,
+        position: employee.position,
       },
     });
 

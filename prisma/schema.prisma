@@ -55,6 +55,74 @@ model DataReadinessAudit {
   @@index([status])
 }
 
+model OperationalEvent {
+  id          String   @id @default(cuid())
+  tenantId    String
+  moduleKey   String
+  entityType  String
+  entityId    String
+  action      String
+  actorUserId String?
+  employeeId  String?
+  occurredAt  DateTime @default(now())
+  durationMs  Int?
+  metadata    Json?
+
+  @@index([tenantId, moduleKey])
+  @@index([tenantId, entityType, entityId])
+  @@index([tenantId, actorUserId])
+  @@index([tenantId, employeeId])
+  @@index([tenantId, occurredAt])
+}
+
+model EmployeeCapacitySnapshot {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  employeeId          String
+  functionalCapacity  Float
+  leadershipCapacity  Float
+  cognitiveComplexity Float
+  systemDependency    Float
+  productivity        Float
+  stressLoad          Float
+  growthPotential     Float
+  successionReadiness Float
+  adaptability        Float
+  category            String
+  confidence          Float
+  formulaVersion      String
+  inputSummary        Json
+  warnings            Json?
+  createdAt           DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([employeeId])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, category])
+}
+
+model TocConstraint {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  type               String
+  name               String
+  description        String?
+  severity           Float
+  confidence         Float
+  status             String
+  linkedEmployeeId   String?
+  linkedDepartmentId String?
+  linkedProcessKey   String?
+  evidence           Json?
+  detectedAt         DateTime @default(now())
+  resolvedAt         DateTime?
+
+  @@index([tenantId])
+  @@index([tenantId, type])
+  @@index([tenantId, status])
+  @@index([tenantId, detectedAt])
+}
+
 model User {
   id                      String                @id @default(cuid())
   email                   String                @unique

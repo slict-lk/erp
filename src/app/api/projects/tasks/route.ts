@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
+import { recordOperationalEvent } from '@/lib/intelligence/events/operational-event-service';
 
 
 export const dynamic = 'force-dynamic';
@@ -43,6 +44,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const tenant = await getOrCreateDefaultTenant();
+    const { requirePermission } = await import('@/lib/auth');
+    const user = await requirePermission('projects', 'create');
     const body = await request.json();
 
     const task = await prisma.task.create({
@@ -62,6 +65,37 @@ export async function POST(request: NextRequest) {
         project: true,
       },
     });
+
+    await recordOperationalEvent(prisma, {
+      tenantId: tenant.id,
+      moduleKey: 'projects',
+      entityType: 'TASK',
+      entityId: task.id,
+      action: 'TASK_CREATED',
+      actorUserId: user.id,
+      occurredAt: task.createdAt,
+      metadata: {
+        projectId: task.projectId,
+        status: task.status,
+        priority: task.priority,
+      },
+    });
+
+    if (task.assigneeId) {
+      await recordOperationalEvent(prisma, {
+        tenantId: tenant.id,
+        moduleKey: 'projects',
+        entityType: 'TASK',
+        entityId: task.id,
+        action: 'TASK_ASSIGNED',
+        actorUserId: user.id,
+        occurredAt: task.createdAt,
+        metadata: {
+          assigneeId: task.assigneeId,
+          dueDate: task.dueDate?.toISOString() ?? null,
+        },
+      });
+    }
 
     return NextResponse.json(task, { status: 201 });
   } catch (error) {

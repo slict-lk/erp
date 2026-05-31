@@ -44,10 +44,11 @@ export async function POST(request: NextRequest) {
         code: body.code || `PRJ-${Date.now()}`,
         name: body.name,
         description: body.description,
-        status: (body.status as any) || 'ACTIVE',
+        status: (body.status as any) || 'IN_PROGRESS',
         startDate: body.startDate ? new Date(body.startDate) : null,
         endDate: body.endDate ? new Date(body.endDate) : null,
         budget: body.budget,
+        managerId: body.managerId ?? null,
         tenantId: tenant.id,
       },
       include: {

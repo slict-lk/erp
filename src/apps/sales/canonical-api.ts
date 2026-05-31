@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { evaluateSalesOrderApprovalRules } from './approval-rules';
 import { resolveApplicablePrice, resolveTaxProfile } from './commercial-engine';
 import { postToGL, resolveAccountCodes } from '@/lib/accounting/gl-bridge';
+import { recordOperationalEvent } from '@/lib/intelligence/events/operational-event-service';
 
 const client = prisma as any;
 
@@ -462,6 +463,43 @@ export async function createSalesOrderV2(tenantId: string, userId: string | unde
     include: { lines: true, approvals: true, fulfillmentRequests: true },
   });
 
+  await recordOperationalEvent(prisma, {
+    tenantId,
+    moduleKey: 'sales',
+    entityType: 'SALES_ORDER_V2',
+    entityId: order.id,
+    action: 'SALES_ORDER_CREATED',
+    actorUserId: userId ?? null,
+    occurredAt: order.createdAt,
+    metadata: {
+      orderNumber: order.orderNumber,
+      approvalStatus: order.approvalStatus,
+      grandTotal: order.grandTotal,
+      lineCount: order.lines.length,
+    },
+  });
+
+  if (approvalRows.length > 0) {
+    await recordOperationalEvent(prisma, {
+      tenantId,
+      moduleKey: 'sales',
+      entityType: 'SALES_ORDER_V2',
+      entityId: order.id,
+      action: 'APPROVAL_REQUESTED',
+      actorUserId: userId ?? null,
+      occurredAt: order.createdAt,
+      metadata: {
+        orderNumber: order.orderNumber,
+        approvalStatus: order.approvalStatus,
+        triggerCount: approvalRows.length,
+        triggers: approvalRows.map((trigger) => ({
+          ruleCode: trigger.ruleCode,
+          reason: trigger.reason,
+        })),
+      },
+    });
+  }
+
   return order;
 }
 
@@ -643,6 +681,22 @@ export async function approveSalesOrderV2(tenantId: string, id: string, userId: 
         approval.status === 'APPROVED'
           ? (data.markOrderStatus ?? 'CONFIRMED')
           : (data.markOrderStatus ?? 'PENDING_APPROVAL'),
+    },
+  });
+
+  await recordOperationalEvent(prisma, {
+    tenantId,
+    moduleKey: 'sales',
+    entityType: 'SALES_ORDER_APPROVAL',
+    entityId: approval.id,
+    action: approval.status === 'APPROVED' ? 'APPROVAL_APPROVED' : 'APPROVAL_REJECTED',
+    actorUserId: userId ?? null,
+    occurredAt: approval.decidedAt ?? new Date(),
+    metadata: {
+      salesOrderId: id,
+      salesOrderNumber: order.orderNumber,
+      approvalStatus: approval.status,
+      reason: approval.reason,
     },
   });
 
