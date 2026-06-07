@@ -5,6 +5,7 @@ import { listOperationalEvents } from '../events/operational-event-service';
 import { getLatestDataReadinessAudit } from '../readiness/readiness-service';
 import {
   RecommendationStatus,
+  RecommendationGovernanceEntry,
   getIntelligenceSettings,
   updateIntelligenceSettings,
 } from '../settings/intelligence-settings-service';
@@ -24,6 +25,7 @@ export interface IntelligenceRecommendation {
   actions: string[];
   linkedProcessKey: string | null;
   type: string;
+  governance: RecommendationGovernanceEntry | null;
 }
 
 function round(value: number) {
@@ -63,7 +65,8 @@ export async function getIntelligenceRecommendations(prisma: PrismaClient, tenan
         constraint.linkedProcessKey,
         constraint.name,
       ]);
-      const persistedStatus = settings.recommendationStatusById[recommendationId];
+      const governance = settings.recommendationGovernanceById[recommendationId] ?? null;
+      const persistedStatus = governance?.status ?? settings.recommendationStatusById[recommendationId];
       const baseStatus: RecommendationStatus =
         constraint.confidence >= settings.minimumRecommendationConfidence
           ? settings.requireHumanReview
@@ -95,6 +98,7 @@ export async function getIntelligenceRecommendations(prisma: PrismaClient, tenan
           ],
           linkedProcessKey: constraint.linkedProcessKey,
           type: constraint.type,
+          governance,
         };
       }
 
@@ -122,6 +126,7 @@ export async function getIntelligenceRecommendations(prisma: PrismaClient, tenan
           ],
           linkedProcessKey: constraint.linkedProcessKey,
           type: constraint.type,
+          governance,
         };
       }
 
@@ -149,6 +154,7 @@ export async function getIntelligenceRecommendations(prisma: PrismaClient, tenan
           ],
           linkedProcessKey: constraint.linkedProcessKey,
           type: constraint.type,
+          governance,
         };
       }
 
@@ -176,6 +182,7 @@ export async function getIntelligenceRecommendations(prisma: PrismaClient, tenan
           ],
           linkedProcessKey: constraint.linkedProcessKey,
           type: constraint.type,
+          governance,
         };
       }
 
@@ -203,6 +210,7 @@ export async function getIntelligenceRecommendations(prisma: PrismaClient, tenan
           ],
           linkedProcessKey: constraint.linkedProcessKey,
           type: constraint.type,
+          governance,
         };
       }
 
@@ -222,13 +230,29 @@ export async function updateRecommendationStatus(
   prisma: PrismaClient,
   tenantId: string,
   recommendationId: string,
-  status: RecommendationStatus
+  status: RecommendationStatus,
+  options?: {
+    note?: string | null;
+    reviewedByUserId?: string | null;
+  }
 ) {
   const settings = await getIntelligenceSettings(prisma, tenantId);
+  const existingGovernance = settings.recommendationGovernanceById[recommendationId];
+  const nextGovernance: RecommendationGovernanceEntry = {
+    status,
+    note: options?.note ?? existingGovernance?.note,
+    reviewedAt: new Date().toISOString(),
+    reviewedByUserId: options?.reviewedByUserId ?? existingGovernance?.reviewedByUserId,
+  };
+
   return updateIntelligenceSettings(prisma, tenantId, {
     recommendationStatusById: {
       ...settings.recommendationStatusById,
       [recommendationId]: status,
+    },
+    recommendationGovernanceById: {
+      ...settings.recommendationGovernanceById,
+      [recommendationId]: nextGovernance,
     },
   });
 }

@@ -1,181 +1,143 @@
 "use client";
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { AlertTriangle, ArrowRight, Briefcase, CheckCircle2, Clock3, FolderKanban, Plus, RefreshCw, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Briefcase, CheckSquare, Clock, Users, RefreshCw, BarChart } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
-interface Project {
-  id: string;
-  name: string;
-  description: string | null;
-  status: string;
-  startDate: string;
-  endDate: string | null;
-  budget: number;
-}
+type Project = { id: string; code: string; name: string; description?: string; status: string; templateKey: string; budget?: number; currency: string; updatedAt: string; tasks: Array<{ status: string }>; _count: { tasks: number; members: number; milestones: number } };
+type Template = { key: string; name: string; description: string; category: string };
+type WorkItem = { id: string; title: string; type: string; status: string; priority: string; dueDate?: string; project: { name: string; code: string } };
+type Overview = { projects: Project[]; tasks: WorkItem[]; metrics: { activeProjects: number; totalProjects: number; openWorkItems: number; overdueWorkItems: number; completedWorkItems: number; teamMembers: number; totalBudget: number; trackedHours: number } };
 
-interface Task {
-  id: string;
-  title: string;
-  description: string | null;
-  status: string;
-  priority: string;
-  dueDate: string | null;
-  project: { name: string };
-}
-
-function formatDate(date: string) {
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(date));
-}
+const emptyForm = { name: '', code: '', description: '', templateKey: 'GENERAL', visibility: 'PRIVATE', status: 'PLANNING', currency: 'LKR', budget: '' };
 
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const router = useRouter();
+  const [overview, setOverview] = useState<Overview | null>(null);
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [templateSelectionApplied, setTemplateSelectionApplied] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
-      setRefreshing(true);
-      const [projectsRes, tasksRes] = await Promise.all([
-        fetch('/api/projects'),
-        fetch('/api/projects/tasks'),
-      ]);
-
-      if (projectsRes.ok) setProjects((await projectsRes.json()) ?? []);
-      if (tasksRes.ok) setTasks((await tasksRes.json()) ?? []);
-    } catch (error) {
-      console.error(error);
+      const [overviewRes, templatesRes] = await Promise.all([fetch('/api/projects/overview'), fetch('/api/projects/templates')]);
+      if (!overviewRes.ok) throw new Error((await overviewRes.json()).error || 'Unable to load projects');
+      setOverview((await overviewRes.json()).data);
+      if (templatesRes.ok) setTemplates((await templatesRes.json()).data);
+    } catch (error: any) {
+      toast.error(error.message);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
+  useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (templateSelectionApplied || !templates.length) return;
+    const params = new URLSearchParams(window.location.search);
+    const templateKey = params.get('templateKey');
+    if (templateKey && templates.some((template) => template.key === templateKey)) {
+      setForm((current) => ({ ...current, templateKey }));
+      setOpen(true);
+    } else if (params.get('create') === 'true') setOpen(true);
+    setTemplateSelectionApplied(true);
+  }, [templates, templateSelectionApplied]);
 
-  const activeProjects = useMemo(() => projects.filter((p) => p.status === 'IN_PROGRESS').length, [projects]);
-  const pendingTasks = useMemo(() => tasks.filter((t) => t.status === 'TODO' || t.status === 'IN_PROGRESS').length, [tasks]);
-  const totalBudget = useMemo(() => projects.reduce((sum, p) => sum + (p.budget || 0), 0), [projects]);
+  async function createProject() {
+    setSaving(true);
+    try {
+      const response = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, budget: form.budget ? Number(form.budget) : null }) });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'Unable to create project');
+      toast.success('Project created');
+      setOpen(false);
+      setForm(emptyForm);
+      router.push(`/projects/${body.data.id}`);
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const recent = useMemo(() => overview?.tasks.slice(0, 6) ?? [], [overview]);
+  const metrics = overview?.metrics;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+    <div className="space-y-6 p-6">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Project Management</h1>
-          <p className="text-gray-600">Plan projects, assign tasks, and track progress across teams.</p>
+          <p className="text-sm font-medium text-blue-600">Work Management</p>
+          <h1 className="text-3xl font-bold text-gray-950">Projects control center</h1>
+          <p className="mt-1 text-gray-600">Plan delivery, coordinate teams, and keep every commitment visible.</p>
         </div>
-        <Button variant="outline" onClick={fetchData} disabled={refreshing}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="icon" onClick={load} disabled={loading} title="Refresh projects"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></Button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" />New project</Button></DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader><DialogTitle>Create a project</DialogTitle></DialogHeader>
+              <div className="grid gap-4 py-2 md:grid-cols-2">
+                <Field label="Project name"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="ERP 2026 delivery" /></Field>
+                <Field label="Code"><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="ERP-2026" /></Field>
+                <div className="md:col-span-2"><Field label="Template"><Select value={form.templateKey} onValueChange={(value) => setForm({ ...form, templateKey: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{templates.map((template) => <SelectItem key={template.key} value={template.key}>{template.name} · {template.category}</SelectItem>)}</SelectContent></Select></Field></div>
+                <div className="md:col-span-2"><Field label="Description"><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="What success looks like and what the team will deliver." /></Field></div>
+                <Field label="Visibility"><Select value={form.visibility} onValueChange={(value) => setForm({ ...form, visibility: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="PRIVATE">Private to members</SelectItem><SelectItem value="TENANT">Visible to tenant</SelectItem></SelectContent></Select></Field>
+                <Field label="Budget"><Input type="number" min="0" value={form.budget} onChange={(e) => setForm({ ...form, budget: e.target.value })} placeholder="0.00" /></Field>
+              </div>
+              <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={createProject} disabled={saving || form.name.trim().length < 2}>{saving ? 'Creating...' : 'Create project'}</Button></div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Metric title="Active projects" value={metrics?.activeProjects ?? 0} detail={`${metrics?.totalProjects ?? 0} total`} icon={Briefcase} tone="blue" />
+        <Metric title="Open work" value={metrics?.openWorkItems ?? 0} detail={`${metrics?.completedWorkItems ?? 0} completed`} icon={FolderKanban} tone="violet" />
+        <Metric title="Overdue" value={metrics?.overdueWorkItems ?? 0} detail="Needs attention" icon={AlertTriangle} tone="red" />
+        <Metric title="Tracked hours" value={metrics?.trackedHours ?? 0} detail={`${metrics?.teamMembers ?? 0} memberships`} icon={Clock3} tone="emerald" />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Active Projects" value={String(activeProjects)} subtitle={`${projects.length} total`} icon={Briefcase} variant="indigo" />
-        <StatCard title="Pending Tasks" value={String(pendingTasks)} subtitle={`${tasks.length} total tasks`} icon={CheckSquare} variant="sky" />
-        <StatCard title="Total Budget" value={`$${(totalBudget / 1000).toFixed(0)}k`} subtitle="Allocated funds" icon={BarChart} variant="emerald" />
-        <StatCard title="Team Members" value="0" subtitle="Across projects" icon={Users} variant="purple" />
+      <div className="grid gap-6 xl:grid-cols-[1.7fr_1fr]">
+        <section className="space-y-3">
+          <div className="flex items-center justify-between"><div><h2 className="text-lg font-semibold">Project portfolio</h2><p className="text-sm text-gray-500">Current delivery health across the tenant.</p></div><Link href="/projects/tasks"><Button variant="outline">All work items<ArrowRight className="ml-2 h-4 w-4" /></Button></Link></div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {loading ? <SkeletonRows /> : overview?.projects.length ? overview.projects.map((project) => <ProjectCard key={project.id} project={project} />) : <Empty title="No projects yet" detail="Create a project from a template to start coordinating work." />}
+          </div>
+        </section>
+        <Card className="h-fit">
+          <CardHeader><CardTitle className="text-base">Priority work</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {recent.length ? recent.map((item) => <Link key={item.id} href={`/projects/tasks/${item.id}`} className="block rounded-md border p-3 transition-colors hover:bg-gray-50"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-medium">{item.title}</p><p className="mt-1 text-xs text-gray-500">{item.project.code} · {item.type}</p></div><Badge variant={item.priority === 'URGENT' ? 'destructive' : 'outline'}>{item.priority}</Badge></div></Link>) : <p className="py-8 text-center text-sm text-gray-500">No work items yet.</p>}
+          </CardContent>
+        </Card>
       </div>
-
-      <Tabs defaultValue="projects" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 lg:w-auto">
-          <TabsTrigger value="projects">Projects</TabsTrigger>
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="projects" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Project Portfolio</CardTitle>
-              <CardDescription>Monitor project status and deliverables.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <LoadingState message="Loading projects..." />
-              ) : projects.length === 0 ? (
-                <EmptyState message="No projects found." />
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2">
-                  {projects.map((project) => (
-                    <div key={project.id} className="space-y-3 rounded-xl border border-gray-200 p-4 hover:border-indigo-200 hover:bg-indigo-50/30">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-semibold text-gray-900">{project.name}</h3>
-                          <p className="text-sm text-gray-500">{project.description || 'No description'}</p>
-                        </div>
-                        <Badge variant={project.status === 'IN_PROGRESS' ? 'default' : project.status === 'COMPLETED' ? 'secondary' : 'outline'}>{project.status}</Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div><p className="text-xs text-gray-500">Start</p><p className="font-medium">{formatDate(project.startDate)}</p></div>
-                        <div><p className="text-xs text-gray-500">End</p><p className="font-medium">{project.endDate ? formatDate(project.endDate) : 'Ongoing'}</p></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="tasks" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Task Board</CardTitle>
-              <CardDescription>Track individual task assignments and deadlines.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <LoadingState message="Loading tasks..." />
-              ) : tasks.length === 0 ? (
-                <EmptyState message="No tasks assigned." />
-              ) : (
-                <div className="space-y-3">
-                  {tasks.slice(0, 10).map((task) => (
-                    <div key={task.id} className="flex items-center justify-between rounded-lg border border-gray-100 p-3 hover:bg-gray-50">
-                      <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-indigo-100 p-2"><CheckSquare className="h-4 w-4 text-indigo-600" /></div>
-                        <div>
-                          <p className="font-semibold text-gray-900">{task.title}</p>
-                          <p className="text-xs text-gray-500">{task.project.name} · {task.dueDate ? `Due ${formatDate(task.dueDate)}` : 'No deadline'}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={task.priority === 'HIGH' ? 'destructive' : task.priority === 'MEDIUM' ? 'secondary' : 'outline'}>{task.priority}</Badge>
-                        <Badge variant="outline">{task.status}</Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }
 
-function StatCard({ title, value, subtitle, icon: Icon, variant }: { title: string; value: string; subtitle: string; icon: typeof Briefcase; variant: 'indigo' | 'sky' | 'emerald' | 'purple' }) {
-  const accentMap = { indigo: 'bg-indigo-100 text-indigo-600', sky: 'bg-sky-100 text-sky-600', emerald: 'bg-emerald-100 text-emerald-600', purple: 'bg-purple-100 text-purple-600' } as const;
-  return (
-    <Card className="border border-gray-200">
-      <CardContent className="flex items-center justify-between p-6">
-        <div><p className="text-sm font-medium text-gray-500">{title}</p><p className="mt-1 text-2xl font-bold text-gray-900">{value}</p><p className="text-xs text-gray-500">{subtitle}</p></div>
-        <div className={`rounded-xl p-3 ${accentMap[variant]}`}><Icon className="h-6 w-6" /></div>
-      </CardContent>
-    </Card>
-  );
+function Field({ label, children }: { label: string; children: React.ReactNode }) { return <div className="space-y-1.5"><Label>{label}</Label>{children}</div>; }
+function Metric({ title, value, detail, icon: Icon, tone }: { title: string; value: number; detail: string; icon: typeof Briefcase; tone: string }) {
+  const tones: Record<string, string> = { blue: 'bg-blue-50 text-blue-700', violet: 'bg-violet-50 text-violet-700', red: 'bg-red-50 text-red-700', emerald: 'bg-emerald-50 text-emerald-700' };
+  return <Card><CardContent className="flex items-center justify-between p-5"><div><p className="text-sm text-gray-500">{title}</p><p className="mt-1 text-2xl font-bold">{value}</p><p className="text-xs text-gray-500">{detail}</p></div><div className={`rounded-md p-3 ${tones[tone]}`}><Icon className="h-5 w-5" /></div></CardContent></Card>;
 }
-
-function LoadingState({ message }: { message: string }) {
-  return <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-200 py-12 text-gray-500">{message}</div>;
+function ProjectCard({ project }: { project: Project }) {
+  const progress = project.tasks.length ? Math.round(project.tasks.filter((task) => task.status === 'DONE').length / project.tasks.length * 100) : 0;
+  return <Link href={`/projects/${project.id}`}><Card className="h-full transition-all hover:border-blue-300 hover:shadow-sm"><CardContent className="p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-blue-600">{project.code}</p><h3 className="mt-1 font-semibold">{project.name}</h3><p className="mt-1 line-clamp-2 text-sm text-gray-500">{project.description || 'No description provided.'}</p></div><Badge variant="outline">{project.status.replaceAll('_', ' ')}</Badge></div><div className="mt-5 h-1.5 overflow-hidden rounded-full bg-gray-100"><div className="h-full bg-blue-600" style={{ width: `${progress}%` }} /></div><div className="mt-3 flex gap-4 text-xs text-gray-500"><span className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" />{project._count.tasks} items</span><span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />{project._count.members} members</span><span>{project.templateKey.replaceAll('_', ' ')}</span></div></CardContent></Card></Link>;
 }
-
-function EmptyState({ message }: { message: string }) {
-  return <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 py-12 text-sm text-gray-500">{message}</div>;
-}
+function Empty({ title, detail }: { title: string; detail: string }) { return <div className="col-span-full rounded-md border border-dashed py-14 text-center"><FolderKanban className="mx-auto h-8 w-8 text-gray-300" /><p className="mt-3 font-medium">{title}</p><p className="mt-1 text-sm text-gray-500">{detail}</p></div>; }
+function SkeletonRows() { return <>{[0, 1, 2, 3].map((n) => <div key={n} className="h-40 animate-pulse rounded-md bg-gray-100" />)}</>; }

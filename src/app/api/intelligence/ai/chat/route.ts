@@ -9,8 +9,8 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     const tenant = await getOrCreateDefaultTenant();
-    const { requirePermission } = await import('@/lib/auth');
-    const user = await requirePermission('ai', 'view');
+    const { requireAnyPermission } = await import('@/lib/auth');
+    const user = await requireAnyPermission([{ moduleId: 'intelligence', action: 'view' }, { moduleId: 'ai', action: 'view' }]);
 
     const body = await request.json().catch(() => ({}));
     const message = String(body?.message ?? '').trim();

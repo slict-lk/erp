@@ -1,65 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
-
+import { ZodError } from 'zod';
+import { createProject, listProjects } from '@/apps/projects/service';
+import { resolveProjectActor } from '@/apps/projects/access-policy';
+import { projectCreateSchema } from '@/apps/projects/validation';
+import { requireTenantContext } from '@/lib/server/erp-context';
 
 export const dynamic = 'force-dynamic';
-// GET /api/projects - Get all projects
+
 export async function GET(request: NextRequest) {
   try {
-    const tenant = await getOrCreateDefaultTenant();
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status') as any;
-    const search = searchParams.get('search');
-
-    const projects = await prisma.project.findMany({
-      where: {
-        tenantId: tenant.id,
-        ...(status && { status }),
-        ...(search && {
-          name: { contains: search, mode: 'insensitive' },
-        }),
-      },
-      include: {
-        tasks: true,
-      },
-      orderBy: { createdAt: 'desc' },
+    const { user } = await requireTenantContext({ moduleId: 'projects', action: 'view' });
+    const actor = await resolveProjectActor(user);
+    const params = request.nextUrl.searchParams;
+    const data = await listProjects(actor, {
+      status: params.get('status') || undefined,
+      search: params.get('search') || undefined,
+      archived: params.get('archived') || undefined,
     });
-
-    return NextResponse.json(projects);
-  } catch (error) {
-    console.error('Error fetching projects:', error);
-    return NextResponse.json({ error: 'Failed to fetch projects' }, { status: 500 });
+    return NextResponse.json({ data, metadata: { count: data.length } });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Failed to fetch projects' }, { status: error.message?.includes('Forbidden') ? 403 : 500 });
   }
 }
 
-// POST /api/projects - Create new project
 export async function POST(request: NextRequest) {
   try {
-    const tenant = await getOrCreateDefaultTenant();
-    const body = await request.json();
-
-    const project = await prisma.project.create({
-      data: {
-        code: body.code || `PRJ-${Date.now()}`,
-        name: body.name,
-        description: body.description,
-        status: (body.status as any) || 'IN_PROGRESS',
-        startDate: body.startDate ? new Date(body.startDate) : null,
-        endDate: body.endDate ? new Date(body.endDate) : null,
-        budget: body.budget,
-        managerId: body.managerId ?? null,
-        tenantId: tenant.id,
-      },
-      include: {
-        tasks: true,
-      },
-    });
-
-    return NextResponse.json(project, { status: 201 });
-  } catch (error) {
-    console.error('Error creating project:', error);
-    return NextResponse.json({ error: 'Failed to create project' }, { status: 500 });
+    const { user } = await requireTenantContext({ moduleId: 'projects', action: 'create' });
+    const actor = await resolveProjectActor(user);
+    const data = projectCreateSchema.parse(await request.json());
+    const project = await createProject(actor, data);
+    return NextResponse.json({ data: project }, { status: 201 });
+  } catch (error: any) {
+    if (error instanceof ZodError) return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+    const status = error.code === 'P2002' ? 409 : error.message?.includes('Forbidden') ? 403 : 500;
+    return NextResponse.json({ error: status === 409 ? 'Project code already exists' : error.message || 'Failed to create project' }, { status });
   }
 }
-

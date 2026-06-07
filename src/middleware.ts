@@ -39,7 +39,7 @@ const ROUTE_TO_MODULE_ID_MAP: Record<string, string> = {
   '/integrations': 'integrations',
   '/studio': 'studio',
   '/ai': 'ai',
-  '/intelligence': 'ai',
+  '/intelligence': 'intelligence',
 };
 
 export default withAuth(
@@ -135,6 +135,13 @@ export default withAuth(
 
         // Dashboard is always accessible
         if (moduleId === 'dashboard') continue;
+
+        if (moduleId === 'intelligence') {
+          if (!enabledModuleIds.includes('intelligence') && !enabledModuleIds.includes('ai')) {
+            return NextResponse.redirect(new URL('/dashboard?error=unauthorized', req.url));
+          }
+          break;
+        }
 
         if (!enabledModuleIds.includes(moduleId)) {
           return NextResponse.redirect(new URL('/dashboard?error=unauthorized', req.url));

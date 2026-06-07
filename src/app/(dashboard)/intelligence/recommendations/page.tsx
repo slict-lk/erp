@@ -5,6 +5,7 @@ import { Bot, CheckCheck, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react'
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { ConfidenceBadge } from '@/components/intelligence/confidence-badge';
 import { IntelligenceAIOutputCard } from '@/components/intelligence/intelligence-ai-output-card';
 
@@ -14,13 +15,19 @@ type Recommendation = {
   summary: string;
   rationale: string;
   urgency: 'CRITICAL' | 'HIGH' | 'MEDIUM';
-  status: 'DRAFT' | 'NEEDS_REVIEW' | 'ACCEPTED' | 'REJECTED' | 'IMPLEMENTED';
+  status: 'DRAFT' | 'NEEDS_REVIEW' | 'ACCEPTED' | 'REJECTED' | 'IMPLEMENTED' | 'ARCHIVED';
   confidence: number;
   ownerSuggestion: string;
   evidence: string[];
   actions: string[];
   linkedProcessKey: string | null;
   type: string;
+  governance: {
+    status: 'DRAFT' | 'NEEDS_REVIEW' | 'ACCEPTED' | 'REJECTED' | 'IMPLEMENTED' | 'ARCHIVED';
+    note?: string;
+    reviewedAt?: string;
+    reviewedByUserId?: string;
+  } | null;
 };
 
 type RecommendationsResponse = {
@@ -31,7 +38,7 @@ type RecommendationsResponse = {
   };
 };
 
-const statusOrder = ['ALL', 'DRAFT', 'NEEDS_REVIEW', 'ACCEPTED', 'REJECTED', 'IMPLEMENTED'] as const;
+const statusOrder = ['ALL', 'DRAFT', 'NEEDS_REVIEW', 'ACCEPTED', 'REJECTED', 'IMPLEMENTED', 'ARCHIVED'] as const;
 
 function urgencyTone(urgency: string) {
   if (urgency === 'CRITICAL') return 'bg-rose-100 text-rose-700 hover:bg-rose-100';
@@ -47,6 +54,7 @@ export default function IntelligenceRecommendationsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [draftLoading, setDraftLoading] = useState(false);
+  const [governanceNote, setGovernanceNote] = useState('');
   const [draft, setDraft] = useState<{
     content: string;
     confidence: number;
@@ -84,6 +92,10 @@ export default function IntelligenceRecommendationsPage() {
     data?.recommendations.find((recommendation) => recommendation.id === selectedId) ??
     null;
 
+  useEffect(() => {
+    setGovernanceNote(selectedRecommendation?.governance?.note ?? '');
+  }, [selectedRecommendation?.id, selectedRecommendation?.governance?.note]);
+
   async function updateStatus(recommendationId: string, status: Recommendation['status']) {
     setSavingId(recommendationId);
     setError(null);
@@ -91,7 +103,7 @@ export default function IntelligenceRecommendationsPage() {
       const response = await fetch('/api/intelligence/recommendations', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recommendationId, status }),
+        body: JSON.stringify({ recommendationId, status, note: governanceNote }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) {
@@ -273,7 +285,7 @@ export default function IntelligenceRecommendationsPage() {
                   <div className="space-y-3">
                     <p className="text-sm font-semibold text-slate-950">Governance</p>
                     <div className="flex flex-wrap gap-2">
-                      {(['DRAFT', 'NEEDS_REVIEW', 'ACCEPTED', 'REJECTED', 'IMPLEMENTED'] as const).map((status) => (
+                      {(['DRAFT', 'NEEDS_REVIEW', 'ACCEPTED', 'REJECTED', 'IMPLEMENTED', 'ARCHIVED'] as const).map((status) => (
                         <Button
                           key={status}
                           variant={selectedRecommendation.status === status ? 'default' : 'outline'}
@@ -286,6 +298,20 @@ export default function IntelligenceRecommendationsPage() {
                           {status}
                         </Button>
                       ))}
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-slate-700">Reviewer note</p>
+                      <Textarea
+                        value={governanceNote}
+                        onChange={(event) => setGovernanceNote(event.target.value)}
+                        placeholder="Add a short management note for this recommendation."
+                        className="min-h-24"
+                      />
+                      {selectedRecommendation.governance?.reviewedAt ? (
+                        <p className="text-xs text-slate-500">
+                          Last reviewed {new Date(selectedRecommendation.governance.reviewedAt).toLocaleString()}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
 

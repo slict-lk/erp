@@ -378,7 +378,12 @@ const categorizedNavigation: NavigationCategory[] = [
         icon: Calendar,
         children: [
           { name: 'Overview', href: '/projects', moduleId: 'projects' },
-          { name: 'Tasks', href: '/projects/tasks', moduleId: 'projects' },
+          { name: 'My Work', href: '/projects/my-work', moduleId: 'projects' },
+          { name: 'Portfolio', href: '/projects/portfolio', moduleId: 'projects' },
+          { name: 'Work Items', href: '/projects/tasks', moduleId: 'projects' },
+          { name: 'Timesheets', href: '/projects/timesheets', moduleId: 'projects' },
+          { name: 'Reports', href: '/projects/reports', moduleId: 'projects' },
+          { name: 'Templates', href: '/projects/templates', moduleId: 'projects' },
         ],
       },
     ],
@@ -687,7 +692,7 @@ export function Sidebar({
     filteredCategories.forEach(category => {
       category.items.forEach(item => {
         if (item.children) {
-          const isChildActive = item.children.some(child => pathname === child.href || pathname.startsWith(child.href + '/'));
+          const isChildActive = item.children.some(child => child.href === '/projects' ? pathname === child.href : pathname === child.href || pathname.startsWith(child.href + '/'));
           if (isChildActive && !openMenus.includes(item.name)) {
             setOpenMenus(prev => [...prev, item.name]);
           }
@@ -768,7 +773,7 @@ export function Sidebar({
                       );
                     }
 
-                    const isChildActive = pathname === child.href || pathname.startsWith(child.href + '/');
+                    const isChildActive = child.href === '/projects' ? pathname === child.href : pathname === child.href || pathname.startsWith(child.href + '/');
                     const ChildIcon = child.icon;
                     return (
                       <Link

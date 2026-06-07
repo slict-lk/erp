@@ -82,3 +82,29 @@ export async function requirePermission(
 
   return user;
 }
+
+export async function requireAnyPermission(
+  requirements: Array<{
+    moduleId: string;
+    action: 'view' | 'create' | 'edit' | 'delete' | 'export' | 'import' | 'approve';
+  }>
+) {
+  const user = await requireAuth();
+
+  if (user.isSuperAdmin || user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+    return user;
+  }
+
+  const permissions = (user.modulePermissions as Record<string, any>) || {};
+  const { hasModulePermission } = await import('./modules');
+
+  const allowed = requirements.some((requirement) =>
+    hasModulePermission(permissions, requirement.moduleId, requirement.action)
+  );
+
+  if (!allowed) {
+    throw new Error('Forbidden: Insufficient Permissions');
+  }
+
+  return user;
+}

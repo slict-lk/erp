@@ -4,7 +4,10 @@ import pg from 'pg';
 
 // PrismaClient is attached to the `global` object in development to prevent
 // exhausting your database connection limit.
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
+const globalForPrisma = globalThis as typeof globalThis & {
+  prisma?: PrismaClient;
+  prismaPool?: pg.Pool;
+};
 
 // Create Prisma Client instance using the Prisma 7 adapter pattern.
 // Prisma 7 uses the "client" engine, which requires a driver adapter.
@@ -35,14 +38,19 @@ const createPrismaClient = () => {
     sslConfig.rejectUnauthorized = true; // Force verify if CA is provided
   }
 
-  // Create a pg Pool with conservative settings for Aiven / serverless
-  const pool = new pg.Pool({
-    connectionString: cleanedUrl,
-    max: 5,              // Max connections in pool
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 15000,
-    ssl: sslConfig,
-  });
+  const pool =
+    globalForPrisma.prismaPool ??
+    new pg.Pool({
+      connectionString: cleanedUrl,
+      // Keep the pool very small in the app server because Next.js can fan out
+      // a lot of concurrent auth/session and route requests in development.
+      max: process.env.NODE_ENV === 'development' ? 2 : 5,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 15000,
+      ssl: sslConfig,
+    });
+
+  globalForPrisma.prismaPool = pool;
 
   const adapter = new PrismaPg(pool);
 
@@ -53,31 +61,14 @@ const createPrismaClient = () => {
     adapter,
   });
 
-  // Attach pool to client for teardown
-  (client as any)._pool = pool;
-  const originalDisconnect = client.$disconnect.bind(client);
-
-  client.$disconnect = async () => {
-    console.log('[Prisma] Disconnecting and closing pool...');
-    await originalDisconnect();
-    await pool.end();
-  };
-
   return client;
 };
 
 // Use cached instance or create new one
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-// Cache in BOTH dev and production to prevent connection leaks
+// Cache in-process so route handlers and auth callbacks share one client/pool.
 globalForPrisma.prisma = prisma;
-
-// Ensure connections are cleaned up on process termination
-if (typeof process !== 'undefined') {
-  process.on('beforeExit', async () => {
-    await prisma.$disconnect();
-  });
-}
 
 
 // Connection health check helper

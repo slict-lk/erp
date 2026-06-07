@@ -1163,6 +1163,19 @@ model Timesheet {
   hours       Float
   description String?
   billable    Boolean  @default(true)
+  approvalStatus String @default("DRAFT")
+  approvedById String?
+  approvedAt   DateTime?
+  hourlyRate   Decimal? @db.Decimal(18, 2)
+  costAmount   Decimal? @db.Decimal(18, 2)
+  billableAmount Decimal? @db.Decimal(18, 2)
+  version       Int      @default(1)
+  submittedAt   DateTime?
+  rejectedById  String?
+  rejectedAt    DateTime?
+  rejectionReason String?
+  lockedAt      DateTime?
+  billingBatchId String?
   tenantId    String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -1180,9 +1193,18 @@ model Timesheet {
 model Project {
   id             String          @id @default(cuid())
   name           String
-  code           String          @unique
+  code           String
   description    String?
   status         ProjectStatus   @default(PLANNING)
+  visibility     ProjectVisibility @default(PRIVATE)
+  templateKey    String          @default("GENERAL")
+  templateSnapshot Json?
+  currency       String          @default("LKR")
+  archivedAt     DateTime?
+  version        Int             @default(1)
+  billingType    ProjectBillingType @default(INTERNAL)
+  defaultBillingRate Decimal?    @db.Decimal(18, 2)
+  defaultCostRate Decimal?       @db.Decimal(18, 2)
   startDate      DateTime?
   endDate        DateTime?
   budget         Float?
@@ -1194,10 +1216,19 @@ model Project {
   calendarEvents CalendarEvent[]
   tasks          Task[]
   timesheets     Timesheet[]
+  members        ProjectMember[]
+  milestones     ProjectMilestone[]
+  sprints        ProjectSprint[]
+  workflowStatuses ProjectWorkflowStatus[]
+  attachments    ProjectAttachment[]
+  activities     ProjectActivity[]
+  savedViews     ProjectSavedView[]
+  billingBatches ProjectBillingBatch[]
 
-  @@index([code])
+  @@unique([tenantId, code])
   @@index([status])
   @@index([tenantId])
+  @@index([tenantId, archivedAt])
 }
 
 model Task {
@@ -1206,8 +1237,28 @@ model Task {
   description    String?
   status         TaskStatus  @default(TODO)
   priority       Priority    @default(MEDIUM)
+  type           WorkItemType @default(TASK)
+  sequenceNumber Int?
+  workflowStatusKey String?
   projectId      String
   assigneeId     String?
+  reporterId     String?
+  parentId       String?
+  sprintId       String?
+  milestoneId    String?
+  severity       WorkItemSeverity?
+  storyPoints    Float?
+  rank           Float       @default(0)
+  environment    String?
+  expectedResult String?
+  actualResult   String?
+  reproductionSteps String?
+  releaseVersion String?
+  customFields   Json?
+  labels         String[]    @default([])
+  acceptanceCriteria String?
+  archivedAt     DateTime?
+  version        Int         @default(1)
   startDate      DateTime?
   dueDate        DateTime?
   completedAt    DateTime?
@@ -1218,12 +1269,312 @@ model Task {
   updatedAt      DateTime    @updatedAt
   project        Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   timesheets     Timesheet[]
+  parent         Task?       @relation("TaskHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  subtasks       Task[]      @relation("TaskHierarchy")
+  sprint         ProjectSprint? @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  milestone      ProjectMilestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  assignees      TaskAssignee[]
+  comments       TaskComment[]
+  checklists     TaskChecklistItem[]
+  attachments    TaskAttachment[]
+  dependencies   TaskDependency[] @relation("TaskDependencySource")
+  dependents     TaskDependency[] @relation("TaskDependencyTarget")
+  activities     TaskActivity[]
+  watchers       TaskWatcher[]
 
   @@index([projectId])
   @@index([status])
   @@index([priority])
   @@index([assigneeId])
   @@index([tenantId])
+  @@index([tenantId, type])
+  @@index([tenantId, archivedAt])
+  @@index([projectId, sprintId])
+  @@index([projectId, rank])
+}
+
+model ProjectTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  key         String
+  name        String
+  description String?
+  category    String
+  icon        String?
+  config      Json
+  isSystem    Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, key])
+  @@index([tenantId, isActive])
+}
+
+model ProjectMember {
+  id            String   @id @default(cuid())
+  tenantId      String
+  projectId     String
+  userId        String?
+  employeeId    String?
+  role          ProjectMemberRole @default(CONTRIBUTOR)
+  allocationPct Float    @default(100)
+  joinedAt      DateTime @default(now())
+  leftAt        DateTime?
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@unique([projectId, employeeId])
+  @@index([tenantId, projectId])
+  @@index([tenantId, userId])
+  @@index([tenantId, employeeId])
+}
+
+model ProjectWorkflowStatus {
+  id        String   @id @default(cuid())
+  tenantId  String
+  projectId String
+  key       String
+  name      String
+  category  WorkflowStatusCategory
+  color     String
+  position  Int
+  isDefault Boolean  @default(false)
+  allowedTransitions String[] @default([])
+  version   Int      @default(1)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, key])
+  @@index([tenantId, projectId])
+}
+
+model ProjectMilestone {
+  id          String   @id @default(cuid())
+  tenantId    String
+  projectId   String
+  name        String
+  description String?
+  dueDate     DateTime?
+  status      String   @default("OPEN")
+  completedAt DateTime?
+  approvalStatus String @default("NOT_REQUIRED")
+  approvedById String?
+  approvedAt DateTime?
+  billableAmount Decimal? @db.Decimal(18, 2)
+  version     Int      @default(1)
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, projectId])
+  @@index([projectId, dueDate])
+}
+
+model ProjectSprint {
+  id          String   @id @default(cuid())
+  tenantId    String
+  projectId   String
+  name        String
+  goal        String?
+  status      SprintStatus @default(PLANNED)
+  startDate   DateTime?
+  endDate     DateTime?
+  completedAt DateTime?
+  version     Int      @default(1)
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, projectId])
+  @@index([projectId, status])
+}
+
+model TaskAssignee {
+  id         String   @id @default(cuid())
+  tenantId   String
+  taskId     String
+  userId     String?
+  employeeId String?
+  assignedAt DateTime @default(now())
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@unique([taskId, employeeId])
+  @@index([tenantId, taskId])
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  tenantId  String
+  taskId    String
+  authorId  String?
+  body      String
+  mentions  Json?
+  editedAt  DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, taskId])
+}
+
+model TaskChecklistItem {
+  id          String   @id @default(cuid())
+  tenantId    String
+  taskId      String
+  title       String
+  isCompleted Boolean  @default(false)
+  position    Int      @default(0)
+  completedById String?
+  completedAt DateTime?
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, taskId])
+}
+
+model TaskAttachment {
+  id         String   @id @default(cuid())
+  tenantId   String
+  taskId     String
+  uploadedById String?
+  fileName   String
+  fileType   String
+  fileSize   Int?
+  url        String
+  createdAt  DateTime @default(now())
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, taskId])
+}
+
+model ProjectAttachment {
+  id         String   @id @default(cuid())
+  tenantId   String
+  projectId  String
+  uploadedById String?
+  fileName   String
+  fileType   String
+  fileSize   Int?
+  url        String
+  storageKey String?
+  createdAt  DateTime @default(now())
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, projectId])
+  @@index([tenantId, storageKey])
+}
+
+model TaskDependency {
+  id           String   @id @default(cuid())
+  tenantId     String
+  taskId       String
+  dependsOnId  String
+  type         String   @default("BLOCKED_BY")
+  task         Task     @relation("TaskDependencySource", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOn    Task     @relation("TaskDependencyTarget", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, dependsOnId])
+  @@index([tenantId, taskId])
+  @@index([tenantId, dependsOnId])
+}
+
+model TaskActivity {
+  id        String   @id @default(cuid())
+  tenantId  String
+  taskId    String
+  actorId   String?
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, taskId, createdAt])
+}
+
+model TaskWatcher {
+  id        String   @id @default(cuid())
+  tenantId  String
+  taskId    String
+  userId    String
+  createdAt DateTime @default(now())
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([tenantId, userId])
+}
+
+model ProjectActivity {
+  id        String   @id @default(cuid())
+  tenantId  String
+  projectId String
+  actorId   String?
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, projectId, createdAt])
+}
+
+model ProjectSavedView {
+  id        String   @id @default(cuid())
+  tenantId  String
+  projectId String
+  ownerId   String
+  name      String
+  viewType  String
+  filters   Json
+  isShared  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, ownerId, name])
+  @@index([tenantId, ownerId])
+}
+
+model ProjectBillingBatch {
+  id          String   @id @default(cuid())
+  tenantId    String
+  projectId   String
+  invoiceId   String?
+  idempotencyKey String
+  billingType ProjectBillingType
+  status      String   @default("DRAFT")
+  amount      Decimal  @db.Decimal(18, 2)
+  currency    String
+  sourceIds   Json
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, projectId])
+  @@index([tenantId, invoiceId])
+}
+
+model ProjectNotificationOutbox {
+  id          String   @id @default(cuid())
+  tenantId    String
+  recipientId String
+  eventType   String
+  title       String
+  message     String
+  link        String?
+  payload     Json?
+  status      String   @default("PENDING")
+  attempts    Int      @default(0)
+  availableAt DateTime @default(now())
+  processedAt DateTime?
+  lastError   String?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, status, availableAt])
+  @@index([recipientId, status])
 }
 
 model ConstructionJob {
@@ -5259,6 +5610,57 @@ enum ProjectStatus {
   ON_HOLD
   COMPLETED
   CANCELLED
+}
+
+enum ProjectVisibility {
+  PRIVATE
+  TENANT
+}
+
+enum ProjectBillingType {
+  INTERNAL
+  TIME_AND_MATERIALS
+  FIXED_MILESTONE
+}
+
+enum ProjectMemberRole {
+  MANAGER
+  CONTRIBUTOR
+  VIEWER
+  TIME_APPROVER
+}
+
+enum WorkflowStatusCategory {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+  CANCELLED
+}
+
+enum SprintStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum WorkItemType {
+  TASK
+  TODO
+  BUG
+  ISSUE
+  FEATURE
+  REQUEST
+  RISK
+  APPROVAL
+}
+
+enum WorkItemSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
 }
 
 enum TaskStatus {

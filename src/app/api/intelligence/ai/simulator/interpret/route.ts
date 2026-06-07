@@ -9,8 +9,8 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     const tenant = await getOrCreateDefaultTenant();
-    const { requirePermission } = await import('@/lib/auth');
-    const user = await requirePermission('ai', 'approve');
+    const { requireAnyPermission } = await import('@/lib/auth');
+    const user = await requireAnyPermission([{ moduleId: 'intelligence', action: 'approve' }, { moduleId: 'ai', action: 'approve' }]);
 
     const body = await request.json().catch(() => ({}));
     const result = await simulateWithAIInterpretation(prisma, tenant.id, user.id, {

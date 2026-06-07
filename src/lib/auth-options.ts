@@ -5,6 +5,8 @@ import { prisma } from './prisma';
 import { compare } from 'bcryptjs';
 import { convertPermissionsToModulePermissions } from './rbac';
 
+const TOKEN_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,
   session: {
@@ -107,7 +109,7 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user, trigger }) {
+      async jwt({ token, user, trigger }) {
       // On initial sign in, store user data in token
       if (user) {
         token.id = user.id;
@@ -124,10 +126,24 @@ export const authOptions: NextAuthOptions = {
         token.employee = user.employee;
         token.trialEnd = user.trialEnd || null;
         token.plan = user.plan || 'starter';
+        token.lastUserSyncAt = Date.now();
       }
 
-      // On subsequent requests, refresh user data from database to get latest role AND permissions
-      if (token.id && !user) {
+      // Refresh DB-backed auth state only when needed instead of on every session read.
+      const now = Date.now();
+      const lastUserSyncAt =
+        typeof token.lastUserSyncAt === 'number' ? token.lastUserSyncAt : 0;
+      const shouldRefreshUser =
+        Boolean(token.id) &&
+        !user &&
+        (
+          trigger === 'update' ||
+          !token.role ||
+          !token.enabledModuleIds ||
+          now - lastUserSyncAt > TOKEN_REFRESH_INTERVAL_MS
+        );
+
+      if (shouldRefreshUser) {
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: token.id as string },
@@ -174,6 +190,7 @@ export const authOptions: NextAuthOptions = {
             token.employee = (dbUser as any).employee;
             token.trialEnd = dbUser.tenant?.trialEnd?.toISOString() || null;
             token.plan = dbUser.tenant?.plan || 'starter';
+            token.lastUserSyncAt = now;
           }
         } catch (error) {
           console.error('Error refreshing user data in JWT:', error);

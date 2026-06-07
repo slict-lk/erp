@@ -12,8 +12,8 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const tenant = await getOrCreateDefaultTenant();
-    const { requirePermission } = await import('@/lib/auth');
-    await requirePermission('ai', 'view');
+    const { requireAnyPermission } = await import('@/lib/auth');
+    await requireAnyPermission([{ moduleId: 'intelligence', action: 'view' }, { moduleId: 'ai', action: 'view' }]);
 
     const data = await getExplanationSeedData(prisma, tenant.id);
     return NextResponse.json({
@@ -29,8 +29,8 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const tenant = await getOrCreateDefaultTenant();
-    const { requirePermission } = await import('@/lib/auth');
-    const user = await requirePermission('ai', 'view');
+    const { requireAnyPermission } = await import('@/lib/auth');
+    const user = await requireAnyPermission([{ moduleId: 'intelligence', action: 'view' }, { moduleId: 'ai', action: 'view' }]);
 
     const body = await request.json().catch(() => ({}));
     const surface =

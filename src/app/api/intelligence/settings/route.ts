@@ -14,8 +14,8 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const tenant = await getOrCreateDefaultTenant();
-    const { requirePermission } = await import('@/lib/auth');
-    await requirePermission('ai', 'view');
+    const { requireAnyPermission } = await import('@/lib/auth');
+    await requireAnyPermission([{ moduleId: 'intelligence', action: 'view' }, { moduleId: 'ai', action: 'view' }]);
 
     const settings = await getIntelligenceSettings(prisma, tenant.id);
 
@@ -40,8 +40,8 @@ export async function GET() {
 export async function PUT(request: NextRequest) {
   try {
     const tenant = await getOrCreateDefaultTenant();
-    const { requirePermission } = await import('@/lib/auth');
-    await requirePermission('ai', 'edit');
+    const { requireAnyPermission } = await import('@/lib/auth');
+    await requireAnyPermission([{ moduleId: 'intelligence', action: 'edit' }, { moduleId: 'ai', action: 'edit' }]);
 
     const body = await request.json();
     const settings = await updateIntelligenceSettings(prisma, tenant.id, body ?? {});
@@ -59,8 +59,8 @@ export async function PUT(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const tenant = await getOrCreateDefaultTenant();
-    const { requirePermission } = await import('@/lib/auth');
-    await requirePermission('ai', 'edit');
+    const { requireAnyPermission } = await import('@/lib/auth');
+    await requireAnyPermission([{ moduleId: 'intelligence', action: 'edit' }, { moduleId: 'ai', action: 'edit' }]);
 
     const body = await request.json();
     if (body?.action !== 'restore_defaults') {

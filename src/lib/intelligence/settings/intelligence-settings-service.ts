@@ -5,7 +5,15 @@ export type RecommendationStatus =
   | 'NEEDS_REVIEW'
   | 'ACCEPTED'
   | 'REJECTED'
-  | 'IMPLEMENTED';
+  | 'IMPLEMENTED'
+  | 'ARCHIVED';
+
+export interface RecommendationGovernanceEntry {
+  status: RecommendationStatus;
+  note?: string;
+  reviewedAt?: string;
+  reviewedByUserId?: string;
+}
 
 export interface IntelligenceSettings {
   readinessThreshold: number;
@@ -19,6 +27,7 @@ export interface IntelligenceSettings {
   autoRunSnapshots: boolean;
   autoRunConstraintScan: boolean;
   recommendationStatusById: Record<string, RecommendationStatus>;
+  recommendationGovernanceById: Record<string, RecommendationGovernanceEntry>;
 }
 
 const DEFAULT_INTELLIGENCE_SETTINGS: IntelligenceSettings = {
@@ -33,6 +42,7 @@ const DEFAULT_INTELLIGENCE_SETTINGS: IntelligenceSettings = {
   autoRunSnapshots: false,
   autoRunConstraintScan: false,
   recommendationStatusById: {},
+  recommendationGovernanceById: {},
 };
 
 function clampNumber(value: unknown, fallback: number, min: number, max: number) {
@@ -53,10 +63,41 @@ function asStatusMap(value: unknown) {
         next === 'NEEDS_REVIEW' ||
         next === 'ACCEPTED' ||
         next === 'REJECTED' ||
-        next === 'IMPLEMENTED'
+        next === 'IMPLEMENTED' ||
+        next === 'ARCHIVED'
       ) {
         acc[key] = next;
       }
+      return acc;
+    },
+    {}
+  );
+}
+
+function asGovernanceMap(value: unknown) {
+  if (!value || typeof value !== 'object') return {};
+  return Object.entries(value as Record<string, unknown>).reduce<Record<string, RecommendationGovernanceEntry>>(
+    (acc, [key, next]) => {
+      if (!next || typeof next !== 'object') return acc;
+      const source = next as Record<string, unknown>;
+      const status = source.status;
+      if (
+        status !== 'DRAFT' &&
+        status !== 'NEEDS_REVIEW' &&
+        status !== 'ACCEPTED' &&
+        status !== 'REJECTED' &&
+        status !== 'IMPLEMENTED' &&
+        status !== 'ARCHIVED'
+      ) {
+        return acc;
+      }
+
+      acc[key] = {
+        status,
+        note: typeof source.note === 'string' ? source.note : undefined,
+        reviewedAt: typeof source.reviewedAt === 'string' ? source.reviewedAt : undefined,
+        reviewedByUserId: typeof source.reviewedByUserId === 'string' ? source.reviewedByUserId : undefined,
+      };
       return acc;
     },
     {}
@@ -93,6 +134,7 @@ export function normalizeIntelligenceSettings(input: unknown): IntelligenceSetti
     autoRunSnapshots: asBoolean(source.autoRunSnapshots, DEFAULT_INTELLIGENCE_SETTINGS.autoRunSnapshots),
     autoRunConstraintScan: asBoolean(source.autoRunConstraintScan, DEFAULT_INTELLIGENCE_SETTINGS.autoRunConstraintScan),
     recommendationStatusById: asStatusMap(source.recommendationStatusById),
+    recommendationGovernanceById: asGovernanceMap(source.recommendationGovernanceById),
   };
 }
 

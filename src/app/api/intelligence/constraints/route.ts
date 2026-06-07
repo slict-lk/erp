@@ -10,8 +10,8 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const tenant = await getOrCreateDefaultTenant();
-    const { requirePermission } = await import('@/lib/auth');
-    await requirePermission('ai', 'view');
+    const { requireAnyPermission } = await import('@/lib/auth');
+    await requireAnyPermission([{ moduleId: 'intelligence', action: 'view' }, { moduleId: 'ai', action: 'view' }]);
 
     const [constraints, recentEvents] = await Promise.all([
       getActiveConstraints(prisma, tenant.id),

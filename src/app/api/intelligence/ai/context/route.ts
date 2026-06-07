@@ -9,8 +9,8 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const tenant = await getOrCreateDefaultTenant();
-    const { requirePermission } = await import('@/lib/auth');
-    const user = await requirePermission('ai', 'view');
+    const { requireAnyPermission } = await import('@/lib/auth');
+    const user = await requireAnyPermission([{ moduleId: 'intelligence', action: 'view' }, { moduleId: 'ai', action: 'view' }]);
 
     const context = await getIntelligenceAIContext(prisma, tenant.id);
     let summary;

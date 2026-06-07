@@ -10,8 +10,8 @@ export const dynamic = 'force-dynamic';
 export async function POST() {
   try {
     const tenant = await getOrCreateDefaultTenant();
-    const { requirePermission } = await import('@/lib/auth');
-    await requirePermission('ai', 'approve');
+    const { requireAnyPermission } = await import('@/lib/auth');
+    await requireAnyPermission([{ moduleId: 'intelligence', action: 'approve' }, { moduleId: 'ai', action: 'approve' }]);
 
     await runConstraintScan(prisma, tenant.id);
     const [constraints, recentEvents] = await Promise.all([

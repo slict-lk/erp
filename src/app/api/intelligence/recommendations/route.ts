@@ -12,8 +12,8 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const tenant = await getOrCreateDefaultTenant();
-    const { requirePermission } = await import('@/lib/auth');
-    await requirePermission('ai', 'view');
+    const { requireAnyPermission } = await import('@/lib/auth');
+    await requireAnyPermission([{ moduleId: 'intelligence', action: 'view' }, { moduleId: 'ai', action: 'view' }]);
 
     const data = await getIntelligenceRecommendations(prisma, tenant.id);
 
@@ -37,8 +37,8 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   try {
     const tenant = await getOrCreateDefaultTenant();
-    const { requirePermission } = await import('@/lib/auth');
-    await requirePermission('ai', 'approve');
+    const { requireAnyPermission } = await import('@/lib/auth');
+    const user = await requireAnyPermission([{ moduleId: 'intelligence', action: 'approve' }, { moduleId: 'ai', action: 'approve' }]);
 
     const body = await request.json();
     if (!body?.recommendationId || !body?.status) {
@@ -55,7 +55,10 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    await updateRecommendationStatus(prisma, tenant.id, body.recommendationId, body.status);
+    await updateRecommendationStatus(prisma, tenant.id, body.recommendationId, body.status, {
+      note: typeof body.note === 'string' ? body.note : null,
+      reviewedByUserId: user.id,
+    });
     const data = await getIntelligenceRecommendations(prisma, tenant.id);
 
     return NextResponse.json({

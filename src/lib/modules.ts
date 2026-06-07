@@ -253,7 +253,7 @@ export const AVAILABLE_MODULES: Module[] = [
     category: 'projects',
     icon: 'FolderKanban',
     route: '/projects',
-    permissions: { view: true, create: true, edit: true, delete: true },
+    permissions: { view: true, create: true, edit: true, delete: true, approve: true, export: true, import: true },
   },
 
   // Marketing
@@ -470,6 +470,15 @@ export const AVAILABLE_MODULES: Module[] = [
     icon: 'Brain',
     route: '/ai',
     permissions: { view: true, create: true, edit: true, delete: true },
+  },
+  {
+    id: 'intelligence',
+    name: 'Organizational Intelligence',
+    description: 'Decision intelligence, readiness, workforce analytics, constraints, simulation, and governed recommendations',
+    category: 'automation',
+    icon: 'Target',
+    route: '/intelligence',
+    permissions: { view: true, create: true, edit: true, delete: false, approve: true, export: true },
   },
 
   // Healthcare (QuickCare)
