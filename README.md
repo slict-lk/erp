@@ -29,7 +29,7 @@ This is a multi-tenant SaaS ERP platform optimized for modular development. It u
 
 - Node.js 22.x (project uses `engines.node: 22.x`)
 - pnpm >= 8 (or npm, but pnpm is recommended)
-- PostgreSQL (or another DB supported by Prisma)
+- PostgreSQL access provided by the team
 - Optional: Ollama (for local AI model serving) if you use the AI features
 - Git
 
@@ -44,21 +44,28 @@ npm install -g pnpm
 1. Clone the repo and open it:
 
 ```powershell
-git clone <repo-url> slict-erp
-cd slict-erp
+git clone https://github.com/slict-lk/erp.git
+cd erp
 ```
 
-2. Install dependencies and prepare the project:
+2. Install dependencies:
 
 ```powershell
 pnpm install
-pnpm run db:generate
-pnpm run build
 ```
 
-3. Create a `.env` file at the repository root (see "Environment variables" below) and set your database connection string.
+3. Ask a team lead for the development environment values and create a `.env`
+file at the repository root. At minimum, local database commands require
+`DATABASE_URL`. Never commit or share `.env` through Git.
 
-4. Start the dev server:
+4. Validate Prisma and generate the client:
+
+```powershell
+pnpm exec prisma validate
+pnpm run db:generate
+```
+
+5. Start the dev server:
 
 ```powershell
 pnpm run dev
@@ -89,7 +96,24 @@ pnpm run lint
 
 ## Database (Prisma)
 
-Prisma is configured in `prisma/schema.prisma`.
+This project uses **Prisma 7**:
+
+- `prisma/schema.prisma` contains the active database models and datasource
+  provider.
+- `prisma.config.ts` supplies the datasource connection from
+  `process.env.DATABASE_URL`.
+- The active schema intentionally does not contain
+  `url = env("DATABASE_URL")` or `directUrl = env("DIRECT_URL")`.
+- `.env` is ignored by Git. Each developer must receive the required
+  environment values securely from the team.
+- Files named `schema.prisma.backup.*` are historical references only. Never
+  replace the active `prisma/schema.prisma` with a backup.
+
+Validate the active schema and environment configuration:
+
+```powershell
+pnpm exec prisma validate
+```
 
 Common commands:
 
@@ -122,6 +146,10 @@ pnpm run db:push
 ```powershell
 pnpm run db:studio
 ```
+
+If Prisma Studio reports a missing datasource URL, confirm that the repository
+root contains a `.env` file with a valid `DATABASE_URL`. Do not add database
+credentials directly to `schema.prisma`.
 
 - Seed the database (project has `prisma/seed.ts`):
 
@@ -242,7 +270,15 @@ OPENAI_API_KEY=sk-...
 STRIPE_SECRET_KEY=sk_live_...
 ```
 
-Refer to `src/lib/auth-config.ts`, `src/lib/prisma.ts`, or other files for other env variables the project expects.
+`DIRECT_URL` may exist in team-managed environments, but the current Prisma 7
+configuration uses `DATABASE_URL` as its datasource connection.
+
+Request real development credentials from a team lead through an approved
+secure channel. Never commit `.env`, database credentials, API keys, or
+production secrets.
+
+Refer to `.env.local.example`, `src/lib/prisma.ts`, and other integration files
+for additional environment variable names.
 
 ## Contributing
 
@@ -255,7 +291,16 @@ Refer to `src/lib/auth-config.ts`, `src/lib/prisma.ts`, or other files for other
 - If you hit Prisma/client errors, regenerate the client:
 
 ```powershell
+pnpm exec prisma validate
 pnpm run db:generate
+```
+
+- If Prisma Studio reports a missing database URL, confirm that `.env` exists
+  at the repository root and contains `DATABASE_URL`, then run:
+
+```powershell
+pnpm exec prisma validate
+pnpm run db:studio
 ```
 
 - If Node version mismatches occur, use `nvm` or install the recommended Node 22.x.
