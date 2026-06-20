@@ -1,5 +1,6 @@
 import { withAuth } from 'next-auth/middleware';
 import { NextResponse } from 'next/server';
+import { isMiddlewareAuthorizedPath } from '@/lib/middleware-auth';
 
 // Map routes to module IDs
 const ROUTE_TO_MODULE_ID_MAP: Record<string, string> = {
@@ -157,10 +158,7 @@ export default withAuth(
   {
     callbacks: {
       authorized: ({ token, req }) => {
-        // Allow public API routes without token
-        if (req.nextUrl.pathname.startsWith('/api/public') || req.nextUrl.pathname.startsWith('/api/vehicle-export/requests')) return true;
-        // Require token for everything else
-        return !!token;
+        return isMiddlewareAuthorizedPath(req.nextUrl.pathname, token);
       },
     },
   }
