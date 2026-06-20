@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import 'leaflet/dist/leaflet.css';
 import { SessionProvider } from '@/components/providers/SessionProvider';
@@ -8,6 +9,8 @@ import { AIEngineInitializer } from '@/components/ai/ai-engine-initializer';
 import { Toaster } from 'sonner';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, getLocale } from 'next-intl/server';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: `SLICT ERP ${new Date().getFullYear()}`,
@@ -24,7 +27,7 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} suppressHydrationWarning className="h-full">
-      <body className="antialiased h-full" suppressHydrationWarning>
+      <body className={`${inter.className} antialiased h-full`} suppressHydrationWarning>
         <AIEngineInitializer />
         <NextIntlClientProvider messages={messages}>
           <QueryProvider>

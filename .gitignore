@@ -13,6 +13,9 @@ package-lock.json
 # Environment variables
 .env
 .env.local
+.env.docker.local
+.env.production
+.env.production.local
 .env.*.local
 
 # Logs
@@ -29,6 +32,19 @@ logs
 # Build output
 dist/
 build/
+
+# Dumps and backups
+*.bak
+*.backup
+*.dmp
+*.dump
+*.sql
+*.sql.bak
+*.sql.dump
+backup/
+backups/
+dump/
+dumps/
 
 # Keep pnpm lockfile (committed). Ignore package-lock if present.
 # pnpm-lock.yaml (keep)

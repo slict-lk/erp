@@ -16,17 +16,12 @@ RUN pnpm install --frozen-lockfile
 FROM base AS builder
 WORKDIR /app
 
-ARG DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/slict_erp?sslmode=disable
-ARG NEXTAUTH_SECRET=build-placeholder-nextauth-secret
-ARG CRON_SECRET=build-placeholder-cron-secret
-ARG SKIP_ENV_VALIDATION=1
-
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV DATABASE_URL=$DATABASE_URL
-ENV NEXTAUTH_SECRET=$NEXTAUTH_SECRET
-ENV CRON_SECRET=$CRON_SECRET
-ENV SKIP_ENV_VALIDATION=$SKIP_ENV_VALIDATION
+ENV DATABASE_URL=postgresql://build-placeholder:build-placeholder@127.0.0.1:5432/build_placeholder?sslmode=disable
+ENV NEXTAUTH_SECRET=build-only-placeholder-nextauth-secret
+ENV CRON_SECRET=build-only-placeholder-cron-secret
+ENV SKIP_ENV_VALIDATION=1
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/prisma ./prisma

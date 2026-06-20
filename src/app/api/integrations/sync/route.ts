@@ -6,6 +6,7 @@ import { tryCatch } from '@/lib/error-handler';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-config';
 import { jobQueue } from '@/lib/jobs/queue';
+import { handleIntegrationSyncStatus } from '@/lib/integrations/sync-management';
 
 
 export const dynamic = 'force-dynamic';
@@ -17,42 +18,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const tenant = await getOrCreateDefaultTenant();
     const { searchParams } = new URL(request.url);
     const integrationId = searchParams.get('integrationId');
-
-    if (integrationId) {
-      // Trigger sync for specific integration
-      const success = await jobQueue.triggerSync(integrationId);
-
-      if (success) {
-        return NextResponse.json(
-          formatSuccessResponse({}, 'Integration sync triggered successfully')
-        );
-      } else {
-        return NextResponse.json(
-          { error: 'Failed to trigger sync' },
-          { status: 400 }
-        );
-      }
-    } else {
-      // Get queue status
-      const status = jobQueue.getStatus();
-
-      // Get recent sync logs
-      const logs = await prisma.integrationLog.findMany({
-        where: {
-          tenantId: tenant.id,
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-      });
-
-      return NextResponse.json(formatSuccessResponse({
-        queue: status,
-        recentLogs: logs,
-      }));
-    }
+    return handleIntegrationSyncStatus(integrationId);
   }, 'Failed to manage sync jobs');
 }
 

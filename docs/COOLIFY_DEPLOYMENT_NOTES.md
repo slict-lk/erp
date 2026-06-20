@@ -9,12 +9,36 @@ This branch prepares the existing Next.js ERP app for containerized deployment o
 - `vercel.json` currently defines one cron job:
   - Path: `/api/integrations/cron/sync`
   - Schedule: `0 0 * * *`
+- The route in `vercel.json` is handled with `GET`.
 - The repository already had a user-facing sync route at `src/app/api/integrations/sync/route.ts`.
 - This branch adds the configured cron route at `src/app/api/integrations/cron/sync/route.ts`.
+- Both the session route and the cron route now share the same synchronization/status handler in `src/lib/integrations/sync-management.ts`.
 - Authorization behavior for the cron route:
   - Existing authenticated user-session access is allowed.
   - `Authorization: Bearer ${CRON_SECRET}` is also allowed.
   - Invalid requests return HTTP `401`.
+  - Missing authorization returns HTTP `401`.
+  - Incorrect authorization returns HTTP `401`.
+  - Secret values are never logged or returned.
+
+## Docker Build Inputs
+
+- Docker image builds do not accept private runtime secrets as build arguments.
+- The Dockerfile uses internal build-only placeholder values for:
+  - `DATABASE_URL`
+  - `NEXTAUTH_SECRET`
+  - `CRON_SECRET`
+- These placeholders are nonfunctional and are only there so `pnpm prisma generate` and `pnpm build` can run without production or staging secrets.
+- The normal local image build command is:
+  - `docker build --progress=plain -t slict-erp-coolify-test .`
+- No private build arguments are required for the normal build.
+- If a future `NEXT_PUBLIC_*` build argument is ever added, it must be treated as public and immutable because `NEXT_PUBLIC_*` values are embedded into the built application at `next build` time.
+
+## Font Build Behavior
+
+- The application font behavior was restored to the original `Inter` Google font import in `src/app/layout.tsx`.
+- This preserves the existing visual appearance.
+- Coolify and Docker builds therefore need outbound internet access during `next build` so Next.js can fetch the Google font asset.
 
 ## In-Memory Queue Call Sites
 
@@ -82,6 +106,7 @@ This branch prepares the existing Next.js ERP app for containerized deployment o
   - Each replica creates its own timers in memory
   - A restart near the initial delayed triggers can re-run the "first" scheduled execution
   - Manual `/api/integrations/sync` triggers can overlap with scheduled timers
+  - Manual `/api/integrations/cron/sync` triggers can overlap scheduled timers too
   - Nothing in the in-memory scheduler coordinates across processes
 
 - Why the initial Coolify deployment must use one application replica:
