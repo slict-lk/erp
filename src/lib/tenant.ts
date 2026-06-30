@@ -8,6 +8,7 @@ import prisma from './prisma';
 export async function getCurrentTenant() {
   const headersList = await headers();
   const host = headersList.get('host') || 'localhost:3000';
+  const rootAppHosts = ['apps.slict.lk', 'www.apps.slict.lk'];
 
   // Extract subdomain
   const hostParts = host.split('.');
@@ -25,6 +26,10 @@ export async function getCurrentTenant() {
     return await prisma.tenant.findUnique({
       where: { subdomain },
     });
+  }
+
+  if (rootAppHosts.includes(host)) {
+    return await getOrCreateDefaultTenant();
   }
 
   // Production: subdomain.erp.slict.lk or custom domain

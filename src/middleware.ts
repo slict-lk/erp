@@ -48,6 +48,7 @@ export default withAuth(
     const token = req.nextauth.token;
     const path = req.nextUrl.pathname;
     const hostname = req.headers.get('host') || '';
+    const rootAppHosts = ['apps.slict.lk', 'www.apps.slict.lk'];
 
     // --- Dynamic CORS Handling for Public API ---
     if (path.startsWith('/api/public')) {
@@ -98,9 +99,12 @@ export default withAuth(
     if (hostname.includes('localhost')) {
       const subdomain = hostParts[0].split(':')[0];
       requestHeaders.set('x-tenant-subdomain', subdomain);
+    } else if (rootAppHosts.includes(hostname)) {
+      // Main application host: do not treat it as a tenant subdomain.
+      requestHeaders.delete('x-tenant-subdomain');
     } else if (hostParts.length >= 3) {
       const subdomain = hostParts[0];
-      const reserved = ['www', 'api', 'admin', 'app'];
+      const reserved = ['www', 'api', 'admin', 'app', 'apps'];
       if (!reserved.includes(subdomain)) {
         requestHeaders.set('x-tenant-subdomain', subdomain);
       }

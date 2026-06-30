@@ -2,6 +2,8 @@
 // To use OpenAI instead, change this import to './openai-client'
 import { generateChatCompletion, ChatMessage, FunctionDefinition } from './ollama-client';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
+import fs from 'fs';
 
 // Re-export ChatMessage for use in other modules
 export type { ChatMessage };
@@ -129,11 +131,27 @@ export const AGENT_FUNCTIONS: FunctionDefinition[] = [
         description: 'Get list of pending tasks and approvals assigned to you',
         parameters: { type: 'object', properties: {} },
     },
-];
 
+    {
+        name: 'generate_sql_query',
+        description: 'Generate and execute a SQL query to answer questions about any data in the database when no specific function exists',
+        parameters: {
+            type: 'object',
+            properties: {
+                query: {
+                    type: 'string',
+                    description: 'The natural language question to convert to SQL',
+                },
+            },
+            required: ['query'],
+        },
+    },
+];
 /**
  * Execute a function called by the AI agent
  */
+
+
 export async function executeAgentFunction(
     functionName: string,
     args: Record<string, any>,
@@ -176,9 +194,14 @@ export async function executeAgentFunction(
 
             case 'get_pending_tasks':
                 return await getPendingTasks(tenantId, userId);
+              
+
+            case 'generate_sql_query':
+                return await executeSQLQuery(args.query, tenantId);
 
             default:
-                return { error: `Unknown function: ${functionName}` };
+                return { error: `Unknown function: ${functionName}` };              
+
         }
     } catch (error: any) {
         console.error(`Error executing ${functionName}:`, error);
@@ -529,7 +552,7 @@ Always format numbers as currency when appropriate. Provide actionable insights 
         if (provider === 'GOOGLE' && configuredModel?.apiKey) {
             try {
                 const { generateGeminiCompletion } = require('./google-engine');
-                const cleanMessages = messages.map(m => ({
+                const cleanMessages = messages.filter(m => ['user', 'assistant', 'system'].includes(m.role.toLowerCase())).map(m => ({
                     role: m.role.toLowerCase() as any,
                     content: m.content || '',
                     name: (m as any).name,
@@ -578,7 +601,7 @@ Always format numbers as currency when appropriate. Provide actionable insights 
                 await groqEngine.initialize();
 
                 // Strict sanitization: ensure lowercase roles and valid content
-                const cleanMessages = messages.map(m => ({
+                const cleanMessages = messages.filter(m => ['user', 'assistant', 'system'].includes(m.role.toLowerCase())).map(m => ({
                     role: m.role.toLowerCase() as 'user' | 'assistant' | 'system',
                     content: m.content || ''
                 }));
@@ -667,4 +690,38 @@ Always format numbers as currency when appropriate. Provide actionable insights 
         response: 'I processed your request but need more information to complete it. Please try rephrasing your question.',
         functionCalls: functionCalls.length > 0 ? functionCalls : undefined,
     };
+}
+
+
+
+async function executeSQLQuery(naturalLanguageQuery: string, tenantId: string) {
+    const { generateSQLQuery } = await import('./erp-tasks');
+    
+    let schemaDescription = '';
+    const dictPath = '/root/db_schema.txt';
+    
+    if (fs.existsSync(dictPath)) {
+        schemaDescription = fs.readFileSync(dictPath, 'utf8');
+    } else {
+        const schemaRows = await prisma.$queryRaw<any[]>(
+            Prisma.sql`SELECT table_name, column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_schema = 'public'
+            ORDER BY table_name, ordinal_position
+            LIMIT 500`
+        );
+        schemaDescription = (schemaRows as any[])
+            .map((r: any) => `${r.table_name}.${r.column_name} (${r.data_type})`)
+            .join('\n');
+    }
+
+    const result = await generateSQLQuery(naturalLanguageQuery, schemaDescription);
+    if (!result.query) return { error: 'Could not generate SQL query' };
+    
+    try {
+        const data = await prisma.$queryRawUnsafe(result.query);
+        return { data, explanation: result.explanation };
+    } catch (error: any) {
+        return { error: `Query failed: ${error.message}` };
+    }
 }

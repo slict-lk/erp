@@ -353,8 +353,9 @@ export async function generateSQLQuery(
   warning?: string;
 }> {
   const engine = getGroqEngine();
+await engine.initialize();
 
-  const messages: ChatMessage[] = [
+const messages: ChatMessage[] = [
     {
       role: 'system',
       content: `You are a PostgreSQL expert. Based on a schema description, generate a safe SQL query.

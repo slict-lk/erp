@@ -1,6 +1,25 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
+import 'dotenv/config';
 
-const prisma = new PrismaClient();
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+    throw new Error('DATABASE_URL not found');
+}
+
+const url = new URL(connectionString);
+url.searchParams.delete('sslmode');
+
+const pool = new pg.Pool({
+    connectionString: url.toString(),
+    max: 2,
+    ssl: { rejectUnauthorized: false },
+});
+
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter } as any);
 
 async function main() {
     console.log('🌱 Starting Automotive Seeding...');
@@ -225,4 +244,5 @@ main()
     })
     .finally(async () => {
         await prisma.$disconnect();
+        await pool.end();
     });

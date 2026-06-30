@@ -164,11 +164,13 @@ class GroqClient {
       const content = data.choices[0]?.message?.content || '';
       const tokens = data.usage?.total_tokens || 0;
 
-      return {
-        response: content,
-        tokens,
-        model,
-      };
+      const functionCall = data.choices[0]?.message?.function_call || null;
+return {
+    response: content,
+    tokens,
+    model,
+    functionCall,
+};
     } catch (error: any) {
       console.error('Error in generateCompletion:', error);
       throw new Error(`Failed to generate completion: ${error.message}`);

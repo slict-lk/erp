@@ -2,9 +2,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
+
 datasource db {
   provider = "postgresql"
 }
+
 
 model Tenant {
   id                    String                @id @default(cuid())

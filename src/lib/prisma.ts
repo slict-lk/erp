@@ -25,18 +25,16 @@ const createPrismaClient = () => {
   const cleanedUrl = url.toString();
 
   // SSL Configuration for Aiven / Managed Postgres
-  const sslConfig: any = {
-    rejectUnauthorized: true, // Default: verify certificates
-  };
 
-  if (process.env.DISABLE_SSL_VERIFY === 'true') {
-    sslConfig.rejectUnauthorized = false;
-  }
+const useSSL = process.env.DATABASE_SSL !== 'false';
+const sslConfig: any = useSSL ? {
+    rejectUnauthorized: process.env.DISABLE_SSL_VERIFY !== 'true',
+} : false;
 
-  if (process.env.AIVEN_CA_CERT) {
+if (useSSL && process.env.AIVEN_CA_CERT) {
     sslConfig.ca = process.env.AIVEN_CA_CERT;
-    sslConfig.rejectUnauthorized = true; // Force verify if CA is provided
-  }
+    sslConfig.rejectUnauthorized = true;
+}
 
   const pool =
     globalForPrisma.prismaPool ??

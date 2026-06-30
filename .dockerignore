@@ -1,6 +1,5 @@
 .git
 .gitignore
-.next
 coverage
 node_modules
 
