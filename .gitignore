@@ -49,3 +49,4 @@ dumps/
 # Keep pnpm lockfile (committed). Ignore package-lock if present.
 # pnpm-lock.yaml (keep)
 
+erp.tar 
