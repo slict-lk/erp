@@ -11,6 +11,9 @@
 
 import { getGroqEngine } from './groq-engine';
 import { ChatMessage } from './groq-client';
+import { prisma } from '@/lib/prisma';
+// The full table dictionary generated from prisma/schema.prisma (254 tables).
+import tableDictionary from './table-dictionary.json';
 
 export interface InvoiceRequest {
   clientName: string;
@@ -353,9 +356,8 @@ export async function generateSQLQuery(
   warning?: string;
 }> {
   const engine = getGroqEngine();
-await engine.initialize();
 
-const messages: ChatMessage[] = [
+  const messages: ChatMessage[] = [
     {
       role: 'system',
       content: `You are a PostgreSQL expert. Based on a schema description, generate a safe SQL query.
@@ -403,6 +405,173 @@ Format your response as:
     return queryInfo;
   } catch (error: any) {
     throw new Error(`Failed to generate SQL query: ${error.message}`);
+  }
+}
+
+/**
+ * ── SAFE DATABASE EXECUTION LAYER ──
+ *
+ * This is the function that actually turns the chatbot's SQL into real rows.
+ * It is the ONLY place in the codebase allowed to run SQL text produced by an LLM.
+ * Every rule here exists because trusting the model directly caused fabricated answers.
+ */
+
+const TABLE_DICT = tableDictionary as Record<string, { columns: { name: string; type: string }[]; hasTenantId: boolean }>;
+
+// The model often guesses conventional lowercase/plural table names (e.g. "admissions")
+// instead of the exact PascalCase Prisma name ("Admission"). Build a case-insensitive
+// lookup so we can recognize and auto-correct these instead of just rejecting them.
+const LOWERCASE_TO_REAL_TABLE: Record<string, string> = {};
+for (const realName of Object.keys(TABLE_DICT)) {
+  LOWERCASE_TO_REAL_TABLE[realName.toLowerCase()] = realName;
+}
+
+// A tenantId from the session is a Prisma cuid: lowercase letters + digits, ~25 chars.
+// Reject anything that doesn't look like that before it ever touches string interpolation.
+const SAFE_TENANT_ID = /^[a-z0-9]{20,40}$/i;
+
+const FORBIDDEN_KEYWORDS = /\b(insert|update|delete|drop|alter|grant|revoke|truncate|create|merge|call|copy)\b/i;
+
+export interface SafeQueryResult {
+  rows: any[];
+  error?: string;
+  sqlExecuted?: string; // for logging/debugging - never shown raw to the end user
+}
+
+/**
+ * Extracts table names referenced in a SQL string via FROM/JOIN clauses.
+ * This is a lightweight regex check, not a full SQL parser. It is deliberately
+ * conservative: if it can't confidently identify the tables, it rejects the query
+ * rather than guessing. For stronger guarantees, swap this for a real SQL AST
+ * parser (e.g. `node-sql-parser`) - the whitelist logic below stays the same.
+ */
+function extractReferencedTables(sql: string): string[] {
+  const matches = [...sql.matchAll(/\b(?:from|join)\s+"?([A-Za-z_][A-Za-z0-9_]*)"?/gi)];
+  return [...new Set(matches.map((m) => m[1]))];
+}
+
+export async function executeSafeQuery(sql: string, tenantId: string): Promise<SafeQueryResult> {
+  console.log('[erp-tasks VERSION] v5 (auto-rewrites exact text match to ILIKE, server-side)');
+  if (!sql || typeof sql !== 'string') {
+    console.log('[chatbot SQL REJECTED]', 'No SQL provided.');
+    return { rows: [], error: 'No SQL provided.' };
+  }
+  if (!SAFE_TENANT_ID.test(tenantId)) {
+    // Defensive: this should never happen since tenantId comes from the server session,
+    // but if it ever doesn't look right, refuse rather than interpolate it into SQL.
+    console.log('[chatbot SQL REJECTED]', 'Invalid tenant context.');
+    return { rows: [], error: 'Invalid tenant context.' };
+  }
+
+  let trimmed = sql.trim().replace(/;+\s*$/, '');
+
+  // Your actual columns are camelCase (tenantId), but the model sometimes
+  // defaults to conventional snake_case (tenant_id) - correct it here rather
+  // than rejecting an otherwise-valid query over a naming convention mismatch.
+  // (?<!\$) = don't match if immediately preceded by "$" - otherwise this was
+  // corrupting our own $TENANT_ID placeholder into $tenantId, which then failed
+  // the tenant-scoping check below and silently rejected every valid query.
+  trimmed = trimmed.replace(/(?<!\$)\btenant_id\b/gi, 'tenantId');
+  // Postgres lowercases unquoted identifiers - "tenantId" unquoted becomes
+  // "tenantid" which doesn't exist (real column is camelCase, needs quotes).
+  // This was causing "column tenantid does not exist" on every WHERE clause
+  // that didn't already quote it.
+  trimmed = trimmed.replace(/(?<!")\btenantId\b(?!")/g, '"tenantId"');
+
+  // 1. Must be a single SELECT statement.
+  if (!/^select\s/i.test(trimmed)) {
+    console.log('[chatbot SQL REJECTED]', 'Only SELECT queries are allowed.');
+    return { rows: [], error: 'Only SELECT queries are allowed.' };
+  }
+  if (trimmed.includes(';')) {
+    console.log('[chatbot SQL REJECTED]', 'Multiple statements are not allowed.');
+    return { rows: [], error: 'Multiple statements are not allowed.' };
+  }
+  if (FORBIDDEN_KEYWORDS.test(trimmed)) {
+    console.log('[chatbot SQL REJECTED]', 'Query contains a forbidden operation.');
+    return { rows: [], error: 'Query contains a forbidden operation.' };
+  }
+
+  // 2. Every referenced table must exist in the 254-table whitelist (matched
+  //    case-insensitively, since the model often guesses conventional lowercase
+  //    or plural names instead of the exact PascalCase Prisma name).
+  const referencedTables = extractReferencedTables(trimmed);
+  if (referencedTables.length === 0) {
+    console.log('[chatbot SQL REJECTED]', 'Could not identify any table in the query.');
+    return { rows: [], error: 'Could not identify any table in the query.' };
+  }
+  let correctedSql = trimmed;
+  const resolvedTables: string[] = [];
+  for (const table of referencedTables) {
+    let realName = LOWERCASE_TO_REAL_TABLE[table.toLowerCase()];
+    // Also try singular/plural variants - the model often pluralizes
+    // ("admissions") when the real table is singular ("Admission"), or vice versa.
+    if (!realName) {
+      const lower = table.toLowerCase();
+      if (lower.endsWith('s')) {
+        realName = LOWERCASE_TO_REAL_TABLE[lower.slice(0, -1)];
+      } else {
+        realName = LOWERCASE_TO_REAL_TABLE[lower + 's'];
+      }
+    }
+    if (!realName) {
+      console.log('[chatbot SQL REJECTED]', `Table "${table}" is not permitted for chatbot access.`);
+      return { rows: [], error: `Table "${table}" is not permitted for chatbot access.` };
+    }
+    resolvedTables.push(realName);
+    // ALWAYS quote the table name, even if the model already guessed the exact
+    // correct case - Postgres silently lowercases unquoted identifiers, so an
+    // unquoted "HotelBooking" looks for "hotelbooking" and fails to find it.
+    const pattern = new RegExp(`\\b(from|join)\\s+"?${table}"?(?=\\s|,|\\)|$)`, 'gi');
+    correctedSql = correctedSql.replace(pattern, `$1 "${realName}"`);
+  }
+  trimmed = correctedSql;
+
+  // 3. If any referenced table requires tenant scoping, the query MUST contain
+  //    the literal $TENANT_ID placeholder - the model is instructed to write this,
+  //    and we substitute the real value here rather than trusting the model to
+  //    write the correct tenant id itself.
+  const needsTenantScope = resolvedTables.some((t) => TABLE_DICT[t]?.hasTenantId);
+  if (needsTenantScope && !trimmed.includes('$TENANT_ID')) {
+    console.log('[chatbot SQL REJECTED]', 'Query is missing required tenant scoping and was rejected.');
+    return { rows: [], error: 'Query is missing required tenant scoping and was rejected.' };
+  }
+
+  // 4. Substitute the real tenant id (already validated as a safe cuid shape above).
+  // The model already writes '$TENANT_ID' WITH quotes around it (per the system
+  // prompt instructions), so substitute the bare value here - adding quotes again
+  // caused a double-quote syntax error ('' around the tenant id).
+  const scopedSql = trimmed.replace(/\$TENANT_ID/g, tenantId);
+
+  // Automatically force case-insensitive matching on text comparisons, instead
+  // of relying on the model to remember to use ILIKE every time. Rewrites
+  // `column = 'value'` into `column ILIKE 'value'`, but SKIPS:
+  //   - id/tenantId columns (must stay exact)
+  //   - date-looking values (YYYY-MM-DD) - ILIKE breaks on date/timestamp types
+  //   - purely numeric values
+  const finalSqlWithILike = scopedSql.replace(
+    /(\b(?!id\b|tenantId\b)[A-Za-z_][A-Za-z0-9_]*)\s*=\s*'([^']*)'/g,
+    (full, column, value) => {
+      const looksLikeDate = /^\d{4}-\d{2}-\d{2}/.test(value);
+      const looksNumeric = /^-?\d+(\.\d+)?$/.test(value);
+      const isIdColumn = /Id$/.test(column);
+      if (looksLikeDate || looksNumeric || isIdColumn) return full;
+      return `${column} ILIKE '${value}'`;
+    }
+  );
+
+  // 5. Enforce a row cap regardless of what the model wrote.
+  const finalSql = /limit\s+\d+/i.test(finalSqlWithILike) ? finalSqlWithILike : `${finalSqlWithILike} LIMIT 50`;
+
+  // 6. Execute for real.
+  try {
+    console.log('[chatbot SQL]', finalSql);
+    const rows = await prisma.$queryRawUnsafe(finalSql);
+    return { rows: rows as any[], sqlExecuted: finalSql };
+  } catch (error: any) {
+    console.error('[chatbot SQL] execution failed:', error.message);
+    console.log('[chatbot SQL REJECTED]', 'Query execution failed. Please rephrase your question.');
+    return { rows: [], error: 'Query execution failed. Please rephrase your question.' };
   }
 }
 

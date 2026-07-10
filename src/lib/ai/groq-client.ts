@@ -5,8 +5,10 @@
  */
 
 export interface ChatMessage {
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant' | 'system' | 'function';
   content: string;
+  name?: string; // required by Groq when role is 'function'
+  function_call?: { name: string; arguments: string };
 }
 
 export interface CompletionOptions {
@@ -17,6 +19,19 @@ export interface CompletionOptions {
   stream?: boolean;
   functions?: any[];
   functionCall?: 'auto' | 'none' | 'specific';
+  // Real OpenAI-compatible tool calling, supported by Groq's API.
+  // Pass tools in the shape: [{ type: 'function', function: { name, description, parameters } }]
+  tools?: Array<{ type: 'function'; function: { name: string; description?: string; parameters?: any } }>;
+  toolChoice?: 'auto' | 'none' | { type: 'function'; function: { name: string } };
+}
+
+export interface ToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string; // JSON string, needs JSON.parse
+  };
 }
 
 export interface CompletionResponse {
@@ -144,6 +159,7 @@ class GroqClient {
     tokens: number;
     model: string;
     functionCall?: any;
+    toolCalls?: ToolCall[];
   }> {
     try {
       const model = options.model || this.defaultModel;
@@ -156,21 +172,42 @@ class GroqClient {
       const data = await response.json();
 
       if (!response.ok) {
+        console.error('[GROQ ERROR DETAIL]', JSON.stringify(data.error));
+
+        // Llama 3.3 on Groq occasionally emits a tool call in a malformed text
+        // format instead of the proper structured one - but the intended call is
+        // still visible in `failed_generation`, e.g. <function=name{"arg":"val"}>
+        // </function>. Try to recover it instead of just giving up.
+        if (data.error?.code === 'tool_use_failed' && data.error?.failed_generation) {
+          const recovered = this.tryRecoverMalformedToolCall(data.error.failed_generation);
+          if (recovered) {
+            console.log('[GROQ RECOVERED TOOL CALL]', JSON.stringify(recovered));
+            return {
+              response: '',
+              tokens: data.usage?.total_tokens || 0,
+              model: options.model || this.defaultModel,
+              toolCalls: [recovered],
+            };
+          }
+        }
+
         throw new Error(
           `Groq API error: ${data.error?.message || response.statusText}`
         );
       }
 
-      const content = data.choices[0]?.message?.content || '';
+      const message = data.choices[0]?.message || {};
+      const content = message.content || '';
       const tokens = data.usage?.total_tokens || 0;
+      // Real structured tool calls, only present when `tools` was passed in the request
+      const toolCalls: ToolCall[] | undefined = message.tool_calls || undefined;
 
-      const functionCall = data.choices[0]?.message?.function_call || null;
-return {
-    response: content,
-    tokens,
-    model,
-    functionCall,
-};
+      return {
+        response: content,
+        tokens,
+        model,
+        toolCalls,
+      };
     } catch (error: any) {
       console.error('Error in generateCompletion:', error);
       throw new Error(`Failed to generate completion: ${error.message}`);
@@ -280,10 +317,13 @@ return {
       max_tokens: options.maxTokens ?? 2000,
       top_p: options.topP ?? 1.0,
       stream: options.stream ?? false,
-      // Groq may support function calling in future - prepare for it
-      ...(options.functions && {
-        functions: options.functions,
-        function_call: options.functionCall || 'auto',
+      // Real OpenAI-compatible tool calling. This is the field Groq actually
+      // reads to decide whether the model is allowed to call a function.
+      // Without this, the model can only *talk about* calling a function,
+      // which is why it was hallucinating fake "generate_sql_query(...)" text.
+      ...(options.tools && {
+        tools: options.tools,
+        tool_choice: options.toolChoice || 'auto',
       }),
     };
   }
@@ -314,6 +354,48 @@ return {
       clearTimeout(timeoutId);
       throw error;
     }
+  }
+
+  /**
+   * Best-effort recovery of a malformed tool call from Groq's failed_generation text.
+   * Handles patterns like:
+   *   <function=get_sales_summary{"period": "month"}</function>
+   *   <function=query_database{"sql": "..."}></function>
+   *   <function=list_all_customers/>                    (no-argument shorthand)
+   * Returns null (no crash) if the text is too broken to recover (e.g. truncated
+   * mid-argument) - the caller falls back to its normal error handling in that case.
+   */
+  private tryRecoverMalformedToolCall(failedGeneration: string): ToolCall | null {
+    // No-argument shorthand first: <function=name/> or <function=name></function>
+    const noArgMatch = failedGeneration.match(/<function=([a-zA-Z0-9_]+)\s*\/?>(?:\s*<\/function>)?/);
+    if (noArgMatch && !failedGeneration.includes('{')) {
+      return {
+        id: `recovered_${Date.now()}`,
+        type: 'function',
+        function: { name: noArgMatch[1], arguments: '{}' },
+      };
+    }
+
+    const match = failedGeneration.match(/<function=([a-zA-Z0-9_]+)\s*(\{[\s\S]*)/);
+    if (!match) return null;
+
+    const name = match[1];
+    let argsText = match[2];
+    // Strip a trailing </function> or > if present
+    argsText = argsText.replace(/<\/function>\s*$/, '').replace(/>\s*$/, '').trim();
+
+    try {
+      // Confirm it's valid JSON before trusting it
+      JSON.parse(argsText);
+    } catch {
+      return null; // Truncated or invalid - can't safely recover this one
+    }
+
+    return {
+      id: `recovered_${Date.now()}`,
+      type: 'function',
+      function: { name, arguments: argsText },
+    };
   }
 
   /**
