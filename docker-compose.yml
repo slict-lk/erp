@@ -1,0 +1,15 @@
+services:
+  erp-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: erp-local
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      # Override localhost -> host.docker.internal so the container can reach
+      # the SSH tunnel running on your PC (Windows/Mac Docker Desktop only).
+      - DATABASE_URL=postgresql://admin:2020Dockerpgsql!@host.docker.internal:5433/erp?sslmode=disable
+    restart: unless-stopped
