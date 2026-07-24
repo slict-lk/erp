@@ -320,3 +320,4 @@ If you'd like, I can:
 - Generate a short architecture diagram and developer onboarding checklist.
 
 Tell me which of those you'd like next.
+ 
