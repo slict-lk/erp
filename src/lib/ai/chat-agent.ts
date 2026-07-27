@@ -331,7 +331,7 @@ async function getSalesSummary(period: string, tenantId: string) {
             startDate = new Date(now.setMonth(now.getMonth() - 1));
     }
 
-    const orders = await prisma.salesOrder.findMany({
+    const orders = await prisma.salesOrderV2.findMany({
         where: {
             tenantId,
             createdAt: {
