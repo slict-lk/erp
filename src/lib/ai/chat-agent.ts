@@ -49,7 +49,7 @@ function getRelevantSchemaSummary(userMessage: string, maxTables = 10): string {
     // No keyword matches at all (vague question) - fall back to a small generic
     // set rather than nothing, so query_database still has something to work with.
     if (relevant.length === 0) {
-        relevant = scored.slice(0, maxTables);
+        relevant = scored.slice(0, 25
     } else {
         relevant = relevant.slice(0, maxTables);
     }
