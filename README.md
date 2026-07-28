@@ -60,6 +60,7 @@ file at the repository root. At minimum, local database commands require
 
 4. Validate Prisma and generate the client:
 
+
 ```powershell
 pnpm exec prisma validate
 pnpm run db:generate
