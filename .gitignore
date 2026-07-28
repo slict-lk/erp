@@ -50,3 +50,6 @@ dumps/
 # pnpm-lock.yaml (keep)
 
 erp.tar 
+*.tar
+test_groq.json
+test_groq_full.json
