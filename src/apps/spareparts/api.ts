@@ -1,5 +1,6 @@
 // Spare Parts Shop Module API Functions
 // Following Healthcare module pattern
+import { checkAndAlertLowStock } from '@/lib/inventory/check-stock-alert';
 import { prisma } from '@/lib/prisma';
 import { getOrCreateDefaultTenant } from '@/lib/get-tenant';
 import { recordStockOut, recordStockIn } from '@/lib/inventory/inventory-bridge';
@@ -469,8 +470,7 @@ export async function confirmInvoice(id: string, tenantId: string, appliedPromot
             }).catch(e => console.error("Failed to sync inventory outflow:", e));
         }
     }
-
-    try {
+try {
         const accounts = await resolveAccountCodes(tenantId, 'spareparts', 'SALE');
         if (accounts) {
             await postToGL({
@@ -490,6 +490,12 @@ export async function confirmInvoice(id: string, tenantId: string, appliedPromot
         }
     } catch (error) {
         console.error('GL Bridge error (confirmInvoice):', error);
+    }
+
+    for (const item of invoice.items) {
+        await checkAndAlertLowStock(item.productId, tenantId, 'sparepart').catch(e =>
+            console.error('Low stock alert check failed:', e)
+        );
     }
 
     return updatedInvoice;
