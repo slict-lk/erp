@@ -10,7 +10,7 @@ export async function checkAndAlertLowStock(productId: string, tenantId: string,
   if (Number(item.stockQty) > Number(item.minStockQty)) return;
 
   const admin = await prisma.user.findFirst({
-    where: { tenantId, isSuperAdmin: true },
+     where: { tenantId, role: 'ADMIN' },
     select: { email: true },
   });
   if (!admin?.email) return;
