@@ -30,7 +30,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Gavel, RefreshCw, Trophy, XCircle, Loader2, PlayCircle, TrendingUp, AlertCircle, Clock, DollarSign } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -97,8 +97,7 @@ export default function AuctioneerDashboardPage() {
     const [resultStatus, setResultStatus] = useState<string>('WON');
     const [winningPrice, setWinningPrice] = useState<string>('');
     const [processing, setProcessing] = useState(false);
-    const { toast } = useToast();
-
+    
     const fetchBids = useCallback(async () => {
         try {
             setRefreshing(true);
@@ -132,18 +131,15 @@ export default function AuctioneerDashboardPage() {
                 }),
             });
             if (res.ok) {
-                toast({
-                    title: "System Update",
-                    description: `Transaction Recorded: ${resultStatus}`,
-                });
+                toast.success("System Update", { description: `Transaction Recorded: ${resultStatus}` });
                 fetchBids();
                 setSelectedBid(null);
                 setWinningPrice('');
             } else {
-                toast({ title: 'Error', description: 'Transaction Failed', variant: 'destructive' });
+                toast.error('Error', { description: 'Transaction Failed' });
             }
         } catch (error) {
-            toast({ title: 'System Error', description: 'Network Failure', variant: 'destructive' });
+            toast.error('System Error', { description: 'Network Failure' });
         } finally {
             setProcessing(false);
         }

@@ -8,13 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { AIFormSection } from '@/components/ai/ai-primitives';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import type { AIControlPlaneSettings } from '@/lib/ai/control-plane-types';
 
 export function AISettingsForm({ settings }: { settings: AIControlPlaneSettings }) {
   const router = useRouter();
-  const { toast } = useToast();
-  const [retentionDays, setRetentionDays] = useState(String(settings.retentionDays));
+    const [retentionDays, setRetentionDays] = useState(String(settings.retentionDays));
   const [alertChannels, setAlertChannels] = useState(settings.alertChannels.join(', '));
   const [defaultPolicyProfileId, setDefaultPolicyProfileId] = useState(settings.defaultPolicyProfileId);
   const [brandingTone, setBrandingTone] = useState(settings.brandingTone);
@@ -85,7 +84,7 @@ export function AISettingsForm({ settings }: { settings: AIControlPlaneSettings 
       startTransition(() => {
         router.refresh();
       });
-      toast({ title: 'Settings updated' });
+      toast.success('Settings updated');
     } catch (submitError: any) {
       setError(submitError.message || 'Failed to update settings');
     } finally {
@@ -120,7 +119,7 @@ export function AISettingsForm({ settings }: { settings: AIControlPlaneSettings 
       setRetryBackoffMinutes(String(restored.retryBackoffMinutes));
       setEscalationSlaMinutes(String(restored.escalationSlaMinutes));
       setQueuePollingIntervalSeconds(String(restored.queuePollingIntervalSeconds));
-      toast({ title: 'Defaults restored' });
+      toast.success('Defaults restored');
       startTransition(() => {
         router.refresh();
       });
@@ -147,7 +146,7 @@ export function AISettingsForm({ settings }: { settings: AIControlPlaneSettings 
         throw new Error(body.error || 'Failed to send test alert');
       }
 
-      toast({ title: 'Test alert created' });
+      toast.success('Test alert created');
       startTransition(() => {
         router.refresh();
       });

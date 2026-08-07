@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import { SessionProvider } from '@/components/providers/SessionProvider';
 import { SettingsProvider } from '@/components/providers/SettingsProvider';
 import QueryProvider from '@/components/providers/QueryProvider';
+import { NotificationsProvider } from '@/components/providers/NotificationsProvider';
 import { AIEngineInitializer } from '@/components/ai/ai-engine-initializer';
 import { Toaster } from 'sonner';
 import { NextIntlClientProvider } from 'next-intl';
@@ -32,7 +33,9 @@ export default async function RootLayout({
         <NextIntlClientProvider messages={messages}>
           <QueryProvider>
             <SettingsProvider>
-              <SessionProvider>{children}</SessionProvider>
+              <SessionProvider>
+                <NotificationsProvider>{children}</NotificationsProvider>
+              </SessionProvider>
             </SettingsProvider>
           </QueryProvider>
         </NextIntlClientProvider>

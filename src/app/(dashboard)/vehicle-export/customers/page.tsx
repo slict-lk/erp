@@ -25,7 +25,7 @@ import {
     Users, Search, RefreshCw, Plus, MapPin, Phone, Mail, Package, Loader2,
     Wallet, CreditCard, ChevronRight, Globe, Building
 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { FadeIn, StaggerContainer, StaggerItem } from '@/components/ui/motion/primitives';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -55,8 +55,7 @@ export default function CustomersPage() {
     const [search, setSearch] = useState('');
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [creating, setCreating] = useState(false);
-    const { toast } = useToast();
-
+    
     const [newCustomer, setNewCustomer] = useState({
         name: '',
         email: '',
@@ -87,7 +86,7 @@ export default function CustomersPage() {
 
     const handleCreate = async () => {
         if (!newCustomer.name || !newCustomer.email) {
-            toast({ title: 'Error', description: 'Name and email are required', variant: 'destructive' });
+            toast.error('Error', { description: 'Name and email are required' });
             return;
         }
 
@@ -100,7 +99,7 @@ export default function CustomersPage() {
             });
 
             if (res.ok) {
-                toast({ title: 'Customer Added', description: 'New client profile created.' });
+                toast.success('Customer Added', { description: 'New client profile created.' });
                 setShowCreateDialog(false);
                 setNewCustomer({
                     name: '',
@@ -111,10 +110,10 @@ export default function CustomersPage() {
                 });
                 fetchCustomers();
             } else {
-                toast({ title: 'Error', variant: 'destructive' });
+                toast.error('Error');
             }
         } catch (error) {
-            toast({ title: 'Error', variant: 'destructive' });
+            toast.error('Error');
         } finally {
             setCreating(false);
         }

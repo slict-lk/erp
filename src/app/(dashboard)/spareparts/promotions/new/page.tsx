@@ -16,12 +16,11 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { ArrowLeft, Save, Loader2, Percent } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 export default function NewPromotionPage() {
     const router = useRouter();
-    const { toast } = useToast();
-    const [loading, setLoading] = useState(false);
+        const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
         description: '',
@@ -84,21 +83,14 @@ export default function NewPromotionPage() {
             });
 
             if (res.ok) {
-                toast({
-                    title: 'Success',
-                    description: 'Promotion created successfully',
-                });
+                toast.success('Success', { description: 'Promotion created successfully' });
                 router.push('/spareparts/promotions');
             } else {
                 const error = await res.json();
                 throw new Error(error.error || 'Failed to create promotion');
             }
         } catch (error: unknown) {
-            toast({
-                title: 'Error',
-                description: error instanceof Error ? error.message : 'Failed to create promotion',
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: error instanceof Error ? error.message : 'Failed to create promotion' });
         } finally {
             setLoading(false);
         }

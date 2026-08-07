@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Gavel, ArrowLeft, Loader2, CheckCircle, Car, Settings, Calendar, ChevronRight, ChevronLeft, Camera, Upload, X } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -38,8 +38,7 @@ export default function AuctionEntryPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const bidId = searchParams.get('bidId');
-    const { toast } = useToast();
-
+    
     const [loading, setLoading] = useState(false);
     const [step, setStep] = useState(1);
     const [bid, setBid] = useState<any>(null);
@@ -77,7 +76,7 @@ export default function AuctionEntryPage() {
         const newPhotos: string[] = [];
 
         // Notification for start
-        toast({ title: 'Uploading...', description: `Starting upload of ${total} photo(s).` });
+        toast.success('Uploading...', { description: `Starting upload of ${total} photo(s).` });
 
         for (let i = 0; i < total; i++) {
             const file = files[i];
@@ -100,10 +99,10 @@ export default function AuctionEntryPage() {
                     newPhotos.push(data.url);
                     uploadedCount++;
                 } else {
-                    toast({ title: 'Upload Failed', description: `Could not upload ${file.name}`, variant: 'destructive' });
+                    toast.error('Upload Failed', { description: `Could not upload ${file.name}` });
                 }
             } catch (error) {
-                toast({ title: 'Error', description: `Failed to upload ${file.name}`, variant: 'destructive' });
+                toast.error('Error', { description: `Failed to upload ${file.name}` });
             }
         }
 
@@ -112,7 +111,7 @@ export default function AuctionEntryPage() {
                 ...prev,
                 photos: [...prev.photos, ...newPhotos]
             }));
-            toast({ title: 'Upload Complete', description: `Added ${uploadedCount} photos.` });
+            toast.success('Upload Complete', { description: `Added ${uploadedCount} photos.` });
         }
 
         setUploadStatus(null);
@@ -143,13 +142,13 @@ export default function AuctionEntryPage() {
     const nextStep = () => {
         if (step === 1) {
             if (!form.make || !form.model || !form.year) {
-                toast({ title: 'Missing Identity Info', description: 'Please fill in Make, Model, and Year.', variant: 'destructive' });
+                toast.error('Missing Identity Info', { description: 'Please fill in Make, Model, and Year.' });
                 return;
             }
         }
         if (step === 2) {
             if (!form.mileage || !form.transmission || !form.fuelType) {
-                toast({ title: 'Missing Specs', description: 'Please fill in Mileage, Transmission, and Fuel Type.', variant: 'destructive' });
+                toast.error('Missing Specs', { description: 'Please fill in Mileage, Transmission, and Fuel Type.' });
                 return;
             }
         }
@@ -159,7 +158,7 @@ export default function AuctionEntryPage() {
 
     const handleSubmit = async () => {
         if (!form.make || !form.model || !form.year || !form.mileage || !form.transmission || !form.fuelType) {
-            toast({ title: 'Missing Fields', description: 'Please fill in all mandatory fields.', variant: 'destructive' });
+            toast.error('Missing Fields', { description: 'Please fill in all mandatory fields.' });
             return;
         }
 
@@ -182,10 +181,7 @@ export default function AuctionEntryPage() {
 
             if (res.ok) {
                 const data = await res.json();
-                toast({
-                    title: 'Vehicle Acquired',
-                    description: `Stock #${data.vehicle.stockNumber} added to inventory.`,
-                });
+                toast.success('Vehicle Acquired', { description: `Stock #${data.vehicle.stockNumber} added to inventory.` });
 
                 if (bidId) {
                     await fetch(`/api/vehicle-export/bids/${bidId}`, {
@@ -198,10 +194,10 @@ export default function AuctionEntryPage() {
                 router.push(`/vehicle-export/inventory/${data.vehicle.id}`);
             } else {
                 const error = await res.json();
-                toast({ title: 'Error', description: error.error, variant: 'destructive' });
+                toast.error('Error', { description: error.error });
             }
         } catch (error) {
-            toast({ title: 'Error', description: 'Failed to create vehicle', variant: 'destructive' });
+            toast.error('Error', { description: 'Failed to create vehicle' });
         } finally {
             setLoading(false);
         }

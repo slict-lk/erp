@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import type { ModelRecord, PromptRecord } from '@/lib/ai/control-plane-types';
 import { nullableString, parseList, readResponseError } from '@/components/ai/registry-manager-utils';
 
@@ -84,8 +84,7 @@ export function PromptsManager({
   models: ModelRecord[];
 }) {
   const router = useRouter();
-  const { toast } = useToast();
-  const [prompts, setPrompts] = useState(initialPrompts);
+    const [prompts, setPrompts] = useState(initialPrompts);
   const [selectedId, setSelectedId] = useState<string | null>(initialPrompts[0]?.id ?? null);
   const [form, setForm] = useState<PromptFormState>(
     initialPrompts[0] ? toFormState(initialPrompts[0]) : EMPTY_PROMPT
@@ -140,17 +139,10 @@ export function PromptsManager({
       const nextPrompts = normalizeResponse(body, prompts);
       setPrompts(nextPrompts);
       setSelectedId(selectedId ?? nextPrompts[0]?.id ?? null);
-      toast({
-        title: selectedId ? 'Prompt updated' : 'Prompt created',
-        description: payload.name,
-      });
+      toast.success(selectedId ? 'Prompt updated' : 'Prompt created', { description: payload.name });
       router.refresh();
     } catch (error: any) {
-      toast({
-        title: 'Save failed',
-        description: error.message || 'Failed to save prompt',
-        variant: 'destructive',
-      });
+      toast.error('Save failed', {description: error.message || 'Failed to save prompt' });
     } finally {
       setSaving(false);
     }
@@ -179,17 +171,10 @@ export function PromptsManager({
       const nextPrompts = (await response.json()) as PromptRecord[];
       setPrompts(nextPrompts);
       setSelectedId(nextPrompts[0]?.id ?? null);
-      toast({
-        title: 'Prompt deleted',
-        description: selectedPrompt.name,
-      });
+      toast.success('Prompt deleted', { description: selectedPrompt.name, });
       router.refresh();
     } catch (error: any) {
-      toast({
-        title: 'Delete failed',
-        description: error.message || 'Failed to delete prompt',
-        variant: 'destructive',
-      });
+      toast.error('Delete failed', {description: error.message || 'Failed to delete prompt' });
     } finally {
       setDeleting(false);
     }

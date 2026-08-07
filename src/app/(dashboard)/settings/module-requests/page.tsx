@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import {
     Package, CheckCircle, XCircle, Clock,
     Loader2, Ship, Store, Users, Building2, Heart,
@@ -43,8 +43,7 @@ interface ModuleRequest {
 }
 
 export default function ModuleRequestsPage() {
-    const { toast } = useToast();
-    const [loading, setLoading] = useState(true);
+        const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState<string | null>(null);
     const [requests, setRequests] = useState<ModuleRequest[]>([]);
     const [counts, setCounts] = useState({ PENDING: 0, APPROVED: 0, REJECTED: 0, CANCELLED: 0 });
@@ -66,7 +65,7 @@ export default function ModuleRequestsPage() {
             setRequests(data.requests || []);
             setCounts(data.counts || { PENDING: 0, APPROVED: 0, REJECTED: 0, CANCELLED: 0 });
         } catch (error) {
-            toast({ title: 'Error', description: 'Failed to load requests', variant: 'destructive' });
+            toast.error('Error', { description: 'Failed to load requests' });
         } finally {
             setLoading(false);
         }
@@ -88,16 +87,13 @@ export default function ModuleRequestsPage() {
             }
 
             const result = await res.json();
-            toast({
-                title: action === 'approve' ? 'Approved' : 'Rejected',
-                description: result.message,
-            });
+            toast.success(action === 'approve' ? 'Approved' : 'Rejected', { description: result.message });
             setDialogOpen(false);
             setSelectedRequest(null);
             setAdminNotes('');
             fetchData();
         } catch (error: any) {
-            toast({ title: 'Error', description: error.message, variant: 'destructive' });
+            toast.error('Error', { description: error.message });
         } finally {
             setProcessing(null);
         }

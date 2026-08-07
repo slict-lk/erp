@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
                 data: {
                     tenantId: tenant.id,
                     hotelName: tenant.name,
-                    logoUrl: tenant.logo,
+                    logoUrl: tenant.logo ? `/api/settings/company/logo?subdomain=${tenant.subdomain}` : null,
                     primaryColor: tenant.primaryColor,
                 }
             });
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
             config: {
                 hotelName: config.hotelName,
                 tagline: config.tagline,
-                logoUrl: config.logoUrl || tenant.logo,
+                logoUrl: config.logoUrl || (tenant.logo ? `/api/settings/company/logo?subdomain=${tenant.subdomain}` : null),
                 faviconUrl: config.faviconUrl,
                 primaryColor: config.primaryColor || tenant.primaryColor,
                 secondaryColor: config.secondaryColor,

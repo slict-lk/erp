@@ -9,11 +9,11 @@ import { Users, Calendar, DollarSign, UserCheck, RefreshCw, Briefcase, Clock } f
 
 interface Employee {
   id: string;
-  employeeNumber: string;
+  employeeId: string;
   name: string;
   email: string;
   position: string;
-  status: string;
+  isActive: boolean;
   department: { name: string } | null;
 }
 
@@ -84,7 +84,7 @@ export default function HRPage() {
   }, [fetchData]);
 
   // Safe array filtering with fallback
-  const activeEmployees = useMemo(() => (Array.isArray(employees) ? employees.filter((e) => e.status === 'ACTIVE').length : 0), [employees]);
+  const activeEmployees = useMemo(() => (Array.isArray(employees) ? employees.filter((e) => e.isActive).length : 0), [employees]);
   const pendingLeaves = useMemo(() => (Array.isArray(leaveRequests) ? leaveRequests.filter((r) => r.status === 'PENDING').length : 0), [leaveRequests]);
   const todayAttendance = useMemo(() => {
     if (!Array.isArray(attendance)) return 0;
@@ -141,7 +141,7 @@ export default function HRPage() {
                           <p className="text-xs text-gray-500">{employee.position} · {employee.department?.name ?? 'No dept'}</p>
                         </div>
                       </div>
-                      <Badge variant={employee.status === 'ACTIVE' ? 'default' : 'secondary'}>{employee.status}</Badge>
+                       <Badge variant={employee.isActive ? 'default' : 'secondary'}>{employee.isActive ? 'Active' : 'Inactive'}</Badge>
                     </div>
                   ))}
                 </div>

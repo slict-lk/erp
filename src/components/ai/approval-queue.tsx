@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { AIEmptyState, AIStatusBadge } from '@/components/ai/ai-primitives';
 import { useAIExperience } from '@/components/ai/ai-experience-context';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { getModuleLabel } from '@/lib/ai/ui-metadata';
 import type { ApprovalItem } from '@/lib/ai/control-plane-types';
 
@@ -35,8 +35,7 @@ function getRecommendation(approval: ApprovalItem) {
 
 export function ApprovalQueue({ approvals }: { approvals: ApprovalItem[] }) {
   const router = useRouter();
-  const { toast } = useToast();
-  const { canUseAdvanced } = useAIExperience();
+    const { canUseAdvanced } = useAIExperience();
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -70,13 +69,9 @@ export function ApprovalQueue({ approvals }: { approvals: ApprovalItem[] }) {
 
       setSelectedIds((current) => current.filter((id) => id !== approvalId));
       startTransition(() => router.refresh());
-      toast({ title: `Decision recorded`, description: decision.replaceAll('_', ' ').toLowerCase() });
+      toast.success(`Decision recorded`, { description: decision.replaceAll('_', ' ').toLowerCase() });
     } catch (error: any) {
-      toast({
-        title: 'Approval failed',
-        description: error.message || 'Failed to update approval',
-        variant: 'destructive',
-      });
+      toast.error('Approval failed', {description: error.message || 'Failed to update approval' });
     } finally {
       setWorkingId(null);
     }
@@ -104,17 +99,13 @@ export function ApprovalQueue({ approvals }: { approvals: ApprovalItem[] }) {
       const failed = results.length - succeeded;
       setSelectedIds([]);
       startTransition(() => router.refresh());
-      toast({
-        title: 'Bulk approve completed',
-        description: failed > 0 ? `${succeeded} approved, ${failed} failed.` : `${succeeded} item(s) approved.`,
-        variant: failed > 0 ? 'destructive' : undefined,
-      });
+      if (failed > 0) {
+        toast.error('Bulk approve completed', { description: `${succeeded} approved, ${failed} failed.` });
+      } else {
+        toast.success('Bulk approve completed', { description: `${succeeded} item(s) approved.` });
+      }
     } catch (error: any) {
-      toast({
-        title: 'Bulk approve failed',
-        description: error.message || 'Failed to bulk approve items',
-        variant: 'destructive',
-      });
+      toast.error('Bulk approve failed', {description: error.message || 'Failed to bulk approve items' });
     } finally {
       setWorkingId(null);
     }

@@ -6,6 +6,86 @@ import { AVAILABLE_MODULES, type ModulePermissions } from '@/lib/modules';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { sendWelcomeEmail } from '@/lib/email';
 
+const SUPER_ADMIN_EMAIL = 'mubasshir@slict.lk';
+
+/**
+ * Notify super admin of new tenant registration
+ */
+async function notifySuperAdmin(data: {
+    tenantName: string;
+    tenantSubdomain: string;
+    adminName: string;
+    adminEmail: string;
+    selectedApps: string[];
+}) {
+    const { tenantName, tenantSubdomain, adminName, adminEmail, selectedApps } = data;
+    const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+
+    // 1. Create in-app notification for super admin
+    const superAdmin = await prisma.user.findFirst({
+        where: { email: SUPER_ADMIN_EMAIL },
+    });
+
+    if (superAdmin) {
+        await prisma.notification.create({
+            data: {
+                userId: superAdmin.id,
+                title: 'New Tenant Registration',
+                message: `${tenantName} (${tenantSubdomain}) registered by ${adminName} (${adminEmail}). Apps: ${selectedApps.join(', ')}`,
+                type: 'INFO',
+                link: `/admin/tenants`,
+            },
+        });
+    }
+
+    // 2. Send email to super admin
+    const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #1a1a1a;">New Tenant Registration</h2>
+            <p>A new tenant has registered on your ERP platform:</p>
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Company</td><td style="padding: 8px; border: 1px solid #ddd;">${tenantName}</td></tr>
+                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Subdomain</td><td style="padding: 8px; border: 1px solid #ddd;">${tenantSubdomain}</td></tr>
+                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Admin Name</td><td style="padding: 8px; border: 1px solid #ddd;">${adminName}</td></tr>
+                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Admin Email</td><td style="padding: 8px; border: 1px solid #ddd;">${adminEmail}</td></tr>
+                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Selected Apps</td><td style="padding: 8px; border: 1px solid #ddd;">${selectedApps.join(', ')}</td></tr>
+                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Plan</td><td style="padding: 8px; border: 1px solid #ddd;">14-day Free Trial</td></tr>
+            </table>
+            <a href="${appUrl}/admin/tenants" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 6px;">View Tenant</a>
+        </div>
+    `;
+
+    await sendEmail({
+        to: SUPER_ADMIN_EMAIL,
+        subject: `New Tenant Registration: ${tenantName}`,
+        html: emailHtml,
+    });
+}
+
+/**
+ * Simple email sender (reuses SMTP config from email lib)
+ */
+async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
+    const { createTransport } = await import('nodemailer');
+
+    const transport = createTransport({
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        secure: false,
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+        },
+    });
+
+    await transport.sendMail({
+        from: `"SLICT ERP" <${process.env.SMTP_USER}>`,
+        to,
+        subject,
+        html,
+    });
+}
+
 // Validation schema
 const registerSchema = z.object({
     name: z.string().min(2, 'Name must be at least 2 characters').max(100),
@@ -166,6 +246,15 @@ export async function POST(req: NextRequest) {
             selectedApps: selectedModuleNames,
             loginUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/login`,
         }).catch((err) => console.error('Welcome email failed:', err));
+
+        // 11. Notify super admin (non-blocking)
+        notifySuperAdmin({
+            tenantName: companyName,
+            tenantSubdomain: subdomain,
+            adminName: name,
+            adminEmail: email,
+            selectedApps: selectedModuleNames,
+        }).catch((err) => console.error('Super admin notification failed:', err));
 
         return NextResponse.json(
             {

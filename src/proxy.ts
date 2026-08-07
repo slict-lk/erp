@@ -1,9 +1,10 @@
 import { withAuth } from 'next-auth/middleware';
 import { NextResponse } from 'next/server';
-import { isMiddlewareAuthorizedPath } from '@/lib/middleware-auth';
+import { isProxyAuthorizedPath } from '@/lib/middleware-auth';
 
 // Map routes to module IDs
 const ROUTE_TO_MODULE_ID_MAP: Record<string, string> = {
+  '/crm': 'crm',
   '/sales': 'sales',
   '/accounting': 'accounting',
   '/inventory': 'inventory',
@@ -44,7 +45,7 @@ const ROUTE_TO_MODULE_ID_MAP: Record<string, string> = {
 };
 
 export default withAuth(
-  function middleware(req) {
+  function proxy(req) {
     const token = req.nextauth.token;
     const path = req.nextUrl.pathname;
     const hostname = req.headers.get('host') || '';
@@ -133,27 +134,30 @@ export default withAuth(
       }
     }
 
-    // Check module permissions
-    for (const [route, moduleId] of Object.entries(ROUTE_TO_MODULE_ID_MAP)) {
-      if (path.startsWith(route)) {
-        const enabledModuleIds = (token?.enabledModuleIds as string[]) || [];
+     // Check module permissions - use tenant's enabledModules from token
+     const enabledModuleIds = (token?.enabledModuleIds as string[]) || [];
+     const tenantModuleIds = (token?.tenantModules as string[]) || [];
+     // Use tenant modules if available, otherwise fall back to user's enabledModuleIds
+     const effectiveModules = tenantModuleIds.length > 0 ? tenantModuleIds : enabledModuleIds;
 
-        // Dashboard is always accessible
-        if (moduleId === 'dashboard') continue;
+     for (const [route, moduleId] of Object.entries(ROUTE_TO_MODULE_ID_MAP)) {
+       if (path.startsWith(route)) {
+         // Dashboard is always accessible
+         if (moduleId === 'dashboard') continue;
 
-        if (moduleId === 'intelligence') {
-          if (!enabledModuleIds.includes('intelligence') && !enabledModuleIds.includes('ai')) {
-            return NextResponse.redirect(new URL('/dashboard?error=unauthorized', req.url));
-          }
-          break;
-        }
+         if (moduleId === 'intelligence') {
+           if (!effectiveModules.includes('intelligence') && !effectiveModules.includes('ai')) {
+             return NextResponse.redirect(new URL('/dashboard?error=unauthorized', req.url));
+           }
+           break;
+         }
 
-        if (!enabledModuleIds.includes(moduleId)) {
-          return NextResponse.redirect(new URL('/dashboard?error=unauthorized', req.url));
-        }
-        break;
-      }
-    }
+         if (!effectiveModules.includes(moduleId)) {
+           return NextResponse.redirect(new URL('/dashboard?error=unauthorized', req.url));
+         }
+         break;
+       }
+     }
 
     return NextResponse.next({
       request: { headers: requestHeaders },
@@ -162,7 +166,7 @@ export default withAuth(
   {
     callbacks: {
       authorized: ({ token, req }) => {
-        return isMiddlewareAuthorizedPath(req.nextUrl.pathname, token);
+        return isProxyAuthorizedPath(req.nextUrl.pathname, token);
       },
     },
   }

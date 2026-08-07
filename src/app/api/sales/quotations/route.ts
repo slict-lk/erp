@@ -55,6 +55,8 @@ function mapQuotation(q: any) {
     quoteNumber: q.number,
     quotationNumber: q.number,
     total: q.total ?? q.grandTotal,
+    customer: q.customer ?? null,
+    customerName: q.customer?.name ?? null,
     lines: (q.lines || []).map((l: any) => ({
       id: l.id,
       productId: l.productId,

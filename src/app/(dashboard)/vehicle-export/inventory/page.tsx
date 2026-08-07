@@ -41,7 +41,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -97,8 +97,6 @@ export default function InventoryPage() {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
-    const { toast } = useToast();
-
     const confirmDelete = (e: React.MouseEvent, id: string) => {
         e.preventDefault();
         e.stopPropagation();
@@ -116,20 +114,13 @@ export default function InventoryPage() {
 
             if (res.ok) {
                 setVehicles(prev => prev.filter(v => v.id !== deleteId));
-                toast({
-                    title: "Vehicle Deleted",
-                    description: "The vehicle has been successfully removed from inventory.",
-                });
+                toast.success("Vehicle Deleted", { description: "The vehicle has been successfully removed from inventory." });
                 setDeleteId(null);
             } else {
                 throw new Error("Failed to delete");
             }
         } catch (error) {
-            toast({
-                title: "Error",
-                description: "Failed to delete vehicle. Please try again.",
-                variant: "destructive",
-            });
+            toast.error("Error", { description: "Failed to delete vehicle. Please try again." });
         } finally {
             setIsDeleting(false);
         }

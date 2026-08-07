@@ -100,7 +100,7 @@ export const authOptions: NextAuthOptions = {
           isSuperAdmin: user.isSuperAdmin,
           modulePermissions: mergedPermissions,
           tenantId: user.tenantId,
-          tenant: user.tenant?.name ?? 'Default',
+          tenant: user.tenant ?? null,
           employee: (user as any).employee,
           trialEnd: user.tenant?.trialEnd?.toISOString() || null,
           plan: user.tenant?.plan || 'starter',
@@ -116,13 +116,15 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.isSuperAdmin = user.isSuperAdmin || false;
 
-        // Optimize JWT: Store only enabled module IDs
+        // Store only enabled module IDs to keep JWT small
         const permissions = (user.modulePermissions as Record<string, any>) || {};
         token.enabledModuleIds = Object.keys(permissions).filter(key => permissions[key]?.enabled);
-        token.modulePermissions = permissions;
+        // Don't store full permissions in token — they'll be refreshed from DB
+        token.modulePermissions = undefined;
 
         token.tenantId = user.tenantId as string;
         token.tenant = user.tenant;
+        token.tenantModules = (user.tenant as any)?.enabledModules || [];
         token.employee = user.employee;
         token.trialEnd = user.trialEnd || null;
         token.plan = user.plan || 'starter';
@@ -182,8 +184,8 @@ export const authOptions: NextAuthOptions = {
             const userPermissions = (dbUser.modulePermissions as Record<string, any>) || {};
             const finalPermissions = { ...rolePermissions, ...userPermissions };
 
-            token.modulePermissions = finalPermissions;
             token.enabledModuleIds = Object.keys(finalPermissions).filter(key => finalPermissions[key]?.enabled);
+            token.modulePermissions = undefined;
 
             token.tenantId = dbUser.tenantId;
             token.tenant = dbUser.tenant?.name ?? dbUser.tenant?.companyName ?? 'Default';
@@ -205,6 +207,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = (token.role as string | null) ?? null;
         session.user.isSuperAdmin = token.isSuperAdmin as boolean;
         session.user.enabledModuleIds = token.enabledModuleIds as string[];
+        session.user.tenantModules = (token.tenantModules as string[]) || [];
         session.user.modulePermissions = token.modulePermissions as Record<string, any>;
         session.user.tenantId = token.tenantId as string;
         session.user.tenant = token.tenant as string;

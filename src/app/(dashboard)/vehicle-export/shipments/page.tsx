@@ -25,7 +25,7 @@ import {
     Ship, RefreshCw, Plus, Package, Anchor, Truck, CheckCircle, Loader2,
     MapPin, Calendar, ArrowRight, ExternalLink, MoreVertical, Search, Box
 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FadeIn, SlideUp, StaggerContainer, StaggerItem } from '@/components/ui/motion/primitives';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -84,8 +84,7 @@ export default function ShipmentsPage() {
     const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
     const [readyVehicles, setReadyVehicles] = useState<Vehicle[]>([]);
     const [viewMode, setViewMode] = useState<'active' | 'history'>('active');
-    const { toast } = useToast();
-
+    
     const [newShipment, setNewShipment] = useState({
         vesselName: '',
         voyageNumber: '',
@@ -131,7 +130,7 @@ export default function ShipmentsPage() {
 
     const handleCreate = async () => {
         if (!newShipment.departurePort || !newShipment.destinationPort) {
-            toast({ title: 'Error', description: 'Please select ports', variant: 'destructive' });
+            toast.error('Error', { description: 'Please select ports' });
             return;
         }
 
@@ -144,7 +143,7 @@ export default function ShipmentsPage() {
             });
 
             if (res.ok) {
-                toast({ title: 'Shipment Created', description: 'New shipment has been created' });
+                toast.success('Shipment Created', { description: 'New shipment has been created' });
                 setShowCreateDialog(false);
                 setNewShipment({
                     vesselName: '',
@@ -158,7 +157,7 @@ export default function ShipmentsPage() {
                 fetchShipments();
             }
         } catch (error) {
-            toast({ title: 'Error', description: 'Failed to create shipment', variant: 'destructive' });
+            toast.error('Error', { description: 'Failed to create shipment' });
         } finally {
             setCreating(false);
         }
@@ -173,12 +172,12 @@ export default function ShipmentsPage() {
             });
 
             if (res.ok) {
-                toast({ title: action === 'ship' ? 'Marked as Shipped' : 'Marked as Delivered' });
+                toast.error(action === 'ship' ? 'Marked as Shipped' : 'Marked as Delivered');
                 fetchShipments();
                 setSelectedShipment(null);
             }
         } catch (error) {
-            toast({ title: 'Error', variant: 'destructive' });
+            toast.success('Error');
         }
     };
 

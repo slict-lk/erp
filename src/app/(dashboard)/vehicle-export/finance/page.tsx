@@ -22,7 +22,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Wallet, RefreshCw, CheckCircle, Clock, XCircle, Loader2, CreditCard, ArrowUpRight, ArrowDownLeft, Search } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 
@@ -54,8 +54,7 @@ export default function FinanceDashboardPage() {
     const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
     const [processing, setProcessing] = useState(false);
     const [search, setSearch] = useState('');
-    const { toast } = useToast();
-
+    
     const fetchTransactions = useCallback(async () => {
         try {
             setRefreshing(true);
@@ -85,17 +84,14 @@ export default function FinanceDashboardPage() {
                 body: JSON.stringify({ status: newStatus }),
             });
             if (res.ok) {
-                toast({
-                    title: newStatus === 'CLEARED' ? 'Deposit Verified' : 'Deposit Rejected',
-                    description: `Transaction has been marked as ${newStatus.toLowerCase()}.`,
-                });
+                toast.success(newStatus === 'CLEARED' ? 'Deposit Verified' : 'Deposit Rejected', { description: `Transaction has been marked as ${newStatus.toLowerCase()}.` });
                 fetchTransactions();
                 setSelectedTx(null);
             } else {
-                toast({ title: 'Error', description: 'Failed to update transaction.', variant: 'destructive' });
+                toast.error('Error', { description: 'Failed to update transaction.' });
             }
         } catch (error) {
-            toast({ title: 'Error', description: 'Failed to update transaction.', variant: 'destructive' });
+            toast.error('Error', { description: 'Failed to update transaction.' });
         } finally {
             setProcessing(false);
         }

@@ -39,7 +39,7 @@ import {
 import JSZip from 'jszip';
 
 import { cn } from '@/lib/utils';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import {
     Dialog,
     DialogContent,
@@ -137,8 +137,7 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
     const [availableShipments, setAvailableShipments] = useState([]);
     const [assigningShipment, setAssigningShipment] = useState(false);
     const [dispatchingDocs, setDispatchingDocs] = useState(false);
-    const { toast } = useToast();
-
+    
     const fetchVehicle = useCallback(async () => {
         try {
             const res = await fetch(`/api/vehicle-export/vehicles/${id}`);
@@ -184,7 +183,7 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
             document.body.removeChild(link);
         } catch (error) {
             console.error('Download failed:', error);
-            toast({ title: 'Download Failed', variant: 'destructive' });
+            toast.error('Download Failed');
         } finally {
             setIsDownloading(false);
         }
@@ -201,12 +200,12 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
             if (res.ok) {
                 const updated = await res.json();
                 setVehicle(updated.vehicle);
-                toast({ title: 'Updated Successfully', description: 'Vehicle details saved.' });
+                toast.success('Updated Successfully', { description: 'Vehicle details saved.' });
             } else {
-                toast({ title: 'Update Failed', variant: 'destructive' });
+                toast.error('Update Failed');
             }
         } catch (error) {
-            toast({ title: 'Error', variant: 'destructive' });
+            toast.error('Error');
         } finally {
             setUpdating(false);
         }
@@ -221,13 +220,13 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
             const data = await res.json();
 
             if (res.ok) {
-                toast({ title: 'Invoice Generated', description: `Invoice #${data.invoiceNumber} created.` });
+                toast.success('Invoice Generated', { description: `Invoice #${data.invoiceNumber} created.` });
                 fetchVehicle(); // Refresh data to show invoice
             } else {
-                toast({ title: 'Generation Failed', description: data.error, variant: 'destructive' });
+                toast.error('Generation Failed', { description: data.error });
             }
         } catch (error) {
-            toast({ title: 'Error', description: 'Failed to generate invoice', variant: 'destructive' });
+            toast.error('Error', { description: 'Failed to generate invoice' });
         } finally {
             setGeneratingInvoice(false);
         }
@@ -259,14 +258,14 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
             });
 
             if (res.ok) {
-                toast({ title: 'Assigned to Shipment', description: 'Vehicle has been added to the manifest.' });
+                toast.success('Assigned to Shipment', { description: 'Vehicle has been added to the manifest.' });
                 await fetchVehicle();
             } else {
                 const error = await res.json();
-                toast({ title: 'Assignment Failed', description: error.error, variant: 'destructive' });
+                toast.error('Assignment Failed', { description: error.error });
             }
         } catch (error) {
-            toast({ title: 'Error', description: 'Failed to assign shipment', variant: 'destructive' });
+            toast.error('Error', { description: 'Failed to assign shipment' });
         } finally {
             setAssigningShipment(false);
         }
@@ -285,14 +284,14 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
             });
 
             if (res.ok) {
-                toast({ title: 'Documents Dispatched', description: 'Tracking information saved.' });
+                toast.success('Documents Dispatched', { description: 'Tracking information saved.' });
                 await fetchVehicle();
             } else {
                 const error = await res.json();
-                toast({ title: 'Dispatch Failed', description: error.error, variant: 'destructive' });
+                toast.error('Dispatch Failed', { description: error.error });
             }
         } catch (error) {
-            toast({ title: 'Error', description: 'Failed to dispatch documents', variant: 'destructive' });
+            toast.error('Error', { description: 'Failed to dispatch documents' });
         } finally {
             setDispatchingDocs(false);
         }
@@ -320,15 +319,15 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
 
                 if (attachRes.ok) {
                     await fetchVehicle();
-                    toast({ title: 'Photo Added' });
+                    toast.error('Photo Added');
                 } else {
-                    toast({ title: 'Attach Failed', variant: 'destructive' });
+                    toast.success('Attach Failed');
                 }
             } else {
-                toast({ title: 'Upload Failed', description: upData.error, variant: 'destructive' });
+                toast.error('Upload Failed', { description: upData.error });
             }
         } catch (error) {
-            toast({ title: 'Error', description: 'Photo upload failed', variant: 'destructive' });
+            toast.error('Error', { description: 'Photo upload failed' });
         } finally {
             setUpdating(false);
         }

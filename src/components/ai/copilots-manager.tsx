@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import type { CopilotConfig, DomainModule } from '@/lib/ai/control-plane-types';
 import { joinList, parseList, readResponseError } from '@/components/ai/registry-manager-utils';
 
@@ -64,8 +64,7 @@ function toFormState(copilot: CopilotConfig): CopilotFormState {
 
 export function CopilotsManager({ initialCopilots }: { initialCopilots: CopilotConfig[] }) {
   const router = useRouter();
-  const { toast } = useToast();
-  const [copilots, setCopilots] = useState(initialCopilots);
+    const [copilots, setCopilots] = useState(initialCopilots);
   const [selectedId, setSelectedId] = useState<string | null>(initialCopilots[0]?.id ?? null);
   const [form, setForm] = useState<CopilotFormState>(
     initialCopilots[0] ? toFormState(initialCopilots[0]) : EMPTY_COPILOT
@@ -125,17 +124,10 @@ export function CopilotsManager({ initialCopilots }: { initialCopilots: CopilotC
         const created = nextCopilots.find((c) => c.label === payload.label);
         setSelectedId(created?.id ?? nextCopilots[nextCopilots.length - 1]?.id ?? null);
       }
-      toast({
-        title: selectedId ? 'Copilot updated' : 'Copilot created',
-        description: payload.label,
-      });
+      toast.success(selectedId ? 'Copilot updated' : 'Copilot created', { description: payload.label });
       router.refresh();
     } catch (error: any) {
-      toast({
-        title: 'Save failed',
-        description: error.message || 'Failed to save copilot',
-        variant: 'destructive',
-      });
+      toast.error('Save failed', {description: error.message || 'Failed to save copilot' });
     } finally {
       setSaving(false);
     }
@@ -164,17 +156,10 @@ export function CopilotsManager({ initialCopilots }: { initialCopilots: CopilotC
       const nextCopilots = (await response.json()) as CopilotConfig[];
       setCopilots(nextCopilots);
       setSelectedId(nextCopilots[0]?.id ?? null);
-      toast({
-        title: 'Copilot deleted',
-        description: selectedCopilot.label,
-      });
+      toast.success('Copilot deleted', { description: selectedCopilot.label, });
       router.refresh();
     } catch (error: any) {
-      toast({
-        title: 'Delete failed',
-        description: error.message || 'Failed to delete copilot',
-        variant: 'destructive',
-      });
+      toast.error('Delete failed', {description: error.message || 'Failed to delete copilot' });
     } finally {
       setDeleting(false);
     }

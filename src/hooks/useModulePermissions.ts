@@ -25,15 +25,30 @@ export function useModulePermissions() {
   const user = session?.user;
 
   const modulePermissions = useMemo(() => {
+    // Use tenantModules from session if available (tenant-level module restrictions)
+    const tenantModules = user?.tenantModules as string[] || [];
+    const userEnabledIds = user?.enabledModuleIds || [];
+
+    // If tenantModules is populated, use it; otherwise fall back to user's enabledModuleIds
+    const effectiveModuleIds = tenantModules.length > 0 ? tenantModules : userEnabledIds;
+
     if (user?.modulePermissions && Object.keys(user.modulePermissions).length > 0) {
-      return user.modulePermissions as Record<string, ModulePermission>;
+      // Filter modulePermissions to only include tenant-enabled modules
+      const filteredPermissions: Record<string, ModulePermission> = {};
+      for (const id of effectiveModuleIds) {
+        if (user.modulePermissions[id]) {
+          filteredPermissions[id] = user.modulePermissions[id];
+        }
+      }
+      if (tenantModules.length === 0) {
+        return user.modulePermissions as Record<string, ModulePermission>;
+      }
+      return filteredPermissions;
     }
 
-    // Use enabledModuleIds from session
-    const enabledIds = user?.enabledModuleIds || [];
+    // Use effective module IDs from tenant or user session
     const permissions: Record<string, ModulePermission> = {};
-
-    enabledIds.forEach(id => {
+    effectiveModuleIds.forEach(id => {
       permissions[id] = {
         enabled: true,
         view: true, // Implicit view permission for enabled modules

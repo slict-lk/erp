@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import type { ModelRecord } from '@/lib/ai/control-plane-types';
 import { joinList, nullableString, numberOrUndefined, parseList, readResponseError } from '@/components/ai/registry-manager-utils';
 
@@ -89,8 +89,7 @@ function normalizeResponse(payload: unknown, current: ModelRecord[]) {
 
 export function ModelsManager({ initialModels }: { initialModels: ModelRecord[] }) {
   const router = useRouter();
-  const { toast } = useToast();
-  const [models, setModels] = useState(initialModels);
+    const [models, setModels] = useState(initialModels);
   const [selectedId, setSelectedId] = useState<string | null>(initialModels[0]?.id ?? null);
   const [form, setForm] = useState<ModelFormState>(initialModels[0] ? toFormState(initialModels[0]) : EMPTY_MODEL);
   const [saving, setSaving] = useState(false);
@@ -165,17 +164,10 @@ export function ModelsManager({ initialModels }: { initialModels: ModelRecord[] 
       const nextModels = normalizeResponse(body, models);
       setModels(nextModels);
       setSelectedId(selectedId ?? nextModels[0]?.id ?? null);
-      toast({
-        title: selectedId ? 'Model updated' : 'Model created',
-        description: String(payload.name),
-      });
+      toast.success(selectedId ? 'Model updated' : 'Model created', { description: String(payload.name) });
       router.refresh();
     } catch (error: any) {
-      toast({
-        title: 'Save failed',
-        description: error.message || 'Failed to save model',
-        variant: 'destructive',
-      });
+      toast.error('Save failed', {description: error.message || 'Failed to save model' });
     } finally {
       setSaving(false);
     }
@@ -204,17 +196,10 @@ export function ModelsManager({ initialModels }: { initialModels: ModelRecord[] 
       const nextModels = (await response.json()) as ModelRecord[];
       setModels(nextModels);
       setSelectedId(nextModels[0]?.id ?? null);
-      toast({
-        title: 'Model deleted',
-        description: selectedModel.name,
-      });
+      toast.success('Model deleted', { description: selectedModel.name, });
       router.refresh();
     } catch (error: any) {
-      toast({
-        title: 'Delete failed',
-        description: error.message || 'Failed to delete model',
-        variant: 'destructive',
-      });
+      toast.error('Delete failed', {description: error.message || 'Failed to delete model' });
     } finally {
       setDeleting(false);
     }
@@ -239,17 +224,10 @@ export function ModelsManager({ initialModels }: { initialModels: ModelRecord[] 
       if (selectedId) {
         setSelectedId(selectedId);
       }
-      toast({
-        title: 'Default model updated',
-        description: nextModels.find((model) => model.isDefault)?.name || 'Default route changed',
-      });
+      toast.success('Default model updated', { description: nextModels.find((model) => model.isDefault)?.name || 'Default route changed', });
       router.refresh();
     } catch (error: any) {
-      toast({
-        title: 'Update failed',
-        description: error.message || 'Failed to set default model',
-        variant: 'destructive',
-      });
+      toast.error('Update failed', {description: error.message || 'Failed to set default model' });
     } finally {
       setSettingDefault(null);
     }

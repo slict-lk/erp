@@ -6,7 +6,7 @@ import { AIFormSection } from '@/components/ai/ai-primitives';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { readResponseError } from '@/components/ai/registry-manager-utils';
 import { useAIExperience } from '@/components/ai/ai-experience-context';
 import type { WorkflowSimulationResult, WorkflowVersionRecord } from '@/lib/ai/control-plane-types';
@@ -23,8 +23,7 @@ export function WorkflowDetailActions({
   versions: WorkflowVersionRecord[];
 }) {
   const router = useRouter();
-  const { toast } = useToast();
-  const { canUseAdvanced } = useAIExperience();
+    const { canUseAdvanced } = useAIExperience();
   const [payload, setPayload] = useState('{\n  "source": "manual-test"\n}');
   const [workingAction, setWorkingAction] = useState<string | null>(null);
   const [rollbackVersionId, setRollbackVersionId] = useState<string>(versions[0]?.id || '');
@@ -50,17 +49,10 @@ export function WorkflowDetailActions({
         throw new Error(await readResponseError(response, 'Failed to update workflow status'));
       }
 
-      toast({
-        title: enabled ? 'Automation paused' : 'Automation resumed',
-        description: workflowName,
-      });
+      toast.success(enabled ? 'Automation paused' : 'Automation resumed', { description: workflowName });
       refresh();
     } catch (error: any) {
-      toast({
-        title: 'Workflow update failed',
-        description: error.message || 'Failed to update workflow status',
-        variant: 'destructive',
-      });
+      toast.error('Workflow update failed', {description: error.message || 'Failed to update workflow status' });
     } finally {
       setWorkingAction(null);
     }
@@ -81,18 +73,11 @@ export function WorkflowDetailActions({
       }
 
       const clone = await response.json();
-      toast({
-        title: 'Workflow cloned',
-        description: clone.name,
-      });
+      toast.success('Workflow cloned', { description: clone.name, });
       router.push(`/ai/workflows/${clone.id}`);
       refresh();
     } catch (error: any) {
-      toast({
-        title: 'Clone failed',
-        description: error.message || 'Failed to clone workflow',
-        variant: 'destructive',
-      });
+      toast.error('Clone failed', {description: error.message || 'Failed to clone workflow' });
     } finally {
       setWorkingAction(null);
     }
@@ -116,17 +101,10 @@ export function WorkflowDetailActions({
         throw new Error(await readResponseError(response, 'Failed to archive workflow'));
       }
 
-      toast({
-        title: 'Automation archived',
-        description: workflowName,
-      });
+      toast.success('Automation archived', { description: workflowName, });
       refresh();
     } catch (error: any) {
-      toast({
-        title: 'Archive failed',
-        description: error.message || 'Failed to archive workflow',
-        variant: 'destructive',
-      });
+      toast.error('Archive failed', {description: error.message || 'Failed to archive workflow' });
     } finally {
       setWorkingAction(null);
     }
@@ -150,17 +128,10 @@ export function WorkflowDetailActions({
         throw new Error(await readResponseError(response, 'Failed to rollback workflow'));
       }
 
-      toast({
-        title: 'Automation restored',
-        description: workflowName,
-      });
+      toast.success('Automation restored', { description: workflowName, });
       refresh();
     } catch (error: any) {
-      toast({
-        title: 'Rollback failed',
-        description: error.message || 'Failed to rollback workflow',
-        variant: 'destructive',
-      });
+      toast.error('Rollback failed', {description: error.message || 'Failed to rollback workflow' });
     } finally {
       setWorkingAction(null);
     }
@@ -184,17 +155,10 @@ export function WorkflowDetailActions({
         throw new Error(await readResponseError(response, 'Failed to run workflow test'));
       }
 
-      toast({
-        title: 'Automation test executed',
-        description: 'A real execution record has been created.',
-      });
+      toast.success('Automation test executed', { description: 'A real execution record has been created.' });
       refresh();
     } catch (error: any) {
-      toast({
-        title: 'Test failed',
-        description: error.message || 'Failed to run workflow test',
-        variant: 'destructive',
-      });
+      toast.error('Test failed', {description: error.message || 'Failed to run workflow test' });
     } finally {
       setWorkingAction(null);
     }
@@ -220,16 +184,9 @@ export function WorkflowDetailActions({
 
       const result = (await response.json()) as WorkflowSimulationResult;
       setSimulation(result);
-      toast({
-        title: 'Simulation completed',
-        description: result.summary,
-      });
+      toast.success('Simulation completed', { description: result.summary, });
     } catch (error: any) {
-      toast({
-        title: 'Simulation failed',
-        description: error.message || 'Failed to simulate workflow',
-        variant: 'destructive',
-      });
+      toast.error('Simulation failed', {description: error.message || 'Failed to simulate workflow' });
     } finally {
       setWorkingAction(null);
     }
@@ -251,18 +208,11 @@ export function WorkflowDetailActions({
         throw new Error(await readResponseError(response, 'Failed to delete workflow'));
       }
 
-      toast({
-        title: 'Automation deleted',
-        description: workflowName,
-      });
+      toast.success('Automation deleted', { description: workflowName, });
       router.push('/ai/workflows');
       refresh();
     } catch (error: any) {
-      toast({
-        title: 'Delete failed',
-        description: error.message || 'Failed to delete workflow',
-        variant: 'destructive',
-      });
+      toast.error('Delete failed', {description: error.message || 'Failed to delete workflow' });
     } finally {
       setWorkingAction(null);
     }

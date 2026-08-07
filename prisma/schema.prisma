@@ -16,7 +16,7 @@ model Tenant {
   status                TenantStatus          @default(ACTIVE)
   plan                  String                @default("starter")
   settings              Json?
-  logo                  String?
+  logo                  Bytes?
   primaryColor          String                @default("#3b82f6")
   companyName           String
   subscriptionEnd       DateTime?
@@ -35,6 +35,8 @@ model Tenant {
   shopTaxCategories     ShopTaxCategory[]
   sparePartsConfig      SparePartsConfig?
   users                 User[]
+  subscriptions          Subscription[]
+  subscriptionPlans     SubscriptionPlan[]
 
   @@index([subdomain])
   @@index([domain])
@@ -483,6 +485,7 @@ model Customer {
   quotations            Quotation[]
   salesOrders           SalesOrder[]
   tickets               Ticket[]
+  subscriptions          Subscription[]
 
   @@index([email])
   @@index([partyId])
@@ -6084,4 +6087,49 @@ model Notification {
 
   @@index([userId])
   @@index([isRead])
+}
+
+model SubscriptionPlan {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  billingPeriod String   @default("MONTHLY")
+  price         Float    @default(0)
+  trialDays     Int      @default(0)
+  features      Json     @default("{}")
+  isActive      Boolean  @default(true)
+  tenantId      String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  subscriptions Subscription[]
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([isActive])
+}
+
+model Subscription {
+  id               String   @id @default(cuid())
+  planId           String
+  customerId       String
+  status           String   @default("ACTIVE")
+  startDate        DateTime @default(now())
+  endDate          DateTime?
+  nextBillingDate  DateTime?
+  quantity         Int      @default(1)
+  unitPrice        Float    @default(0)
+  discountPercent  Float?
+  tenantId         String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  plan     SubscriptionPlan @relation(fields: [planId], references: [id])
+  customer Customer         @relation(fields: [customerId], references: [id])
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([planId])
+  @@index([customerId])
+  @@index([status])
 }

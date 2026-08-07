@@ -16,7 +16,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { GoogleMapsLocationPicker } from '@/components/properties';
 import { useTenant } from '@/hooks/useTenant';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { ArrowLeft, ArrowRight, Check, Upload, X } from 'lucide-react';
 
 const STEPS = [
@@ -30,8 +30,7 @@ const STEPS = [
 export default function AddPropertyPage() {
   const router = useRouter();
   const { tenantId } = useTenant();
-  const { toast } = useToast();
-  const [currentStep, setCurrentStep] = useState(1);
+    const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -120,18 +119,11 @@ export default function AddPropertyPage() {
         throw new Error(data.error || 'Failed to create property');
       }
 
-      toast({
-        title: 'Success',
-        description: 'Property created successfully!',
-      });
+      toast.success('Success', { description: 'Property created successfully!' });
 
       router.push('/real-estate/dashboard');
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error('Error', { description: error.message });
     } finally {
       setLoading(false);
     }

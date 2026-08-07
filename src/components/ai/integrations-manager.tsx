@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import type { IntegrationConfig } from '@/lib/ai/control-plane-types';
 import { readResponseError } from '@/components/ai/registry-manager-utils';
 
@@ -50,8 +50,7 @@ export function IntegrationsManager({
   initialIntegrations: IntegrationConfig[];
 }) {
   const router = useRouter();
-  const { toast } = useToast();
-  const [integrations, setIntegrations] = useState(initialIntegrations);
+    const [integrations, setIntegrations] = useState(initialIntegrations);
   const [selectedId, setSelectedId] = useState<string | null>(initialIntegrations[0]?.id ?? null);
   const [form, setForm] = useState<IntegrationFormState>(
     initialIntegrations[0] ? toFormState(initialIntegrations[0]) : EMPTY_INTEGRATION
@@ -110,17 +109,10 @@ export function IntegrationsManager({
         const created = nextIntegrations.find((i) => i.key === payload.key);
         setSelectedId(created?.id ?? nextIntegrations[nextIntegrations.length - 1]?.id ?? null);
       }
-      toast({
-        title: selectedId ? 'Integration updated' : 'Integration created',
-        description: payload.label,
-      });
+      toast.success(selectedId ? 'Integration updated' : 'Integration created', { description: payload.label });
       router.refresh();
     } catch (error: any) {
-      toast({
-        title: 'Save failed',
-        description: error.message || 'Failed to save integration',
-        variant: 'destructive',
-      });
+      toast.error('Save failed', {description: error.message || 'Failed to save integration' });
     } finally {
       setSaving(false);
     }
@@ -149,17 +141,10 @@ export function IntegrationsManager({
       const nextIntegrations = (await response.json()) as IntegrationConfig[];
       setIntegrations(nextIntegrations);
       setSelectedId(nextIntegrations[0]?.id ?? null);
-      toast({
-        title: 'Integration deleted',
-        description: selectedIntegration.label,
-      });
+      toast.success('Integration deleted', { description: selectedIntegration.label, });
       router.refresh();
     } catch (error: any) {
-      toast({
-        title: 'Delete failed',
-        description: error.message || 'Failed to delete integration',
-        variant: 'destructive',
-      });
+      toast.error('Delete failed', {description: error.message || 'Failed to delete integration' });
     } finally {
       setDeleting(false);
     }

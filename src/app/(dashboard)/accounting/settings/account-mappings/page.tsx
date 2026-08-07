@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 const MODULE_GL_EVENTS: Record<string, string[]> = {
     'vehicle-export': ['VEHICLE_PURCHASE', 'AUCTION_FEE', 'CUSTOMER_DEPOSIT', 'EXPORT_SALE'],
@@ -22,8 +22,7 @@ const MODULE_GL_EVENTS: Record<string, string[]> = {
 };
 
 export default function AccountMappingsPage() {
-    const { toast } = useToast();
-    const [accounts, setAccounts] = useState<any[]>([]);
+        const [accounts, setAccounts] = useState<any[]>([]);
     const [mappings, setMappings] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -43,7 +42,7 @@ export default function AccountMappingsPage() {
                     const accData = await accountsRes.json();
                     setAccounts(accData);
                 } else {
-                    toast({ title: 'Error', description: `Failed to load accounts: ${accountsRes.statusText}`, variant: 'destructive' });
+                    toast.error('Error', { description: `Failed to load accounts: ${accountsRes.statusText}` });
                 }
 
                 if (mappingsRes.ok) {
@@ -60,11 +59,11 @@ export default function AccountMappingsPage() {
                     });
                     setLocalState(initial);
                 } else {
-                    toast({ title: 'Error', description: `Failed to load mappings: ${mappingsRes.statusText}`, variant: 'destructive' });
+                    toast.error('Error', { description: `Failed to load mappings: ${mappingsRes.statusText}` });
                 }
             } catch (error) {
                 console.error('Failed to load mapping data', error);
-                toast({ title: 'Error', description: 'Failed to load account mappings', variant: 'destructive' });
+                toast.error('Error', { description: 'Failed to load account mappings' });
             } finally {
                 setLoading(false);
             }
@@ -96,7 +95,7 @@ export default function AccountMappingsPage() {
 
             const incompleteUpdates = allItems.filter(item => (item.debitAccountId && !item.creditAccountId) || (!item.debitAccountId && item.creditAccountId));
             if (incompleteUpdates.length > 0) {
-                toast({ title: 'Incomplete Mappings', description: `The following event types have only one account mapped: ${incompleteUpdates.map(u => u.eventType).join(', ')}. Both debit and credit accounts are required.`, variant: 'destructive' });
+                toast.error('Incomplete Mappings', { description: `The following event types have only one account mapped: ${incompleteUpdates.map(u => u.eventType).join(', ')}. Both debit and credit accounts are required.` });
                 setSaving(false);
                 return;
             }
@@ -115,12 +114,9 @@ export default function AccountMappingsPage() {
                 throw new Error(`${failed.length} updates failed to save`);
             }
 
-            toast({
-                title: 'Mappings saved',
-                description: `Successfully updated mapping configuration for ${activeModule}`,
-            });
+            toast.success('Mappings saved', { description: `Successfully updated mapping configuration for ${activeModule}` });
         } catch (error: any) {
-            toast({ title: 'Save Failed', description: error.message, variant: 'destructive' });
+            toast.error('Save Failed', { description: error.message });
         } finally {
             setSaving(false);
         }

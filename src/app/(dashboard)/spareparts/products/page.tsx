@@ -22,7 +22,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Package, Search, Plus, RefreshCw, Edit, Trash2 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 interface Product {
     id: string;
@@ -50,8 +50,7 @@ export default function ProductsPage() {
     const [search, setSearch] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<string>('all');
     const [refreshing, setRefreshing] = useState(false);
-    const { toast } = useToast();
-
+    
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this product?')) return;
 
@@ -61,20 +60,13 @@ export default function ProductsPage() {
             });
 
             if (res.ok) {
-                toast({
-                    title: 'Success',
-                    description: 'Product deleted successfully',
-                });
+                toast.success('Success', { description: 'Product deleted successfully' });
                 fetchProducts();
             } else {
                 throw new Error('Failed to delete');
             }
         } catch (error) {
-            toast({
-                title: 'Error',
-                description: 'Failed to delete product',
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: 'Failed to delete product' });
         }
     };
 

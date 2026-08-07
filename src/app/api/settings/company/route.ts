@@ -100,7 +100,7 @@ function normalizeCompanyResponse(tenant: Tenant | null) {
     linkedin: settings.linkedin ?? '',
     instagram: settings.instagram ?? '',
     businessHours,
-    logo: tenant?.logo ?? settings.logo ?? '',
+    logo: tenant?.logo ? '/api/settings/company/logo' : '',
     signature: settings.signature ?? '',
     termsAndConditions: settings.termsAndConditions ?? '',
     privacyPolicy: settings.privacyPolicy ?? '',
@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json() as Record<string, unknown>;
 
-    // Update tenant basic info
+    // Update tenant basic info (logo is handled separately via /api/settings/company/logo)
     const updateData: Partial<Pick<Tenant, 'companyName' | 'name' | 'domain'>> = {
       companyName: (body.companyName as string | undefined) || undefined,
       name: (body.legalName as string | undefined) || (body.companyName as string | undefined) || undefined,
@@ -171,16 +171,67 @@ export async function POST(request: NextRequest) {
 
     if (body.website) updateData.domain = body.website as string;
 
-    // Update tenant
+    // Build settings JSON with all form fields
+    const settings: Record<string, unknown> = {};
+
+    // Contact
+    if (body.email) settings.email = body.email;
+    if (body.phone) settings.phone = body.phone;
+    if (body.fax) settings.fax = body.fax;
+
+    // Address
+    if (body.address) settings.address = body.address;
+    if (body.city) settings.city = body.city;
+    if (body.state) settings.state = body.state;
+    if (body.postalCode) settings.postalCode = body.postalCode;
+    if (body.country) settings.country = body.country;
+
+    // Tax
+    if (body.taxId) settings.taxId = body.taxId;
+    if (body.vatNumber) settings.vatNumber = body.vatNumber;
+
+    // Bank
+    if (body.bankName) settings.bankName = body.bankName;
+    if (body.accountName) settings.accountName = body.accountName;
+    if (body.accountNumber) settings.accountNumber = body.accountNumber;
+    if (body.routingNumber) settings.routingNumber = body.routingNumber;
+    if (body.iban) settings.iban = body.iban;
+    if (body.swiftCode) settings.swiftCode = body.swiftCode;
+
+    // Social
+    if (body.facebook) settings.facebook = body.facebook;
+    if (body.twitter) settings.twitter = body.twitter;
+    if (body.linkedin) settings.linkedin = body.linkedin;
+    if (body.instagram) settings.instagram = body.instagram;
+
+    // Other
+    if (body.registrationNumber) settings.registrationNumber = body.registrationNumber;
+    if (body.industry) settings.industry = body.industry;
+    if (body.foundedYear) settings.foundedYear = body.foundedYear;
+    if (body.description) settings.description = body.description;
+    if (body.signature) settings.signature = body.signature;
+    if (body.termsAndConditions) settings.termsAndConditions = body.termsAndConditions;
+    if (body.privacyPolicy) settings.privacyPolicy = body.privacyPolicy;
+
+    // Business hours
+    if (Array.isArray(body.businessHours)) {
+      settings.businessHours = body.businessHours;
+    }
+
+    // Update tenant with basic info and merge settings
+    const existingTenant = await prisma.tenant.findUnique({
+      where: { id: user.tenantId },
+      select: { settings: true },
+    });
+    const existingSettings = (existingTenant?.settings as Record<string, unknown>) || {};
+
     await prisma.tenant.update({
       where: { id: user.tenantId },
-      data: updateData,
+      data: {
+        ...updateData,
+        settings: { ...existingSettings, ...settings } as any,
+      },
     });
-
-    // Update or create tenant settings
-    // Note: In a production system, you'd want a proper TenantSettings model
-    // For now, we'll store additional data in the tenant record or a JSON field
-    // This is a simplified implementation
 
     return NextResponse.json(
       formatSuccessResponse({}, 'Company settings saved successfully')

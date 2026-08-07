@@ -20,7 +20,7 @@ import {
     ClipboardCheck, RefreshCw, CheckCircle, Clock, Play,
     User, Package, Loader2, Wrench, Search, Camera, FileText, ChevronRight
 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'; // Using tabs for mobile-friendly filter
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -72,8 +72,7 @@ export default function YardJobsPage() {
     const [selectedJob, setSelectedJob] = useState<YardJob | null>(null);
     const [processing, setProcessing] = useState(false);
     const [completionNotes, setCompletionNotes] = useState('');
-    const { toast } = useToast();
-
+    
     const fetchJobs = useCallback(async () => {
         try {
             setRefreshing(true);
@@ -109,16 +108,13 @@ export default function YardJobsPage() {
                 }),
             });
             if (res.ok) {
-                toast({
-                    title: 'Job Updated',
-                    description: `Status changed to ${newStatus}`,
-                });
+                toast.success('Job Updated', { description: `Status changed to ${newStatus}` });
                 fetchJobs();
                 setSelectedJob(null);
                 setCompletionNotes('');
             }
         } catch (error) {
-            toast({ title: 'Error', description: 'Failed to update job', variant: 'destructive' });
+            toast.error('Error', { description: 'Failed to update job' });
         } finally {
             setProcessing(false);
         }
@@ -151,10 +147,10 @@ export default function YardJobsPage() {
                 fetchJobs();
                 nameEl.value = '';
                 costEl.value = '';
-                toast({ title: 'Material Added' });
+                toast.error('Material Added');
             }
         } catch (e) {
-            toast({ title: 'Error', variant: 'destructive' });
+            toast.success('Error');
         }
     };
 

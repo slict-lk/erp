@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import type { PolicyCategory, PolicyProfile } from '@/lib/ai/control-plane-types';
 import { joinList, numberOrUndefined, parseList, readResponseError } from '@/components/ai/registry-manager-utils';
 
@@ -65,8 +65,7 @@ function toFormState(policy: PolicyProfile): PolicyFormState {
 
 export function PoliciesManager({ initialPolicies }: { initialPolicies: PolicyProfile[] }) {
   const router = useRouter();
-  const { toast } = useToast();
-  const [policies, setPolicies] = useState(initialPolicies);
+    const [policies, setPolicies] = useState(initialPolicies);
   const [selectedId, setSelectedId] = useState<string | null>(initialPolicies[0]?.id ?? null);
   const [form, setForm] = useState<PolicyFormState>(
     initialPolicies[0] ? toFormState(initialPolicies[0]) : EMPTY_POLICY
@@ -147,17 +146,10 @@ export function PoliciesManager({ initialPolicies }: { initialPolicies: PolicyPr
       const nextSelectedId = selectedId ?? nextPolicies[0]?.id ?? null;
       setPolicies(nextPolicies);
       setSelectedId(nextSelectedId);
-      toast({
-        title: selectedId ? 'Policy updated' : 'Policy created',
-        description: payload.name,
-      });
+      toast.success(selectedId ? 'Policy updated' : 'Policy created', { description: payload.name });
       router.refresh();
     } catch (error: any) {
-      toast({
-        title: 'Save failed',
-        description: error.message || 'Failed to save policy',
-        variant: 'destructive',
-      });
+      toast.error('Save failed', {description: error.message || 'Failed to save policy' });
     } finally {
       setSaving(false);
     }
@@ -186,17 +178,10 @@ export function PoliciesManager({ initialPolicies }: { initialPolicies: PolicyPr
       const nextPolicies = (await response.json()) as PolicyProfile[];
       setPolicies(nextPolicies);
       setSelectedId(nextPolicies[0]?.id ?? null);
-      toast({
-        title: 'Policy deleted',
-        description: selectedPolicy.name,
-      });
+      toast.success('Policy deleted', { description: selectedPolicy.name, });
       router.refresh();
     } catch (error: any) {
-      toast({
-        title: 'Delete failed',
-        description: error.message || 'Failed to delete policy',
-        variant: 'destructive',
-      });
+      toast.error('Delete failed', {description: error.message || 'Failed to delete policy' });
     } finally {
       setDeleting(false);
     }

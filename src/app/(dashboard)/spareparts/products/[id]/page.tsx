@@ -16,14 +16,13 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { ArrowLeft, Save, Loader2, Package, Upload, Link2, X, Plus } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import Image from 'next/image';
 
 export default function EditProductPage() {
     const router = useRouter();
     const params = useParams();
-    const { toast } = useToast();
-    const [loading, setLoading] = useState(false);
+        const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
     const [imageUrlInput, setImageUrlInput] = useState('');
     const [images, setImages] = useState<string[]>([]);
@@ -90,11 +89,7 @@ export default function EditProductPage() {
                 })
                 .catch(err => {
                     console.error(err);
-                    toast({
-                        title: 'Error',
-                        description: 'Failed to load product details',
-                        variant: 'destructive',
-                    });
+                    toast.error('Error', { description: 'Failed to load product details' });
                 })
                 .finally(() => setFetching(false));
         }
@@ -127,11 +122,7 @@ export default function EditProductPage() {
             setImages(prev => [...prev, urlToCheck]);
             setImageUrlInput('');
         } catch (e) {
-            toast({
-                title: "Invalid URL",
-                description: "Please enter a valid valid image URL (e.g., https://example.com/image.jpg)",
-                variant: "destructive",
-            });
+            toast.error("Invalid URL", { description: "Please enter a valid valid image URL (e.g., https://example.com/image.jpg)" });
         }
     };
 
@@ -139,10 +130,7 @@ export default function EditProductPage() {
         const files = e.target.files;
         if (!files) return;
 
-        toast({
-            title: "Info",
-            description: "File upload requires server configuration. Please use URL input for now.",
-        });
+        toast.success("Info", { description: "File upload requires server configuration. Please use URL input for now." });
     };
 
     const removeImage = (index: number) => {
@@ -153,11 +141,7 @@ export default function EditProductPage() {
         e.preventDefault();
 
         if (!formData.name || !formData.sku) {
-            toast({
-                title: 'Error',
-                description: 'Please fill in required fields (Name and SKU)',
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: 'Please fill in required fields (Name and SKU)' });
             return;
         }
 
@@ -191,21 +175,14 @@ export default function EditProductPage() {
             });
 
             if (res.ok) {
-                toast({
-                    title: 'Success',
-                    description: 'Product updated successfully',
-                });
+                toast.success('Success', { description: 'Product updated successfully' });
                 router.push('/spareparts/products');
             } else {
                 const error = await res.json();
                 throw new Error(error.error || 'Failed to update product');
             }
         } catch (error: unknown) {
-            toast({
-                title: 'Error',
-                description: error instanceof Error ? error.message : 'Failed to update product',
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: error instanceof Error ? error.message : 'Failed to update product' });
         } finally {
             setLoading(false);
         }

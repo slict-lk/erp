@@ -12,15 +12,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Save, X } from 'lucide-react';
 
 const employeeSchema = z.object({
-  employeeNumber: z.string().min(1, 'Employee number is required'),
+  employeeId: z.string().min(1, 'Employee ID is required'),
   firstName: z.string().min(2, 'First name is required'),
   lastName: z.string().min(2, 'Last name is required'),
   email: z.string().email('Invalid email address'),
   phone: z.string().optional(),
-  dateOfBirth: z.string().optional(),
   position: z.string().min(1, 'Position is required'),
   hireDate: z.string(),
-  status: z.enum(['ACTIVE', 'ON_LEAVE', 'TERMINATED']),
+  dateOfBirth: z.string().optional(),
+  isActive: z.boolean().default(true),
   salary: z.number().min(0).optional(),
   departmentId: z.string().optional(),
 });
@@ -51,21 +51,20 @@ export function EmployeeForm({ initialData, departments, onSubmit, onCancel }: E
   } = useForm<EmployeeFormData>({
     resolver: zodResolver(employeeSchema),
     defaultValues: {
-      employeeNumber: initialData?.employeeNumber || '',
+      employeeId: initialData?.employeeId || '',
       firstName: initialData?.firstName || '',
       lastName: initialData?.lastName || '',
       email: initialData?.email || '',
       phone: initialData?.phone || '',
-      dateOfBirth: initialData?.dateOfBirth || '',
       position: initialData?.position || '',
       hireDate: initialData?.hireDate || new Date().toISOString().split('T')[0],
-      status: initialData?.status || 'ACTIVE',
+      isActive: initialData?.isActive ?? true,
       salary: initialData?.salary || 0,
       departmentId: initialData?.departmentId || '',
     },
   });
 
-  const status = watch('status');
+  const isActive = watch('isActive');
 
   const onFormSubmit = async (data: EmployeeFormData) => {
     setIsSubmitting(true);
@@ -86,28 +85,27 @@ export function EmployeeForm({ initialData, departments, onSubmit, onCancel }: E
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="employeeNumber">Employee Number *</Label>
+              <Label htmlFor="employeeId">Employee ID *</Label>
               <Input
-                id="employeeNumber"
-                {...register('employeeNumber')}
+                id="employeeId"
+                {...register('employeeId')}
                 placeholder="EMP-001"
-                className={errors.employeeNumber ? 'border-red-500' : ''}
+                className={errors.employeeId ? 'border-red-500' : ''}
               />
-              {errors.employeeNumber && (
-                <p className="text-sm text-red-500 mt-1">{errors.employeeNumber.message}</p>
+              {errors.employeeId && (
+                <p className="text-sm text-red-500 mt-1">{errors.employeeId.message}</p>
               )}
             </div>
 
             <div>
-              <Label htmlFor="status">Status *</Label>
-              <Select value={status} onValueChange={(value) => setValue('status', value as any)}>
+              <Label htmlFor="isActive">Status</Label>
+              <Select value={isActive ? 'true' : 'false'} onValueChange={(value) => setValue('isActive', value === 'true')}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ACTIVE">Active</SelectItem>
-                  <SelectItem value="ON_LEAVE">On Leave</SelectItem>
-                  <SelectItem value="TERMINATED">Terminated</SelectItem>
+                  <SelectItem value="true">Active</SelectItem>
+                  <SelectItem value="false">Inactive</SelectItem>
                 </SelectContent>
               </Select>
             </div>

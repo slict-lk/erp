@@ -27,7 +27,7 @@ interface Employee {
   id: string;
   firstName: string;
   lastName: string;
-  employeeNumber: string;
+  employeeId: string;
 }
 
 interface Department {
@@ -127,7 +127,7 @@ export function DepartmentForm({
                   <SelectItem value="">None</SelectItem>
                   {employees.map((employee) => (
                     <SelectItem key={employee.id} value={employee.id}>
-                      {employee.firstName} {employee.lastName} ({employee.employeeNumber})
+                      {employee.firstName} {employee.lastName} ({employee.employeeId})
                     </SelectItem>
                   ))}
                 </SelectContent>

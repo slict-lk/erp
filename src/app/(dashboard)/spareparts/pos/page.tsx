@@ -38,7 +38,7 @@ import {
     Tag,
     Percent,
 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 interface Product {
     id: string;
@@ -105,8 +105,7 @@ function formatCurrency(amount: number): string {
 
 export default function POSPage() {
     const router = useRouter();
-    const { toast } = useToast();
-
+    
     // State
     const [products, setProducts] = useState<Product[]>([]);
     const [cart, setCart] = useState<CartItem[]>([]);
@@ -214,11 +213,7 @@ export default function POSPage() {
     // Apply a promotion
     const applyPromotion = (promo: Promotion) => {
         if (appliedPromotions.some(ap => ap.promotionId === promo.id)) {
-            toast({
-                title: 'Already Applied',
-                description: `${promo.name} is already applied`,
-                variant: 'destructive'
-            });
+            toast.error('Already Applied', { description: `${promo.name} is already applied` });
             return;
         }
 
@@ -231,10 +226,7 @@ export default function POSPage() {
             }
         ]);
 
-        toast({
-            title: 'Promotion Applied',
-            description: `${promo.name} - ${formatCurrency(promo.discountAmount)} off`
-        });
+        toast.success('Promotion Applied', { description: `${promo.name} - ${formatCurrency(promo.discountAmount)} off` });
     };
 
     // Remove a promotion
@@ -270,11 +262,7 @@ export default function POSPage() {
     const addToCart = (product: Product) => {
         // Check if product is out of stock
         if (product.stockQty <= 0) {
-            toast({
-                title: 'Out of Stock',
-                description: `${product.name} is currently out of stock`,
-                variant: 'destructive',
-            });
+            toast.error('Out of Stock', { description: `${product.name} is currently out of stock` });
             return;
         }
 
@@ -282,11 +270,7 @@ export default function POSPage() {
 
         // Check if adding another would exceed available stock
         if (existing && existing.quantity >= product.stockQty) {
-            toast({
-                title: 'Insufficient Stock',
-                description: `Only ${product.stockQty} units available`,
-                variant: 'destructive',
-            });
+            toast.error('Insufficient Stock', { description: `Only ${product.stockQty} units available` });
             return;
         }
 
@@ -340,11 +324,7 @@ export default function POSPage() {
 
                         // Check stock limit when incrementing
                         if (delta > 0 && newQty > item.product.stockQty) {
-                            toast({
-                                title: 'Insufficient Stock',
-                                description: `Only ${item.product.stockQty} units available`,
-                                variant: 'destructive',
-                            });
+                            toast.error('Insufficient Stock', { description: `Only ${item.product.stockQty} units available` });
                             return item; // Don't update quantity
                         }
 
@@ -381,11 +361,7 @@ export default function POSPage() {
     // Process sale
     const processSale = async () => {
         if (cart.length === 0) {
-            toast({
-                title: 'Empty Cart',
-                description: 'Please add items to the cart',
-                variant: 'destructive',
-            });
+            toast.error('Empty Cart', { description: 'Please add items to the cart' });
             return;
         }
 
@@ -465,21 +441,14 @@ export default function POSPage() {
                 console.log('Payment recorded');
             }
 
-            toast({
-                title: 'Sale Complete',
-                description: `Invoice ${invoice.invoiceNumber} has been created.`,
-            });
+            toast.success('Sale Complete', { description: `Invoice ${invoice.invoiceNumber} has been created.` });
 
             setShowPaymentDialog(false);
             clearCart();
             router.push(`/spareparts/sales/${invoice.id}`);
         } catch (error: any) {
             console.error('Error processing sale:', error);
-            toast({
-                title: 'Error',
-                description: error.message || 'Failed to process sale',
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: error.message || 'Failed to process sale' });
         } finally {
             setProcessing(false);
         }

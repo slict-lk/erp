@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -32,8 +32,7 @@ export function StockAdjustmentManager({ initialMovements, warehouses }: StockAd
     const [products, setProducts] = useState<any[]>([]);
     const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
-    const { toast } = useToast();
-
+    
     const handleProductSearch = async (query: string) => {
         if (query.length > 1) {
             const results = await searchProducts(query);
@@ -60,12 +59,12 @@ export function StockAdjustmentManager({ initialMovements, warehouses }: StockAd
             });
 
             if (result.success) {
-                toast({ title: 'Success', description: 'Stock adjusted successfully' });
+                toast.success('Success', { description: 'Stock adjusted successfully' });
                 setIsOpen(false);
                 // In a real app we'd refresh the list or revalidate path works to refresh server props if we redirect/refresh
                 window.location.reload();
             } else {
-                toast({ variant: 'destructive', title: 'Error', description: result.message });
+                toast.error('Error', { description: result.message });
             }
         });
     };

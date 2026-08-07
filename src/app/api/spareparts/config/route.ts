@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
                 data: {
                     tenantId: tenant.id,
                     storeName: tenant.name || 'Auto Parts Store',
-                    logoUrl: tenant.logo || '',
+                    logoUrl: tenant.logo ? '/api/settings/company/logo' : '',
                     primaryColor: tenant.primaryColor || '#C8102E',
                     secondaryColor: '#1E3A5F',
                     heroSlides: [],

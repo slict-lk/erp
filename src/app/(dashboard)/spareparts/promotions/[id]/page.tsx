@@ -16,7 +16,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { ArrowLeft, Save, Loader2, Percent, Trash2 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import {
     Dialog,
     DialogContent,
@@ -30,8 +30,7 @@ import {
 export default function EditPromotionPage() {
     const router = useRouter();
     const params = useParams();
-    const { toast } = useToast();
-    const [loading, setLoading] = useState(false);
+        const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
 
     // Form State
@@ -101,20 +100,12 @@ export default function EditPromotionPage() {
                     setTiers([{ minQuantity: '10', maxQuantity: '', discountType: 'PERCENTAGE', discountValue: '5' }]);
                 }
             } else {
-                toast({
-                    title: 'Error',
-                    description: 'Failed to load promotion',
-                    variant: 'destructive',
-                });
+                toast.error('Error', { description: 'Failed to load promotion' });
                 router.push('/spareparts/promotions');
             }
         } catch (error) {
             console.error(error);
-            toast({
-                title: 'Error',
-                description: 'Failed to load promotion',
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: 'Failed to load promotion' });
         } finally {
             setFetching(false);
         }
@@ -159,21 +150,14 @@ export default function EditPromotionPage() {
             });
 
             if (res.ok) {
-                toast({
-                    title: 'Success',
-                    description: 'Promotion updated successfully',
-                });
+                toast.success('Success', { description: 'Promotion updated successfully' });
                 router.push('/spareparts/promotions');
             } else {
                 const error = await res.json();
                 throw new Error(error.error || 'Failed to update promotion');
             }
         } catch (error: unknown) {
-            toast({
-                title: 'Error',
-                description: error instanceof Error ? error.message : 'Failed to update promotion',
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: error instanceof Error ? error.message : 'Failed to update promotion' });
         } finally {
             setLoading(false);
         }
@@ -186,21 +170,14 @@ export default function EditPromotionPage() {
             });
 
             if (res.ok) {
-                toast({
-                    title: 'Success',
-                    description: 'Promotion deleted successfully',
-                });
+                toast.success('Success', { description: 'Promotion deleted successfully' });
                 router.push('/spareparts/promotions');
             } else {
                 const error = await res.json();
                 throw new Error(error.error || 'Failed to delete promotion');
             }
         } catch (error: unknown) {
-            toast({
-                title: 'Error',
-                description: error instanceof Error ? error.message : 'Failed to delete promotion',
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: error instanceof Error ? error.message : 'Failed to delete promotion' });
         }
     };
 

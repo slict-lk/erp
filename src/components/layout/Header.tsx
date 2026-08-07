@@ -1,27 +1,34 @@
-
 'use client';
 
-import { Bell, Search, User, LogOut, Settings as SettingsIcon, HelpCircle, Menu, Command, ChevronDown } from 'lucide-react';
+import { Bell, Search, User, LogOut, Settings as SettingsIcon, HelpCircle, Menu, Command, ChevronDown, Check, Mail, MailOpen } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { LanguageSwitcher } from '@/components/language-switcher';
+import { useNotifications } from '@/components/providers/NotificationsProvider';
+import { formatDistanceToNow } from '@/lib/utils';
+
+const TYPE_ICONS: Record<string, string> = {
+  INFO: '🔵',
+  SUCCESS: '✅',
+  WARNING: '⚠️',
+  ERROR: '🔴',
+};
 
 export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const router = useRouter();
   const { data: session } = useSession();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loggingOut, setLoggingOut] = useState(false);
 
-  // Close dropdowns on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
@@ -50,6 +57,16 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
     }
   };
 
+  const handleNotificationClick = (notification: { id: string; isRead: boolean; link: string | null }) => {
+    if (!notification.isRead) {
+      markAsRead([notification.id]);
+    }
+    if (notification.link) {
+      router.push(notification.link);
+      setShowNotifications(false);
+    }
+  };
+
   const userInitials = session?.user?.name
     ? session.user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
     : 'U';
@@ -57,7 +74,6 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/60 px-4 md:px-6 py-3 transition-all duration-200">
       <div className="flex items-center justify-between gap-4 max-w-[1920px] mx-auto">
-        {/* Mobile menu button */}
         <button
           onClick={onMenuClick}
           className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
@@ -66,7 +82,6 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
           <Menu className="h-6 w-6" />
         </button>
 
-        {/* Search bar */}
         <div className="flex items-center flex-1 max-w-2xl">
           <form onSubmit={handleSearch} className="relative hidden md:block w-full group">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4 group-focus-within:text-blue-500 transition-colors" />
@@ -93,7 +108,6 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
         </div>
 
         <div className="flex items-center gap-3 md:gap-4">
-          {/* Language Switcher */}
           <LanguageSwitcher />
 
           {/* Notifications */}
@@ -107,7 +121,11 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
               className={`relative p-2.5 rounded-xl transition-all duration-200 ${showNotifications ? 'bg-blue-50 text-blue-600' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}
             >
               <Bell className="h-5 w-5" />
-              <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full ring-2 ring-white px-1">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </button>
 
             <AnimatePresence>
@@ -121,25 +139,72 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
                 >
                   <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                     <h3 className="font-semibold text-slate-900">Notifications</h3>
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-100">2 New</Badge>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markAllAsRead();
+                        }}
+                        className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
+                      >
+                        <Check className="h-3 w-3" />
+                        Mark all read
+                      </button>
+                    )}
                   </div>
                   <div className="max-h-[400px] overflow-y-auto">
-                    {[1, 2].map((_, i) => (
-                      <div key={i} className="p-4 hover:bg-slate-50 border-b border-slate-50 transition-colors cursor-pointer group">
-                        <div className="flex gap-3">
-                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">
-                            <Bell className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-slate-900 group-hover:text-blue-600 transition-colors">New order received #1234</p>
-                            <p className="text-xs text-slate-500 mt-1">Just now • Sales Team</p>
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center">
+                        <Mail className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                        <p className="text-sm text-slate-500">No notifications yet</p>
+                      </div>
+                    ) : (
+                      notifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          onClick={() => handleNotificationClick(notification)}
+                          className={`p-4 hover:bg-slate-50 border-b border-slate-50 transition-colors cursor-pointer group ${
+                            !notification.isRead ? 'bg-blue-50/40' : ''
+                          }`}
+                        >
+                          <div className="flex gap-3">
+                            <div className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              !notification.isRead
+                                ? 'bg-blue-100 text-blue-600'
+                                : 'bg-slate-100 text-slate-500'
+                            }`}>
+                              {!notification.isRead
+                                ? <Mail className="h-4 w-4" />
+                                : <MailOpen className="h-4 w-4" />
+                              }
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-medium truncate ${
+                                !notification.isRead ? 'text-slate-900' : 'text-slate-600'
+                              }`}>
+                                {notification.title}
+                              </p>
+                              <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
+                                {notification.message}
+                              </p>
+                              <p className="text-[10px] text-slate-400 mt-1">
+                                {formatDistanceToNow(notification.createdAt)}
+                              </p>
+                            </div>
+                            {!notification.isRead && (
+                              <div className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0 mt-1.5" />
+                            )}
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                   <div className="p-3 bg-slate-50 border-t border-slate-100 text-center">
-                    <Link href="/notifications" className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors">
+                    <Link
+                      href="/notifications"
+                      onClick={() => setShowNotifications(false)}
+                      className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                    >
                       View all notifications
                     </Link>
                   </div>

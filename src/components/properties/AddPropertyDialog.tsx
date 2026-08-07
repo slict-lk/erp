@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Plus, Loader2 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 interface AddPropertyDialogProps {
   tenantId: string;
@@ -32,8 +32,7 @@ interface AddPropertyDialogProps {
 export function AddPropertyDialog({ tenantId, onSuccess }: AddPropertyDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
-
+  
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -76,10 +75,7 @@ export function AddPropertyDialog({ tenantId, onSuccess }: AddPropertyDialogProp
         throw new Error(data.error || 'Failed to create property');
       }
 
-      toast({
-        title: 'Success',
-        description: 'Property created successfully',
-      });
+      toast.success('Success', { description: 'Property created successfully' });
 
       setOpen(false);
       setFormData({
@@ -101,11 +97,7 @@ export function AddPropertyDialog({ tenantId, onSuccess }: AddPropertyDialogProp
       });
       onSuccess();
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error('Error', { description: error.message });
     } finally {
       setLoading(false);
     }

@@ -36,7 +36,7 @@ import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, FileText, User, Calendar, Package, DollarSign, Printer, Download, CheckCircle, XCircle, CreditCard, Percent } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 interface InvoiceItem {
     id: string;
@@ -109,8 +109,7 @@ function formatDate(date: string): string {
 export default function InvoiceDetailPage() {
     const params = useParams();
     const router = useRouter();
-    const { toast } = useToast();
-    const [invoice, setInvoice] = useState<Invoice | null>(null);
+        const [invoice, setInvoice] = useState<Invoice | null>(null);
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
 
@@ -235,13 +234,13 @@ export default function InvoiceDetailPage() {
                 body: JSON.stringify({ action: 'CONFIRM' }),
             });
             if (res.ok) {
-                toast({ title: 'Success', description: 'Order confirmed successfully' });
+                toast.success('Success', { description: 'Order confirmed successfully' });
                 fetchInvoice();
             } else {
                 throw new Error('Failed to confirm order');
             }
         } catch (error) {
-            toast({ title: 'Error', description: 'Failed to confirm order', variant: 'destructive' });
+            toast.error('Error', { description: 'Failed to confirm order' });
         } finally {
             setProcessing(false);
         }
@@ -257,13 +256,13 @@ export default function InvoiceDetailPage() {
                 body: JSON.stringify({ action: 'CANCEL', reason: 'User cancelled via UI' }),
             });
             if (res.ok) {
-                toast({ title: 'Success', description: 'Order cancelled successfully' });
+                toast.success('Success', { description: 'Order cancelled successfully' });
                 fetchInvoice();
             } else {
                 throw new Error('Failed to cancel order');
             }
         } catch (error) {
-            toast({ title: 'Error', description: 'Failed to cancel order', variant: 'destructive' });
+            toast.error('Error', { description: 'Failed to cancel order' });
         } finally {
             setProcessing(false);
         }
@@ -279,13 +278,13 @@ export default function InvoiceDetailPage() {
                 body: JSON.stringify({ action: 'COMPLETE' }),
             });
             if (res.ok) {
-                toast({ title: 'Success', description: 'Order completed successfully' });
+                toast.success('Success', { description: 'Order completed successfully' });
                 fetchInvoice();
             } else {
                 throw new Error('Failed to complete order');
             }
         } catch (error) {
-            toast({ title: 'Error', description: 'Failed to complete order', variant: 'destructive' });
+            toast.error('Error', { description: 'Failed to complete order' });
         } finally {
             setProcessing(false);
         }
@@ -293,7 +292,7 @@ export default function InvoiceDetailPage() {
 
     const handleRecordPayment = async () => {
         if (!paymentAmount || Number(paymentAmount) <= 0) {
-            toast({ title: 'Error', description: 'Please enter a valid amount', variant: 'destructive' });
+            toast.error('Error', { description: 'Please enter a valid amount' });
             return;
         }
         setProcessing(true);
@@ -308,7 +307,7 @@ export default function InvoiceDetailPage() {
                 }),
             });
             if (res.ok) {
-                toast({ title: 'Success', description: 'Payment recorded successfully' });
+                toast.success('Success', { description: 'Payment recorded successfully' });
                 setIsPaymentOpen(false);
                 fetchInvoice();
                 setPaymentAmount(''); // Reset, but fetchInvoice will update due amount if remaining
@@ -316,7 +315,7 @@ export default function InvoiceDetailPage() {
                 throw new Error('Failed to record payment');
             }
         } catch (error) {
-            toast({ title: 'Error', description: 'Failed to record payment', variant: 'destructive' });
+            toast.error('Error', { description: 'Failed to record payment' });
         } finally {
             setProcessing(false);
         }

@@ -1,6 +1,6 @@
 export const CRON_SYNC_PATH = '/api/integrations/cron/sync';
 
-export function isMiddlewareSessionExemptPath(pathname: string) {
+export function isProxySessionExemptPath(pathname: string) {
   return (
     pathname === CRON_SYNC_PATH ||
     pathname.startsWith('/api/public') ||
@@ -8,9 +8,9 @@ export function isMiddlewareSessionExemptPath(pathname: string) {
   );
 }
 
-export function isMiddlewareAuthorizedPath(
+export function isProxyAuthorizedPath(
   pathname: string,
   token: unknown
 ) {
-  return isMiddlewareSessionExemptPath(pathname) || Boolean(token);
+  return isProxySessionExemptPath(pathname) || Boolean(token);
 }

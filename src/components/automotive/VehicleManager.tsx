@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 import { vehicleSchema, type VehicleFormValues } from '@/lib/validations/automotive';
@@ -24,8 +24,7 @@ export function VehicleManager({ initialVehicles }: VehicleManagerProps) {
     const [vehicles, setVehicles] = useState(initialVehicles);
     const [isPending, startTransition] = useTransition();
     const [isOpen, setIsOpen] = useState(false);
-    const { toast } = useToast();
-
+    
     const form = useForm<VehicleFormValues>({
         resolver: zodResolver(vehicleSchema),
         defaultValues: {
@@ -43,9 +42,9 @@ export function VehicleManager({ initialVehicles }: VehicleManagerProps) {
                 setVehicles(prev => [...prev, result.vehicle]);
                 setIsOpen(false);
                 form.reset();
-                toast({ title: 'Success', description: 'Vehicle added successfully' });
+                toast.success('Success', { description: 'Vehicle added successfully' });
             } else {
-                toast({ variant: 'destructive', title: 'Error', description: result.message });
+                toast.error('Error', { description: result.message });
             }
         });
     };
@@ -56,7 +55,7 @@ export function VehicleManager({ initialVehicles }: VehicleManagerProps) {
             const result = await deleteVehicle(id);
             if (result.success) {
                 setVehicles(prev => prev.filter(v => v.id !== id));
-                toast({ title: 'Deleted', description: 'Vehicle removed' });
+                toast.success('Deleted', { description: 'Vehicle removed' });
             }
         });
     };

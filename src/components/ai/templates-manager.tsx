@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import type { WorkflowTemplateRecord } from '@/lib/ai/control-plane-types';
 import { joinList, parseList, readResponseError } from '@/components/ai/registry-manager-utils';
 
@@ -45,8 +45,7 @@ export function TemplatesManager({
   initialTemplates: WorkflowTemplateRecord[];
 }) {
   const router = useRouter();
-  const { toast } = useToast();
-  const [templates, setTemplates] = useState(initialTemplates);
+    const [templates, setTemplates] = useState(initialTemplates);
   const [selectedId, setSelectedId] = useState<string | null>(initialTemplates[0]?.id ?? null);
   const [form, setForm] = useState<TemplateFormState>(
     initialTemplates[0] ? toFormState(initialTemplates[0]) : EMPTY_TEMPLATE
@@ -104,17 +103,10 @@ export function TemplatesManager({
         const created = nextTemplates.find((t) => t.name === payload.name);
         setSelectedId(created?.id ?? nextTemplates[nextTemplates.length - 1]?.id ?? null);
       }
-      toast({
-        title: selectedId ? 'Template updated' : 'Template created',
-        description: payload.name,
-      });
+      toast.success(selectedId ? 'Template updated' : 'Template created', { description: payload.name });
       router.refresh();
     } catch (error: any) {
-      toast({
-        title: 'Save failed',
-        description: error.message || 'Failed to save template',
-        variant: 'destructive',
-      });
+      toast.error('Save failed', {description: error.message || 'Failed to save template' });
     } finally {
       setSaving(false);
     }
@@ -143,17 +135,10 @@ export function TemplatesManager({
       const nextTemplates = (await response.json()) as WorkflowTemplateRecord[];
       setTemplates(nextTemplates);
       setSelectedId(nextTemplates[0]?.id ?? null);
-      toast({
-        title: 'Template deleted',
-        description: selectedTemplate.name,
-      });
+      toast.success('Template deleted', { description: selectedTemplate.name, });
       router.refresh();
     } catch (error: any) {
-      toast({
-        title: 'Delete failed',
-        description: error.message || 'Failed to delete template',
-        variant: 'destructive',
-      });
+      toast.error('Delete failed', {description: error.message || 'Failed to delete template' });
     } finally {
       setDeleting(false);
     }

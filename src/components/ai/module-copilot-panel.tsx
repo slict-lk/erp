@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { useAIExperience } from '@/components/ai/ai-experience-context';
 
 type ModuleCopilotPanelProps = {
@@ -24,8 +24,7 @@ export function ModuleCopilotPanel({
   context,
   suggestions = [],
 }: ModuleCopilotPanelProps) {
-  const { toast } = useToast();
-  const { canUseAdvanced } = useAIExperience();
+    const { canUseAdvanced } = useAIExperience();
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
@@ -69,11 +68,7 @@ export function ModuleCopilotPanel({
       setFunctionCalls(Array.isArray(data.functionCalls) ? data.functionCalls : []);
       setInput(message);
     } catch (error: any) {
-      toast({
-        title: 'Copilot failed',
-        description: error.message || 'Failed to get copilot response',
-        variant: 'destructive',
-      });
+      toast.error('Copilot failed', { description: error.message || 'Failed to get copilot response' });
     } finally {
       setLoading(false);
     }

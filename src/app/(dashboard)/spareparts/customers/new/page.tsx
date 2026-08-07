@@ -16,12 +16,11 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 export default function NewCustomerPage() {
     const router = useRouter();
-    const { toast } = useToast();
-    const [saving, setSaving] = useState(false);
+        const [saving, setSaving] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
         phone: '',
@@ -45,11 +44,7 @@ export default function NewCustomerPage() {
         e.preventDefault();
 
         if (!formData.name.trim() || !formData.phone.trim()) {
-            toast({
-                title: 'Validation Error',
-                description: 'Name and phone are required',
-                variant: 'destructive',
-            });
+            toast.error('Validation Error', { description: 'Name and phone are required' });
             return;
         }
 
@@ -67,21 +62,14 @@ export default function NewCustomerPage() {
 
             if (res.ok) {
                 const customer = await res.json();
-                toast({
-                    title: 'Customer Created',
-                    description: `Customer ${customer.customerNumber} has been created.`,
-                });
+                toast.success('Customer Created', { description: `Customer ${customer.customerNumber} has been created.` });
                 router.push('/spareparts/customers');
             } else {
                 const error = await res.json();
                 throw new Error(error.error || 'Failed to create customer');
             }
         } catch (error: any) {
-            toast({
-                title: 'Error',
-                description: error.message,
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: error.message });
         } finally {
             setSaving(false);
         }

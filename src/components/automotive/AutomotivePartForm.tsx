@@ -13,7 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -28,8 +28,7 @@ interface AutomotivePartFormProps {
 export function AutomotivePartForm({ vehicles = [] }: AutomotivePartFormProps) {
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [isPending, startTransition] = useTransition();
-    const { toast } = useToast();
-
+    
     // Local state for demo/instant feedback
     const [recentItems, setRecentItems] = useState([
         { sku: '6203-2RS', name: 'Ball Bearing', brand: 'KOYO', time: '10:42 AM', price: 1250 },
@@ -54,10 +53,7 @@ export function AutomotivePartForm({ vehicles = [] }: AutomotivePartFormProps) {
             const result = await createAutomotivePart(data);
 
             if (result.success) {
-                toast({
-                    title: "Success",
-                    description: `Part ${data.sku} created successfully.`,
-                });
+                toast.success("Success", { description: `Part ${data.sku} created successfully.` });
 
                 setRecentItems((prev) => [
                     {
@@ -72,11 +68,7 @@ export function AutomotivePartForm({ vehicles = [] }: AutomotivePartFormProps) {
 
                 form.reset();
             } else {
-                toast({
-                    variant: "destructive",
-                    title: "Error",
-                    description: result.message,
-                });
+                toast.error("Error", { description: result.message });
             }
         });
     };

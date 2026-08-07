@@ -16,13 +16,12 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { ArrowLeft, Save, Loader2, Package, Upload, Link2, X, Plus } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import Image from 'next/image';
 
 export default function NewProductPage() {
     const router = useRouter();
-    const { toast } = useToast();
-    const [loading, setLoading] = useState(false);
+        const [loading, setLoading] = useState(false);
     const [imageUrlInput, setImageUrlInput] = useState('');
     const [images, setImages] = useState<string[]>([]);
     const [uploadMethod, setUploadMethod] = useState<'url' | 'device'>('url');
@@ -82,11 +81,7 @@ export default function NewProductPage() {
             setImages(prev => [...prev, urlToCheck]);
             setImageUrlInput('');
         } catch (e) {
-            toast({
-                title: "Invalid URL",
-                description: "Please enter a valid valid image URL (e.g., https://example.com/image.jpg)",
-                variant: "destructive",
-            });
+            toast.error("Invalid URL", { description: "Please enter a valid valid image URL (e.g., https://example.com/image.jpg)" });
         }
     };
 
@@ -96,10 +91,7 @@ export default function NewProductPage() {
 
         // For now, just show a toast that upload is not yet implemented
         // In production, this would upload to a server and return URLs
-        toast({
-            title: "Info",
-            description: "File upload requires server configuration. Please use URL input for now.",
-        });
+        toast.success("Info", { description: "File upload requires server configuration. Please use URL input for now." });
     };
 
     const removeImage = (index: number) => {
@@ -110,11 +102,7 @@ export default function NewProductPage() {
         e.preventDefault();
 
         if (!formData.name || !formData.sku) {
-            toast({
-                title: 'Error',
-                description: 'Please fill in required fields (Name and SKU)',
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: 'Please fill in required fields (Name and SKU)' });
             return;
         }
 
@@ -148,21 +136,14 @@ export default function NewProductPage() {
             });
 
             if (res.ok) {
-                toast({
-                    title: 'Success',
-                    description: 'Product created successfully',
-                });
+                toast.success('Success', { description: 'Product created successfully' });
                 router.push('/spareparts/products');
             } else {
                 const error = await res.json();
                 throw new Error(error.error || 'Failed to create product');
             }
         } catch (error: unknown) {
-            toast({
-                title: 'Error',
-                description: error instanceof Error ? error.message : 'Failed to create product',
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: error instanceof Error ? error.message : 'Failed to create product' });
         } finally {
             setLoading(false);
         }

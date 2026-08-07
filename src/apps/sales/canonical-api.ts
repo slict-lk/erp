@@ -83,10 +83,27 @@ export async function listSalesQuotes(tenantId: string, filters?: any) {
   const where: any = { tenantId };
   if (filters?.status) where.status = filters.status;
   if (filters?.customerAccountId) where.customerAccountId = filters.customerAccountId;
-  return client.salesQuote.findMany({
+  const quotes = await client.salesQuote.findMany({
     where,
     include: { lines: true, revisions: true },
     orderBy: { createdAt: 'desc' },
+  });
+
+  // Enrich with customer data - customerAccountId references Customer directly
+  const customerIds = [...new Set(quotes.map((q: any) => q.customerAccountId).filter(Boolean))];
+  const customers = customerIds.length > 0
+    ? await client.customer.findMany({ where: { id: { in: customerIds } } })
+    : [];
+  const customerMap = new Map(customers.map((c: any) => [c.id, c]));
+
+  return quotes.map((q: any) => {
+    const customer = q.customerAccountId ? customerMap.get(q.customerAccountId) ?? null : null;
+    return {
+      ...q,
+      customer,
+      customerName: (customer as any)?.name ?? null,
+      customerId: q.customerAccountId,
+    };
   });
 }
 

@@ -26,7 +26,7 @@ import {
     Users, Search, RefreshCw, Check, X, ArrowRight, MapPin,
     TrendingUp, Filter, Clock, DollarSign, Activity, AlertCircle
 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -101,8 +101,7 @@ export default function BidsPage() {
     const [search, setSearch] = useState('');
     const [selectedBid, setSelectedBid] = useState<Bid | null>(null);
     const [processing, setProcessing] = useState(false);
-    const { toast } = useToast();
-
+    
     // Stats
     const stats = {
         total: bids.length,
@@ -148,15 +147,12 @@ export default function BidsPage() {
                 }),
             });
             if (res.ok) {
-                toast({
-                    title: `Bid ${status === 'APPROVED' ? 'Approved' : 'Rejected'}`,
-                    description: `The bid has been processed successfully.`,
-                });
+                toast.success(`Bid ${status === 'APPROVED' ? 'Approved' : 'Rejected'}`, { description: `The bid has been processed successfully.` });
                 fetchBids();
                 setSelectedBid(null);
             }
         } catch (error) {
-            toast({ title: 'Error', description: 'Failed to update bid', variant: 'destructive' });
+            toast.error('Error', { description: 'Failed to update bid' });
         } finally {
             setProcessing(false);
         }

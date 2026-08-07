@@ -26,7 +26,7 @@ import {
     Loader2,
     RefreshCw
 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -92,8 +92,7 @@ function formatCurrency(amount: number): string {
 }
 
 export default function ReportsPage() {
-    const { toast } = useToast();
-    const [selectedReport, setSelectedReport] = useState<string | null>(null);
+        const [selectedReport, setSelectedReport] = useState<string | null>(null);
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
     const [generating, setGenerating] = useState(false);
@@ -118,19 +117,12 @@ export default function ReportsPage() {
                 const data = await res.json();
                 setReportData(data.data);
                 setReportMeta({ reportType: data.reportType, generatedAt: data.generatedAt });
-                toast({
-                    title: 'Report Generated',
-                    description: `${reportTypes.find(r => r.id === selectedReport)?.name} is ready`,
-                });
+                toast.success('Report Generated', { description: `${reportTypes.find(r => r.id === selectedReport)?.name} is ready` });
             } else {
                 throw new Error('Failed to generate report');
             }
         } catch (error) {
-            toast({
-                title: 'Error',
-                description: 'Failed to generate report',
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: 'Failed to generate report' });
         } finally {
             setGenerating(false);
         }

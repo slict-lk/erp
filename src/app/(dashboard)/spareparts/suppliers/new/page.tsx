@@ -9,12 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Save, Loader2, Truck } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 export default function NewSupplierPage() {
     const router = useRouter();
-    const { toast } = useToast();
-    const [loading, setLoading] = useState(false);
+        const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
         contactPerson: '',
@@ -41,21 +40,14 @@ export default function NewSupplierPage() {
             });
 
             if (res.ok) {
-                toast({
-                    title: 'Success',
-                    description: 'Supplier created successfully',
-                });
+                toast.success('Success', { description: 'Supplier created successfully' });
                 router.push('/spareparts/suppliers');
             } else {
                 const error = await res.json();
                 throw new Error(error.error || 'Failed to create supplier');
             }
         } catch (error: unknown) {
-            toast({
-                title: 'Error',
-                description: error instanceof Error ? error.message : 'Failed to create supplier',
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: error instanceof Error ? error.message : 'Failed to create supplier' });
         } finally {
             setLoading(false);
         }

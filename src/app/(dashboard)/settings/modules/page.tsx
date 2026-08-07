@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import {
     Package, Plus, X, Clock, CheckCircle, XCircle,
     Loader2, Ship, Store, Users, Building2, Heart,
@@ -76,8 +76,7 @@ interface ModuleRequest {
 }
 
 export default function ModulesPage() {
-    const { toast } = useToast();
-    const [loading, setLoading] = useState(true);
+        const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [enabledModules, setEnabledModules] = useState<string[]>([]);
     const [requests, setRequests] = useState<ModuleRequest[]>([]);
@@ -98,7 +97,7 @@ export default function ModulesPage() {
             setEnabledModules(data.enabledModules || []);
             setRequests(data.requests || []);
         } catch (error) {
-            toast({ title: 'Error', description: 'Failed to load module data', variant: 'destructive' });
+            toast.error('Error', { description: 'Failed to load module data' });
         } finally {
             setLoading(false);
         }
@@ -119,13 +118,13 @@ export default function ModulesPage() {
                 throw new Error(data.error || 'Failed to submit request');
             }
 
-            toast({ title: 'Success', description: 'Module request submitted successfully' });
+            toast.success('Success', { description: 'Module request submitted successfully' });
             setDialogOpen(false);
             setSelectedModule('');
             setReason('');
             fetchData();
         } catch (error: any) {
-            toast({ title: 'Error', description: error.message, variant: 'destructive' });
+            toast.error('Error', { description: error.message });
         } finally {
             setSubmitting(false);
         }
@@ -135,10 +134,10 @@ export default function ModulesPage() {
         try {
             const res = await fetch(`/api/module-requests/${id}`, { method: 'DELETE' });
             if (!res.ok) throw new Error('Failed to cancel');
-            toast({ title: 'Cancelled', description: 'Request cancelled successfully' });
+            toast.success('Cancelled', { description: 'Request cancelled successfully' });
             fetchData();
         } catch (error) {
-            toast({ title: 'Error', description: 'Failed to cancel request', variant: 'destructive' });
+            toast.error('Error', { description: 'Failed to cancel request' });
         }
     };
 

@@ -13,7 +13,7 @@ import {
   MapPin, Bed, Bath, Maximize, Calendar,
   Heart, Share2, Phone, Mail, User, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 interface Property {
   id: string;
@@ -47,8 +47,7 @@ interface Property {
 
 export default function PropertyDetailsPage() {
   const params = useParams();
-  const { toast } = useToast();
-  const [property, setProperty] = useState<Property | null>(null);
+    const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showFullDescription, setShowFullDescription] = useState(false);
@@ -90,20 +89,13 @@ export default function PropertyDetailsPage() {
       });
 
       if (response.ok) {
-        toast({
-          title: 'Success',
-          description: 'Your inquiry has been sent successfully!',
-        });
+        toast.success('Success', { description: 'Your inquiry has been sent successfully!' });
         setInquiryForm({ name: '', email: '', phone: '', message: '' });
       } else {
         throw new Error('Failed to send inquiry');
       }
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to send inquiry. Please try again.',
-        variant: 'destructive',
-      });
+      toast.error('Error', { description: 'Failed to send inquiry. Please try again.' });
     }
   };
 
@@ -216,10 +208,7 @@ export default function PropertyDetailsPage() {
                       variant="outline"
                       size="icon"
                       onClick={() => {
-                        toast({
-                          title: 'Added to favorites',
-                          description: 'Property saved to your favorites list',
-                        });
+                        toast.success('Added to favorites', { description: 'Property saved to your favorites list' });
                       }}
                       aria-label="Add to favorites"
                     >
@@ -230,10 +219,7 @@ export default function PropertyDetailsPage() {
                       size="icon"
                       onClick={() => {
                         navigator.clipboard.writeText(window.location.href);
-                        toast({
-                          title: 'Link copied',
-                          description: 'Property link copied to clipboard',
-                        });
+                        toast.success('Link copied', { description: 'Property link copied to clipboard' });
                       }}
                       aria-label="Share property"
                     >

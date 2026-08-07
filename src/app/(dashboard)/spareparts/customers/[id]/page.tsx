@@ -15,7 +15,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';
 
 interface CreditTransaction {
@@ -67,8 +67,7 @@ const customerTypeColors: Record<string, string> = {
 export default function CustomerProfilePage() {
     const params = useParams();
     const router = useRouter();
-    const { toast } = useToast();
-    const [customer, setCustomer] = useState<Customer | null>(null);
+        const [customer, setCustomer] = useState<Customer | null>(null);
     const [loading, setLoading] = useState(true);
 
     const [error, setError] = useState<string | null>(null);
@@ -84,11 +83,7 @@ export default function CustomerProfilePage() {
                 const errData = await res.json().catch(() => ({ error: res.statusText }));
                 setError(errData.error || `Error ${res.status}`);
                 setDebugInfo({ status: res.status, ...errData });
-                toast({
-                    title: 'Error',
-                    description: errData.error || 'Failed to fetch customer details',
-                    variant: 'destructive',
-                });
+                toast.error('Error', { description: errData.error || 'Failed to fetch customer details' });
             }
         } catch (error: any) {
             console.error('Error fetching customer:', error);

@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
                 data: {
                     tenantId: tenant.id,
                     storeName: tenant.name || 'Auto Parts Store',
-                    logoUrl: tenant.logo,
+                    logoUrl: tenant.logo ? `/api/settings/company/logo?subdomain=${tenant.subdomain}` : null,
                     primaryColor: tenant.primaryColor || '#C8102E',
                     secondaryColor: '#1E3A5F',
                     currency: 'LKR',

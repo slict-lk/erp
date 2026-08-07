@@ -24,7 +24,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { ArrowLeft, Save, Loader2, FileText, Plus, Trash2, Search, Percent } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 interface Supplier {
     id: string;
@@ -57,8 +57,7 @@ interface OrderItem {
 
 export default function NewPurchaseOrderPage() {
     const router = useRouter();
-    const { toast } = useToast();
-    const [loading, setLoading] = useState(false);
+        const [loading, setLoading] = useState(false);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [selectedSupplier, setSelectedSupplier] = useState<string>('');
@@ -188,11 +187,7 @@ export default function NewPurchaseOrderPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedSupplier || items.length === 0) {
-            toast({
-                title: 'Error',
-                description: 'Please select a supplier and add items',
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: 'Please select a supplier and add items' });
             return;
         }
 
@@ -218,21 +213,14 @@ export default function NewPurchaseOrderPage() {
             });
 
             if (res.ok) {
-                toast({
-                    title: 'Success',
-                    description: 'Purchase order created successfully',
-                });
+                toast.success('Success', { description: 'Purchase order created successfully' });
                 router.push('/spareparts/purchases');
             } else {
                 const error = await res.json();
                 throw new Error(error.error || 'Failed to create order');
             }
         } catch (error: unknown) {
-            toast({
-                title: 'Error',
-                description: error instanceof Error ? error.message : 'Failed to create order',
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: error instanceof Error ? error.message : 'Failed to create order' });
         } finally {
             setLoading(false);
         }

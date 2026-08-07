@@ -13,7 +13,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { RefreshCw, AlertTriangle, Check, X, Package, TrendingDown, ShoppingCart } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 interface ReorderSuggestion {
     id: string;
@@ -30,8 +30,7 @@ interface ReorderSuggestion {
 }
 
 export default function ReorderPage() {
-    const { toast } = useToast();
-    const [suggestions, setSuggestions] = useState<ReorderSuggestion[]>([]);
+        const [suggestions, setSuggestions] = useState<ReorderSuggestion[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [generating, setGenerating] = useState(false);
@@ -62,18 +61,11 @@ export default function ReorderPage() {
             const res = await fetch('/api/spareparts/reorder/generate', { method: 'POST' });
             if (res.ok) {
                 const data = await res.json();
-                toast({
-                    title: 'Suggestions Generated',
-                    description: `${data.count} new suggestions created`,
-                });
+                toast.success('Suggestions Generated', { description: `${data.count} new suggestions created` });
                 fetchSuggestions();
             }
         } catch (error) {
-            toast({
-                title: 'Error',
-                description: 'Failed to generate suggestions',
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: 'Failed to generate suggestions' });
         } finally {
             setGenerating(false);
         }
@@ -87,18 +79,11 @@ export default function ReorderPage() {
                 body: JSON.stringify({ reason: action === 'reject' ? 'Manual rejection' : undefined }),
             });
             if (res.ok) {
-                toast({
-                    title: action === 'approve' ? 'Approved' : 'Rejected',
-                    description: `Suggestion has been ${action}d`,
-                });
+                toast.success(action === 'approve' ? 'Approved' : 'Rejected', { description: `Suggestion has been ${action}d` });
                 fetchSuggestions();
             }
         } catch (error) {
-            toast({
-                title: 'Error',
-                description: `Failed to ${action} suggestion`,
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: `Failed to ${action} suggestion` });
         }
     };
 

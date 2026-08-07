@@ -8,15 +8,15 @@ import { ArrowLeft } from 'lucide-react';
 
 interface Employee {
   id: string;
-  employeeNumber: string;
+  employeeId: string;
   firstName: string;
   lastName: string;
   email: string;
   phone?: string;
-  dateOfBirth?: Date;
   position: string;
   hireDate: Date;
-  status: 'ACTIVE' | 'ON_LEAVE' | 'TERMINATED';
+  dateOfBirth?: Date;
+  isActive: boolean;
   salary?: number;
   departmentId?: string;
   department?: {
@@ -164,9 +164,11 @@ export default function EmployeesPage() {
           <EmployeeForm
             initialData={selectedEmployee ? {
               ...selectedEmployee,
-              hireDate: selectedEmployee.hireDate.toISOString().split('T')[0],
+              hireDate: selectedEmployee.hireDate
+                ? new Date(selectedEmployee.hireDate).toISOString().split('T')[0]
+                : '',
               dateOfBirth: selectedEmployee.dateOfBirth
-                ? selectedEmployee.dateOfBirth.toISOString().split('T')[0]
+                ? new Date(selectedEmployee.dateOfBirth).toISOString().split('T')[0]
                 : undefined
             } : undefined}
             departments={departments}

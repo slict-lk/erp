@@ -8,13 +8,13 @@ import { Plus, Search, Edit, Trash2, User, Mail, Phone } from 'lucide-react';
 
 interface Employee {
   id: string;
-  employeeNumber: string;
+  employeeId: string;
   firstName: string;
   lastName: string;
   email: string;
   phone?: string;
   position: string;
-  status: 'ACTIVE' | 'ON_LEAVE' | 'TERMINATED';
+  isActive: boolean;
   hireDate: Date;
   department?: {
     id: string;
@@ -32,8 +32,7 @@ interface EmployeeListProps {
 
 const STATUS_COLORS = {
   ACTIVE: 'bg-green-100 text-green-800',
-  ON_LEAVE: 'bg-yellow-100 text-yellow-800',
-  TERMINATED: 'bg-red-100 text-red-800',
+  INACTIVE: 'bg-red-100 text-red-800',
 };
 
 export function EmployeeList({
@@ -50,18 +49,18 @@ export function EmployeeList({
     const fullName = `${employee.firstName} ${employee.lastName}`.toLowerCase();
     const matchesSearch =
       fullName.includes(searchTerm.toLowerCase()) ||
-      employee.employeeNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      employee.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.position.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = filterStatus === 'ALL' || employee.status === filterStatus;
+    const employeeStatus = employee.isActive ? 'ACTIVE' : 'INACTIVE';
+    const matchesStatus = filterStatus === 'ALL' || employeeStatus === filterStatus;
 
     return matchesSearch && matchesStatus;
   });
 
-  const activeCount = employees.filter((e) => e.status === 'ACTIVE').length;
-  const onLeaveCount = employees.filter((e) => e.status === 'ON_LEAVE').length;
-  const terminatedCount = employees.filter((e) => e.status === 'TERMINATED').length;
+  const activeCount = employees.filter((e) => e.isActive).length;
+  const inactiveCount = employees.filter((e) => !e.isActive).length;
 
   return (
     <div className="space-y-6">
@@ -70,7 +69,7 @@ export function EmployeeList({
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Employees</h2>
           <p className="text-gray-600">
-            {activeCount} active · {onLeaveCount} on leave · {terminatedCount} terminated
+            {activeCount} active · {inactiveCount} inactive
           </p>
         </div>
         <Button onClick={onCreateNew}>
@@ -108,16 +107,10 @@ export function EmployeeList({
                 Active ({activeCount})
               </Button>
               <Button
-                variant={filterStatus === 'ON_LEAVE' ? 'default' : 'outline'}
-                onClick={() => setFilterStatus('ON_LEAVE')}
+                variant={filterStatus === 'INACTIVE' ? 'default' : 'outline'}
+                onClick={() => setFilterStatus('INACTIVE')}
               >
-                On Leave ({onLeaveCount})
-              </Button>
-              <Button
-                variant={filterStatus === 'TERMINATED' ? 'default' : 'outline'}
-                onClick={() => setFilterStatus('TERMINATED')}
-              >
-                Terminated ({terminatedCount})
+                Inactive ({inactiveCount})
               </Button>
             </div>
           </div>
@@ -188,7 +181,7 @@ export function EmployeeList({
                             <div className="text-sm font-medium text-gray-900">
                               {employee.firstName} {employee.lastName}
                             </div>
-                            <div className="text-sm text-gray-500">{employee.employeeNumber}</div>
+                            <div className="text-sm text-gray-500">{employee.employeeId}</div>
                           </div>
                         </div>
                       </td>
@@ -214,15 +207,15 @@ export function EmployeeList({
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            STATUS_COLORS[employee.status]
-                          }`}
-                        >
-                          {employee.status.replace('_', ' ')}
-                        </span>
-                      </td>
+                       <td className="px-6 py-4">
+                         <span
+                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                             employee.isActive ? STATUS_COLORS.ACTIVE : STATUS_COLORS.INACTIVE
+                           }`}
+                         >
+                           {employee.isActive ? 'Active' : 'Inactive'}
+                         </span>
+                       </td>
                       <td className="px-6 py-4 text-right text-sm font-medium">
                         <div className="flex justify-end gap-2">
                           <Button

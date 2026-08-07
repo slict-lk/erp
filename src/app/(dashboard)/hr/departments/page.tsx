@@ -33,7 +33,7 @@ interface Employee {
   id: string;
   firstName: string;
   lastName: string;
-  employeeNumber: string;
+  employeeId: string;
 }
 
 type ViewMode = 'list' | 'create' | 'edit';

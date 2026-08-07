@@ -27,7 +27,7 @@ interface Employee {
   id: string;
   firstName: string;
   lastName: string;
-  employeeNumber: string;
+  employeeId: string;
 }
 
 interface AttendanceFormProps {
@@ -94,7 +94,7 @@ export function AttendanceForm({
                 <SelectContent>
                   {employees.map((employee) => (
                     <SelectItem key={employee.id} value={employee.id}>
-                      {employee.firstName} {employee.lastName} ({employee.employeeNumber})
+                      {employee.firstName} {employee.lastName} ({employee.employeeId})
                     </SelectItem>
                   ))}
                 </SelectContent>

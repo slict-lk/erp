@@ -8,10 +8,11 @@ declare module 'next-auth' {
       email: string;
       name?: string;
       tenantId: string;
-      tenant: string;
+      tenant?: any;
       role: string | null;
       isSuperAdmin: boolean;
       enabledModuleIds: string[];
+      tenantModules?: string[];
       modulePermissions?: Record<string, any>;
       employee?: any;
       image?: string | null;
@@ -21,7 +22,7 @@ declare module 'next-auth' {
   }
 
   interface User extends Partial<PrismaUser> {
-    tenant: string;
+    tenant?: any;
     role: string | null;
     isSuperAdmin: boolean;
     modulePermissions: Record<string, any>;

@@ -19,43 +19,43 @@ import { useSession } from 'next-auth/react';
 // Form validation schema
 const companyFormSchema = z.object({
   // Company Information
-  companyName: z.string().min(2, 'Company name is required'),
-  legalName: z.string().min(2, 'Legal name is required'),
-  registrationNumber: z.string().min(3, 'Registration number is required'),
-  industry: z.string().min(2, 'Industry is required'),
-  foundedYear: z.string().regex(/^\d{4}$/, 'Enter a valid year'),
-  website: z.string().url('Enter a valid URL').or(z.literal('')),
+  companyName: z.string().min(1, 'Company name is required'),
+  legalName: z.string().optional(),
+  registrationNumber: z.string().optional(),
+  industry: z.string().optional(),
+  foundedYear: z.string().optional(),
+  website: z.string().url('Enter a valid URL').or(z.literal('')).optional(),
   description: z.string().max(500, 'Description is too long').optional(),
 
   // Contact Details
-  email: z.string().email('Enter a valid email'),
-  phone: z.string().min(5, 'Enter a valid phone number'),
+  email: z.string().email('Enter a valid email').or(z.literal('')).optional(),
+  phone: z.string().optional(),
   fax: z.string().optional(),
 
   // Address
-  address: z.string().min(5, 'Address is required'),
-  city: z.string().min(2, 'City is required'),
-  state: z.string().min(2, 'State is required'),
-  postalCode: z.string().min(3, 'Postal code is required'),
-  country: z.string().min(2, 'Country is required'),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  postalCode: z.string().optional(),
+  country: z.string().optional(),
 
   // Tax Information
-  taxId: z.string().min(3, 'Tax ID is required'),
+  taxId: z.string().optional(),
   vatNumber: z.string().optional(),
 
   // Bank Details
-  bankName: z.string().min(3, 'Bank name is required'),
-  accountName: z.string().min(3, 'Account name is required'),
-  accountNumber: z.string().min(5, 'Account number is required'),
+  bankName: z.string().optional(),
+  accountName: z.string().optional(),
+  accountNumber: z.string().optional(),
   routingNumber: z.string().optional(),
   iban: z.string().optional(),
   swiftCode: z.string().optional(),
 
   // Social Media
-  facebook: z.string().url('Enter a valid URL').or(z.literal('')),
-  twitter: z.string().url('Enter a valid URL').or(z.literal('')),
-  linkedin: z.string().url('Enter a valid URL').or(z.literal('')),
-  instagram: z.string().url('Enter a valid URL').or(z.literal('')),
+  facebook: z.string().url('Enter a valid URL').or(z.literal('')).optional(),
+  twitter: z.string().url('Enter a valid URL').or(z.literal('')).optional(),
+  linkedin: z.string().url('Enter a valid URL').or(z.literal('')).optional(),
+  instagram: z.string().url('Enter a valid URL').or(z.literal('')).optional(),
 
   // Business Hours
   businessHours: z.array(
@@ -65,7 +65,7 @@ const companyFormSchema = z.object({
       openTime: z.string(),
       closeTime: z.string(),
     })
-  ),
+  ).optional(),
 
   // Documents
   logo: z.string().optional(),
@@ -178,17 +178,71 @@ export default function CompanySettingsPage() {
   };
 
   const handleFileUpload = async (file: File, field: 'logo' | 'signature') => {
-    try {
-      // TODO: Implement file upload logic
+    if (field === 'logo') {
       const formData = new FormData();
       formData.append('file', file);
-      // const response = await fetch('/api/upload', { method: 'POST', body: formData });
-      // const { url } = await response.json();
-      // form.setValue(field, url);
-      toast.success(`${field === 'logo' ? 'Logo' : 'Signature'} uploaded successfully`);
-    } catch (error) {
-      console.error('File upload failed:', error);
-      toast.error(`Failed to upload ${field === 'logo' ? 'logo' : 'signature'}`);
+
+      const toastId = toast.loading('Uploading logo...', { description: 'Please wait' });
+
+      try {
+        const res = await fetch('/api/settings/company/logo', { method: 'POST', body: formData });
+
+        if (!res.ok) {
+          throw new Error('Upload failed');
+        }
+
+        const data = await res.json();
+
+        if (data.success) {
+          form.setValue('logo', '/api/settings/company/logo');
+          toast.dismiss(toastId);
+          toast.success('Logo uploaded successfully');
+        } else {
+          throw new Error(data.error || 'Upload failed');
+        }
+      } catch (error) {
+        console.error('Logo upload failed:', error);
+        toast.dismiss(toastId);
+        toast.error('Failed to upload logo');
+      }
+    } else {
+      const toastId = toast.loading('Processing signature...', { description: 'Please wait' });
+
+      try {
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const img = new Image();
+          img.onload = async () => {
+            const canvas = document.createElement('canvas');
+            const maxSize = 400;
+            let width = img.width;
+            let height = img.height;
+            if (width > maxSize || height > maxSize) {
+              if (width > height) {
+                height = (height / width) * maxSize;
+                width = maxSize;
+              } else {
+                width = (width / height) * maxSize;
+                height = maxSize;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d')!;
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/webp', 0.8);
+            form.setValue('signature', dataUrl);
+            toast.dismiss(toastId);
+            toast.success('Signature uploaded successfully');
+          };
+          img.src = reader.result as string;
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+        console.error('Signature upload failed:', error);
+        toast.dismiss(toastId);
+        toast.error('Failed to upload signature');
+      }
     }
   };
 
@@ -447,80 +501,115 @@ export default function CompanySettingsPage() {
                     )}
                   />
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="city"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>City *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="New York" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="state"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>State/Province *</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select state" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="AL">Alabama</SelectItem>
-                              <SelectItem value="AK">Alaska</SelectItem>
-                              {/* Add more states as needed */}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="postalCode"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Postal Code *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="10001" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                     <FormField
+                       control={form.control}
+                       name="address"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>Street Address</FormLabel>
+                           <FormControl>
+                             <Input placeholder="123 Business St" {...field} />
+                           </FormControl>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
+                     <FormField
+                       control={form.control}
+                       name="city"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>City</FormLabel>
+                           <FormControl>
+                             <Input placeholder="New York" {...field} />
+                           </FormControl>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
+                     <FormField
+                       control={form.control}
+                       name="state"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>State/Province</FormLabel>
+                           <FormControl>
+                             <Input placeholder="New York" {...field} />
+                           </FormControl>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
+                   </div>
 
-                  <FormField
-                    control={form.control}
-                    name="country"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Country *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select country" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="US">United States</SelectItem>
-                            <SelectItem value="CA">Canada</SelectItem>
-                            <SelectItem value="UK">United Kingdom</SelectItem>
-                            {/* Add more countries as needed */}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <FormField
+                       control={form.control}
+                       name="postalCode"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>Postal Code</FormLabel>
+                           <FormControl>
+                             <Input placeholder="10001" {...field} />
+                           </FormControl>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
+                     <FormField
+                       control={form.control}
+                       name="country"
+                       render={({ field }) => (
+                         <FormItem>
+                           <FormLabel>Country</FormLabel>
+                           <Select onValueChange={field.onChange} defaultValue={field.value}>
+                             <FormControl>
+                               <SelectTrigger>
+                                 <SelectValue placeholder="Select country" />
+                               </SelectTrigger>
+                             </FormControl>
+                             <SelectContent>
+                               <SelectItem value="LK">Sri Lanka</SelectItem>
+                               <SelectItem value="US">United States</SelectItem>
+                               <SelectItem value="CA">Canada</SelectItem>
+                               <SelectItem value="GB">United Kingdom</SelectItem>
+                               <SelectItem value="AU">Australia</SelectItem>
+                               <SelectItem value="IN">India</SelectItem>
+                               <SelectItem value="DE">Germany</SelectItem>
+                               <SelectItem value="FR">France</SelectItem>
+                               <SelectItem value="JP">Japan</SelectItem>
+                               <SelectItem value="CN">China</SelectItem>
+                               <SelectItem value="SG">Singapore</SelectItem>
+                               <SelectItem value="AE">United Arab Emirates</SelectItem>
+                               <SelectItem value="SA">Saudi Arabia</SelectItem>
+                               <SelectItem value="ZA">South Africa</SelectItem>
+                               <SelectItem value="NG">Nigeria</SelectItem>
+                               <SelectItem value="KE">Kenya</SelectItem>
+                               <SelectItem value="BR">Brazil</SelectItem>
+                               <SelectItem value="MX">Mexico</SelectItem>
+                               <SelectItem value="KR">South Korea</SelectItem>
+                               <SelectItem value="MY">Malaysia</SelectItem>
+                               <SelectItem value="TH">Thailand</SelectItem>
+                               <SelectItem value="PH">Philippines</SelectItem>
+                               <SelectItem value="ID">Indonesia</SelectItem>
+                               <SelectItem value="NZ">New Zealand</SelectItem>
+                               <SelectItem value="IT">Italy</SelectItem>
+                               <SelectItem value="ES">Spain</SelectItem>
+                               <SelectItem value="NL">Netherlands</SelectItem>
+                               <SelectItem value="SE">Sweden</SelectItem>
+                               <SelectItem value="CH">Switzerland</SelectItem>
+                               <SelectItem value="IE">Ireland</SelectItem>
+                               <SelectItem value="PK">Pakistan</SelectItem>
+                               <SelectItem value="BD">Bangladesh</SelectItem>
+                               <SelectItem value="VN">Vietnam</SelectItem>
+                             </SelectContent>
+                           </Select>
+                           <FormMessage />
+                         </FormItem>
+                       )}
+                     />
+                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -781,7 +870,7 @@ export default function CompanySettingsPage() {
                         <Switch
                           checked={day.isOpen}
                           onCheckedChange={(checked) => {
-                            const updatedHours = [...form.getValues('businessHours')];
+                            const updatedHours = [...(form.getValues('businessHours') || [])];
                             updatedHours[index] = { ...day, isOpen: checked };
                             form.setValue('businessHours', updatedHours);
                           }}
@@ -858,7 +947,7 @@ export default function CompanySettingsPage() {
                     {form.watch('logo') ? (
                       <div className="mt-2 flex items-center gap-4">
                         <img
-                          src={form.watch('logo')}
+                          src={`${form.watch('logo')}?t=${Date.now()}`}
                           alt="Company Logo"
                           className="h-12 object-contain"
                         />
@@ -866,7 +955,10 @@ export default function CompanySettingsPage() {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => form.setValue('logo', '')}
+                          onClick={async () => {
+                            await fetch('/api/settings/company/logo', { method: 'DELETE' });
+                            form.setValue('logo', '');
+                          }}
                         >
                           <X className="w-4 h-4 mr-2" />
                           Remove

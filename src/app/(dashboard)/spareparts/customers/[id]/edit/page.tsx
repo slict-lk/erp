@@ -16,13 +16,12 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 export default function EditCustomerPage() {
     const router = useRouter();
     const params = useParams();
-    const { toast } = useToast();
-    const [loading, setLoading] = useState(true);
+        const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
     const [formData, setFormData] = useState({
@@ -60,20 +59,12 @@ export default function EditCustomerPage() {
                     paymentTermDays: data.paymentTermDays ? data.paymentTermDays.toString() : '0',
                 });
             } else {
-                toast({
-                    title: 'Error',
-                    description: 'Failed to fetch customer details',
-                    variant: 'destructive',
-                });
+                toast.error('Error', { description: 'Failed to fetch customer details' });
                 router.push('/spareparts/customers');
             }
         } catch (error) {
             console.error('Error fetching customer:', error);
-            toast({
-                title: 'Error',
-                description: 'Failed to load customer data',
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: 'Failed to load customer data' });
         } finally {
             setLoading(false);
         }
@@ -93,11 +84,7 @@ export default function EditCustomerPage() {
         e.preventDefault();
 
         if (!formData.name.trim() || !formData.phone.trim()) {
-            toast({
-                title: 'Validation Error',
-                description: 'Name and phone are required',
-                variant: 'destructive',
-            });
+            toast.error('Validation Error', { description: 'Name and phone are required' });
             return;
         }
 
@@ -114,21 +101,14 @@ export default function EditCustomerPage() {
             });
 
             if (res.ok) {
-                toast({
-                    title: 'Customer Updated',
-                    description: 'Customer details have been saved.',
-                });
+                toast.success('Customer Updated', { description: 'Customer details have been saved.' });
                 router.push(`/spareparts/customers/${params.id}`);
             } else {
                 const error = await res.json();
                 throw new Error(error.error || 'Failed to update customer');
             }
         } catch (error: any) {
-            toast({
-                title: 'Error',
-                description: error.message,
-                variant: 'destructive',
-            });
+            toast.error('Error', { description: error.message });
         } finally {
             setSaving(false);
         }

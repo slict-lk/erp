@@ -9,6 +9,7 @@ declare module 'next-auth' {
             tenantId: string;
             tenant?: string;
             enabledModuleIds: string[];
+            tenantModules?: string[];
             modulePermissions?: any;
             employee?: any;
             trialEnd?: string | null;
@@ -37,6 +38,7 @@ declare module 'next-auth/jwt' {
         tenantId: string;
         tenant?: any;
         enabledModuleIds?: string[];
+        tenantModules?: string[];
         modulePermissions?: any;
         employee?: any;
         trialEnd?: string | null;
