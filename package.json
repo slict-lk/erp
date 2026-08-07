@@ -60,6 +60,7 @@
     "@hookform/resolvers": "^3.3.4",
     "@paypal/checkout-server-sdk": "^1.0.3",
     "@prisma/adapter-pg": "^7.4.2",
+    "@prisma/client": "^7.8.0",
     "@radix-ui/react-accordion": "^1.1.2",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.11",
@@ -122,6 +123,7 @@
     "papaparse": "^5.5.3",
     "pg": "^8.16.3",
     "postcss": "^8.4.0",
+    "prisma": "^7.8.0",
     "qrcode": "^1.5.4",
     "razorpay": "^2.9.6",
     "react": "^19.2.0",
@@ -146,7 +148,6 @@
     "zustand": "^4.5.0"
   },
   "devDependencies": {
-    "@prisma/client": "^7.8.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.0.1",
     "@testing-library/user-event": "^14.6.1",
@@ -162,7 +163,6 @@
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^30.2.0",
     "mini-svg-data-uri": "^1.4.4",
-    "prisma": "^7.8.0",
     "ts-jest": "^29.4.5",
     "tsx": "^4.20.6"
   },
