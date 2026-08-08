@@ -4,7 +4,7 @@
   "buildCommand": "pnpm build",
   "outputDirectory": ".next",
   "devCommand": "pnpm dev",
-  "installCommand": "pnpm install",
+  "installCommand": "pnpm install --no-frozen-lockfile",
   "framework": "nextjs",
   "regions": ["sin1"],
   "build": {
@@ -45,7 +45,7 @@
   ],
   "crons": [
     {
-       "path": "/api/cron/check-low-stock",
+      "path": "/api/cron/check-low-stock",
       "schedule": "0 8 * * *"
     }
   ]
