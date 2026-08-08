@@ -4,6 +4,7 @@
   "description": "Multi-Tenant SaaS ERP System",
   "private": true,
   "scripts": {
+    "install": "pnpm install --no-frozen-lockfile",
     "dev": "next dev -p 3000",
     "postinstall": "prisma generate",
     "build": "next build",
