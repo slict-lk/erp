@@ -1,0 +1,41 @@
+name: Regenerate pnpm lockfile
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - erpAug2026
+
+jobs:
+  regenerate-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable Corepack and install pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@8.15.0 --activate
+
+      - name: Install (regenerate lockfile)
+        run: pnpm install --lockfile-only --frozen-lockfile=false
+
+      - name: Commit lockfile if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git status --porcelain | grep -q "pnpm-lock.yaml"; then
+            git add pnpm-lock.yaml
+            git commit -m "chore: regenerate pnpm-lock.yaml"
+            git push
+          else
+            echo "No changes to pnpm-lock.yaml"
+          fi
