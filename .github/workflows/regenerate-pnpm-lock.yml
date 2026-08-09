@@ -1,6 +1,8 @@
 name: Regenerate pnpm lockfile
+
 permissions:
-  contents: write  # This allows pushing changes
+  contents: write
+
 on:
   workflow_dispatch: {}
   push:
@@ -27,7 +29,7 @@ jobs:
           corepack prepare pnpm@8.15.0 --activate
 
       - name: Install (regenerate lockfile)
-        run: pnpm install --lockfile-only --frozen-lockfile=false
+        run: pnpm install --lockfile-only --no-frozen-lockfile
 
       - name: Commit lockfile if changed
         run: |
@@ -36,7 +38,9 @@ jobs:
           if git status --porcelain | grep -q "pnpm-lock.yaml"; then
             git add pnpm-lock.yaml
             git commit -m "chore: regenerate pnpm-lock.yaml"
-            git push
+            git push origin erpAug2026
           else
             echo "No changes to pnpm-lock.yaml"
           fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
