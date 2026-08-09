@@ -1,5 +1,6 @@
 name: Regenerate pnpm lockfile
-
+permissions:
+  contents: write  # This allows pushing changes
 on:
   workflow_dispatch: {}
   push:
