@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return errorResponse('Validation failed', 400, error.errors);
+      return errorResponse('Validation failed', 400, error.issues);
     }
     return errorResponse('Failed to save comparison', 500, error);
   }

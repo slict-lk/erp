@@ -116,7 +116,7 @@ export const propertySearchSchema = z.object({
 export const savedSearchSchema = z.object({
   userId: z.string().min(1),
   name: z.string().min(1).max(100),
-  criteria: z.record(z.any()),
+  criteria: z.record(z.string(), z.any()),
   emailNotifications: z.boolean().default(true),
   frequency: z.enum(['DAILY', 'WEEKLY', 'INSTANT']).default('DAILY'),
 });
@@ -164,7 +164,7 @@ export const neighborhoodInsightSchema = z.object({
     name: z.string(),
     distance: z.number().positive(),
   })).optional(),
-  additionalData: z.record(z.any()).optional(),
+  additionalData: z.record(z.string(), z.any()).optional(),
 });
 
 // Property viewing schema

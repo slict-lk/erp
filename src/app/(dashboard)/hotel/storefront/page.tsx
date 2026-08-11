@@ -21,10 +21,10 @@ import {
     Phone,
     Mail,
     Globe,
-    Facebook,
-    Instagram,
-    Twitter,
-    Youtube,
+    ThumbsUp,
+    Camera,
+    AtSign,
+    Play,
     Hotel,
     Sparkles,
     Settings,
@@ -359,19 +359,19 @@ export default function HotelStorefrontPage() {
                                             <Label className="text-lg font-semibold">Social Media Links</Label>
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-2">
-                                                    <Label className="flex items-center gap-2"><Facebook className="h-4 w-4 text-blue-600" /> Facebook</Label>
+                                                    <Label className="flex items-center gap-2"><ThumbsUp className="h-4 w-4 text-blue-600" /> Facebook</Label>
                                                     <Input {...register('facebookUrl')} placeholder="https://facebook.com/yourhotel" />
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <Label className="flex items-center gap-2"><Instagram className="h-4 w-4 text-pink-500" /> Instagram</Label>
+                                                    <Label className="flex items-center gap-2"><Camera className="h-4 w-4 text-pink-500" /> Instagram</Label>
                                                     <Input {...register('instagramUrl')} placeholder="https://instagram.com/yourhotel" />
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <Label className="flex items-center gap-2"><Twitter className="h-4 w-4 text-sky-500" /> Twitter/X</Label>
+                                                    <Label className="flex items-center gap-2"><AtSign className="h-4 w-4 text-sky-500" /> Twitter/X</Label>
                                                     <Input {...register('twitterUrl')} placeholder="https://twitter.com/yourhotel" />
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <Label className="flex items-center gap-2"><Youtube className="h-4 w-4 text-red-500" /> YouTube</Label>
+                                                    <Label className="flex items-center gap-2"><Play className="h-4 w-4 text-red-500" /> YouTube</Label>
                                                     <Input {...register('youtubeUrl')} placeholder="https://youtube.com/@yourhotel" />
                                                 </div>
                                             </div>

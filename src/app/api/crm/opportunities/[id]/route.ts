@@ -78,7 +78,7 @@ export async function PATCH(
     return NextResponse.json({ data: item });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Validation failed', details: error.issues }, { status: 400 });
     }
     const message = String(error?.message || '');
     const status = message.includes('Forbidden')

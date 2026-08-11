@@ -97,11 +97,10 @@ export default function TaxReportPage() {
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="end">
                             <Calendar
-                                initialFocus
                                 mode="range"
                                 defaultMonth={date?.from}
                                 selected={date}
-                                onSelect={setDate}
+                                onSelect={(range) => setDate(range)}
                                 numberOfMonths={2}
                             />
                         </PopoverContent>

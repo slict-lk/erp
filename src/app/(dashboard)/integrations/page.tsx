@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { IntegrationList } from '@/components/integrations/IntegrationList';
 import { IntegrationForm } from '@/components/integrations/IntegrationForm';
 import {
-  Facebook,
+  ThumbsUp,
   MessageCircle,
   ShoppingBag,
   Truck,
@@ -257,7 +257,7 @@ export default function IntegrationsPage() {
                             integration.platform === 'WHATSAPP_BUSINESS' ? 'bg-green-100 text-green-800' :
                             'bg-orange-100 text-orange-800'
                           }`}>
-                            {integration.platform === 'FACEBOOK_MARKETPLACE' ? <Facebook className="h-5 w-5" /> :
+                            {integration.platform === 'FACEBOOK_MARKETPLACE' ? <ThumbsUp className="h-5 w-5" /> :
                              integration.platform === 'WHATSAPP_BUSINESS' ? <MessageCircle className="h-5 w-5" /> :
                              <ShoppingBag className="h-5 w-5" />}
                           </div>

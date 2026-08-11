@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { Resolver } from 'react-hook-form';
 import { Plus, Trash2, Car, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -27,7 +28,7 @@ export function VehicleManager({ initialVehicles }: VehicleManagerProps) {
     const { toast } = useToast();
 
     const form = useForm<VehicleFormValues>({
-        resolver: zodResolver(vehicleSchema),
+        resolver: zodResolver(vehicleSchema) as Resolver<VehicleFormValues>,
         defaultValues: {
             make: '',
             model: '',

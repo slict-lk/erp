@@ -6,6 +6,7 @@ import { tryCatch, formatSuccessResponse } from '@/lib/error-handler';
 import { getCustomModuleById } from '@/apps/studio/api';
 import { validateRecordData } from '@/apps/studio/validation';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import Papa from 'papaparse';
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -42,7 +43,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
             return NextResponse.json({ error: 'Failed to parse CSV', details: parsed.errors }, { status: 400 });
         }
 
-        const recordsToCreate = [];
+        const recordsToCreate: { moduleId: string; tenantId: string; createdById: string; data: Prisma.InputJsonValue }[] = [];
         const errors = [];
 
         // Use DB fields if they include user-defined fields, otherwise fallback to schema.fields
@@ -76,7 +77,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
                     moduleId: module.id,
                     tenantId: tenant.id,
                     createdById: session.user.id,
-                    data: validated
+                    data: validated as Prisma.InputJsonValue
                 });
             } catch (e: any) {
                 errors.push({ row: i + 1, data: row, errors: e.errors || e.message });

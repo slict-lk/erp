@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import type { Resolver } from "react-hook-form";
 import * as z from "zod";
 import { Loader2, Trash } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -52,7 +53,7 @@ export function ExperienceForm({ initialData }: ExperienceFormProps) {
     const [loading, setLoading] = useState(false);
 
     const form = useForm<z.infer<typeof formSchema>>({
-        resolver: zodResolver(formSchema),
+        resolver: zodResolver(formSchema) as Resolver<z.infer<typeof formSchema>>,
         defaultValues: initialData || {
             name: "",
             description: "",

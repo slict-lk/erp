@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: mapQuotation(quotation) }, { status: 201 });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Validation failed', details: error.issues }, { status: 400 });
     }
     const status = error?.message?.includes('Forbidden') ? 403 : 500;
     console.error('Error creating quotation:', error);

@@ -568,7 +568,7 @@ export default function AccountingDashboard() {
                         }}
                       />
                       <Tooltip
-                        formatter={(val: number, name: string) => [formatCurrency(val, baseCurrency), MODULE_CONFIGS.find(m => m.slug === name)?.label || name]}
+                        formatter={(val, name) => [formatCurrency(Number(val), baseCurrency), MODULE_CONFIGS.find(m => m.slug === name)?.label || name]}
                         contentStyle={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px' }}
                       />
                       <Legend

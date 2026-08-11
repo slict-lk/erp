@@ -123,7 +123,7 @@ export async function PUT(
     return NextResponse.json(formatSuccessResponse(customer, 'Customer updated successfully'));
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Validation failed', details: error.issues }, { status: 400 });
     }
     console.error('Error updating customer:', error);
     return NextResponse.json({ error: 'Failed to update customer' }, { status: 500 });

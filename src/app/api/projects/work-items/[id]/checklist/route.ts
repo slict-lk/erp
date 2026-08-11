@@ -11,7 +11,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { title } = checklistCreateSchema.parse(await request.json());
     return NextResponse.json({ data: await addChecklistItem(await resolveProjectActor(user), (await params).id, title) }, { status: 201 });
   } catch (error: any) {
-    if (error instanceof ZodError) return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+    if (error instanceof ZodError) return NextResponse.json({ error: 'Validation failed', details: error.issues }, { status: 400 });
     return NextResponse.json({ error: error.message || 'Failed to add checklist item' }, { status: /not found/i.test(error.message) ? 404 : 500 });
   }
 }

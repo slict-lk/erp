@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     const project = await createProject(actor, data);
     return NextResponse.json({ data: project }, { status: 201 });
   } catch (error: any) {
-    if (error instanceof ZodError) return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+    if (error instanceof ZodError) return NextResponse.json({ error: 'Validation failed', details: error.issues }, { status: 400 });
     const status = error.code === 'P2002' ? 409 : error.message?.includes('Forbidden') ? 403 : 500;
     return NextResponse.json({ error: status === 409 ? 'Project code already exists' : error.message || 'Failed to create project' }, { status });
   }

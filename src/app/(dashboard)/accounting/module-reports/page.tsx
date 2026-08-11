@@ -248,7 +248,7 @@ export default function ModuleReportsPage() {
                                                     <Cell key={`cell-${index}`} fill={MODULE_COLORS[entry.module] || '#cbd5e1'} />
                                                 ))}
                                             </Pie>
-                                            <Tooltip formatter={(value: number) => `Rs. ${value.toLocaleString()}`} />
+                                            <Tooltip formatter={(value) => `Rs. ${Number(value).toLocaleString()}`} />
                                         </PieChart>
                                     </ResponsiveContainer>
                                 )}

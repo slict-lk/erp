@@ -119,14 +119,14 @@ export function buildDynamicSchema(fields: CustomModuleField[]) {
 
         if (field.required) {
             // If it's a string, ensure it's not empty
-            if (fieldSchema._def?.typeName === 'ZodString') {
+            if (fieldSchema instanceof z.ZodString) {
                 fieldSchema = (fieldSchema as z.ZodString).min(1, { message: `${field.label} is required` });
-            } else if (fieldSchema._def?.typeName === 'ZodArray') {
+            } else if (fieldSchema instanceof z.ZodArray) {
                 fieldSchema = (fieldSchema as z.ZodArray<any>).min(1, { message: `${field.label} is required` });
             }
         } else {
             // If optional, allow undefined or null (and empty string for text fields)
-            if (fieldSchema._def?.typeName === 'ZodString') {
+            if (fieldSchema instanceof z.ZodString) {
                 fieldSchema = z.union([fieldSchema, z.literal('')]).optional().nullable().transform(val => val === '' ? null : val);
             } else {
                 fieldSchema = fieldSchema.optional().nullable();

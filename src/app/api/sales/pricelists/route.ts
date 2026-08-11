@@ -11,7 +11,7 @@ const priceListSchema = z.object({
   currency: z.string().length(3).default("USD"),
   isActive: z.boolean().default(true),
   branchId: z.string().optional(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: priceList }, { status: 201 });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Validation failed", details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: "Validation failed", details: error.issues }, { status: 400 });
     }
     const status = error?.message?.includes("Forbidden") ? 403 : 500;
     return NextResponse.json({ error: status === 403 ? "Forbidden" : "Failed to create price list" }, { status });

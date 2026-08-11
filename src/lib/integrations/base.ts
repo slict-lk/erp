@@ -13,7 +13,7 @@ export class EncryptionService {
     }
 
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher(this.ALGORITHM, encryptionKey);
+    const cipher = crypto.createCipheriv(this.ALGORITHM, Buffer.from(encryptionKey, 'utf8'), iv);
     const encrypted = cipher.update(text, 'utf8', 'hex') + cipher.final('hex');
 
     return iv.toString('hex') + ':' + encrypted;
@@ -30,7 +30,7 @@ export class EncryptionService {
     const iv = Buffer.from(parts[0], 'hex');
     const encrypted = parts[1];
 
-    const decipher = crypto.createDecipher(this.ALGORITHM, encryptionKey);
+    const decipher = crypto.createDecipheriv(this.ALGORITHM, Buffer.from(encryptionKey, 'utf8'), iv);
     const decrypted = decipher.update(encrypted, 'hex', 'utf8') + decipher.final('utf8');
 
     return decrypted;

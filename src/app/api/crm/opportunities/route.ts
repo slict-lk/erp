@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: opportunity }, { status: 201 });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Validation failed', details: error.issues }, { status: 400 });
     }
     const message = error instanceof Error ? error.message : String(error);
     const status = message.includes('Forbidden')

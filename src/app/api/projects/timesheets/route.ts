@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     await recordOperationalEvent(prisma, { tenantId, moduleKey: 'projects', entityType: 'TIMESHEET', entityId: entry.id, action: 'TIME_LOGGED', actorUserId: user.id, employeeId: input.employeeId, durationMs: Math.round(input.hours * 3600000), metadata: { projectId: input.projectId, taskId: input.taskId, billable: input.billable } });
     return NextResponse.json({ data: entry }, { status: 201 });
   } catch (error: any) {
-    if (error instanceof ZodError) return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+    if (error instanceof ZodError) return NextResponse.json({ error: 'Validation failed', details: error.issues }, { status: 400 });
     return NextResponse.json({ error: error.message || 'Failed to create timesheet' }, { status: error.message?.includes('Forbidden') ? 403 : 500 });
   }
 }

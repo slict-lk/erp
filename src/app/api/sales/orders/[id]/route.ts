@@ -25,7 +25,7 @@ const updateOrderSchema = z.object({
   deliveryTerms: z.string().optional(),
   paymentTermsDays: z.number().optional(),
   notes: z.string().optional(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
   recalculatePrice: z.boolean().optional(),
   recalculateTax: z.boolean().optional(),
   recalculateApproval: z.boolean().optional(),
@@ -37,7 +37,7 @@ const updateOrderSchema = z.object({
     unitPrice: z.number().optional(),
     discountPercent: z.number().optional(),
     taxPercent: z.number().optional(),
-    metadata: z.record(z.any()).optional(),
+    metadata: z.record(z.string(), z.any()).optional(),
   })).optional(),
 });
 
@@ -182,7 +182,7 @@ export async function PUT(
     return NextResponse.json({ data: mapLegacyOrder(order) });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Validation failed', details: error.issues }, { status: 400 });
     }
     const message = String(error?.message || '');
     const status = message.includes('Forbidden')

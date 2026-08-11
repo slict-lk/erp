@@ -13,7 +13,7 @@ const fulfillmentSchema = z.object({
   branchId: z.string().optional(),
   markStatus: z.string().optional(),
   orderStatus: z.string().optional(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 
 export async function POST(
@@ -31,7 +31,7 @@ export async function POST(
     return NextResponse.json({ data: result }, { status: 201 });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Validation failed', details: error.issues }, { status: 400 });
     }
     const message = String(error?.message || '');
     const status = message.includes('Forbidden')

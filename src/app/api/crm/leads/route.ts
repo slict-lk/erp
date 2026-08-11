@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ data: items, metadata: { count: items.length } });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Validation failed', details: error.issues }, { status: 400 });
     }
     const status = error?.message?.includes('Forbidden') ? 403 : 500;
     return NextResponse.json({ error: status === 403 ? 'Forbidden' : 'Failed to fetch leads' }, { status });
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: lead }, { status: 201 });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Validation failed', details: error.issues }, { status: 400 });
     }
     const message = String(error?.message || '');
     const status = message.includes('Forbidden')

@@ -109,7 +109,7 @@ export const AVAILABLE_MODULES: Module[] = [
     description: 'Lead, opportunity, pipeline, and customer relationship management',
     category: 'sales',
     icon: 'Target',
-    route: '/sales',
+    route: '/crm',
     permissions: { view: true, create: true, edit: true, delete: true, export: true, approve: true },
   },
   {

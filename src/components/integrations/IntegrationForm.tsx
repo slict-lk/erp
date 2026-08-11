@@ -21,7 +21,7 @@ const integrationSchema = z.object({
   apiKey: z.string().optional(),
   apiSecret: z.string().optional(),
   webhookSecret: z.string().optional(),
-  settings: z.record(z.any()).optional(),
+  settings: z.record(z.string(), z.any()).optional(),
 });
 
 type IntegrationFormData = z.infer<typeof integrationSchema>;

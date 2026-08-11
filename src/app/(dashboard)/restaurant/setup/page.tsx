@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { Resolver } from 'react-hook-form';
 import * as z from 'zod';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +28,7 @@ export default function RestaurantSettingsPage() {
     const [isLoading, setIsLoading] = useState(false);
 
     const form = useForm<TaxFormValues>({
-        resolver: zodResolver(taxSchema),
+        resolver: zodResolver(taxSchema) as Resolver<TaxFormValues>,
         defaultValues: {
             enableTax: true,
             vatPercentage: 18, // SL Standard

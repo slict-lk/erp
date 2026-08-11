@@ -30,9 +30,9 @@ const createPrismaClient = () => {
   };
 
   if (process.env.DISABLE_SSL_VERIFY === 'true') {
-    // Fully disable SSL, not just certificate checking. Needed for local
-    // testing through an SSH tunnel where the DB doesn't support SSL at all.
-    sslConfig = false;
+    // Keep TLS encryption but skip certificate chain verification (Aiven's
+    // cert chain is not trusted by this environment's CA store).
+    sslConfig = { rejectUnauthorized: false };
   }
 
   if (sslConfig && process.env.AIVEN_CA_CERT) {
@@ -66,11 +66,22 @@ const createPrismaClient = () => {
   return client;
 };
 
-// Use cached instance or create new one
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+// Lazily create the client on first use so importing this module never throws,
+// e.g. during `next build` page-data collection when DATABASE_URL is unset.
+// The actual error is deferred until a real query is made.
+const getPrisma = (): PrismaClient => {
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = createPrismaClient();
+  }
+  return globalForPrisma.prisma;
+};
 
-// Cache in-process so route handlers and auth callbacks share one client/pool.
-globalForPrisma.prisma = prisma;
+export const prisma = new Proxy({} as PrismaClient, {
+  get: (_target, prop) => {
+    if (prop === 'then') return undefined;
+    return (getPrisma() as unknown as Record<PropertyKey, unknown>)[prop];
+  },
+}) as PrismaClient;
 
 
 // Connection health check helper

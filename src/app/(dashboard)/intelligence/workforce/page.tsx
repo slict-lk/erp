@@ -99,6 +99,8 @@ function formatPointLabel(value: string) {
   }).format(new Date(value));
 }
 
+const tooltipLabelFormatter = (label: unknown) => formatPointLabel(String(label));
+
 export default function WorkforceIntelligencePage() {
   const [data, setData] = useState<WorkforceResponse['data'] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -393,7 +395,7 @@ export default function WorkforceIntelligencePage() {
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                         <XAxis dataKey="createdAt" tickFormatter={formatPointLabel} />
                         <YAxis />
-                        <Tooltip labelFormatter={formatPointLabel} />
+                        <Tooltip labelFormatter={tooltipLabelFormatter} />
                         <Line type="monotone" dataKey="stressLoad" stroke="#dc2626" strokeWidth={2} />
                         <Line type="monotone" dataKey="productivity" stroke="#0284c7" strokeWidth={2} />
                         <Line type="monotone" dataKey="systemDependency" stroke="#0f766e" strokeWidth={2} />

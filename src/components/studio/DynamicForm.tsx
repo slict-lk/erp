@@ -224,17 +224,17 @@ export function DynamicForm({ fields, defaultValues = {}, onSubmit, isLoading = 
                                         <FormControl>
                                             {/* Field Type Routing */}
                                             {field.type === 'text' || field.type === 'email' || field.type === 'url' || field.type === 'phone' ? (
-                                                <Input type={field.type === 'email' ? 'email' : field.type === 'url' ? 'url' : 'text'} placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`} {...formField} />
+                                                <Input type={field.type === 'email' ? 'email' : field.type === 'url' ? 'url' : 'text'} placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`} {...formField} value={formField.value as string} />
                                             ) : field.type === 'number' || field.type === 'currency' || field.type === 'percentage' ? (
                                                 <div className="relative">
                                                     {field.type === 'currency' && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>}
-                                                    <Input type="number" className={field.type === 'currency' ? 'pl-7' : ''} placeholder="0" {...formField} />
+                                                    <Input type="number" className={field.type === 'currency' ? 'pl-7' : ''} placeholder="0" {...formField} value={formField.value as number} />
                                                     {field.type === 'percentage' && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>}
                                                 </div>
                                             ) : field.type === 'boolean' ? (
                                                 <div className="flex items-center gap-3 w-full">
                                                     <Checkbox
-                                                        checked={formField.value}
+                                                        checked={formField.value as boolean}
                                                         onCheckedChange={formField.onChange}
                                                     />
                                                     <div className="space-y-1 leading-none">
@@ -242,7 +242,7 @@ export function DynamicForm({ fields, defaultValues = {}, onSubmit, isLoading = 
                                                     </div>
                                                 </div>
                                             ) : field.type === 'select' ? (
-                                                <Select onValueChange={formField.onChange} value={formField.value || ''}>
+                                                <Select onValueChange={formField.onChange} value={(formField.value as string) || ''}>
                                                     <SelectTrigger>
                                                         <SelectValue placeholder={`Select ${field.label}`} />
                                                     </SelectTrigger>
@@ -278,19 +278,19 @@ export function DynamicForm({ fields, defaultValues = {}, onSubmit, isLoading = 
                                                     )}
                                                 </div>
                                             ) : field.type === 'json' || field.type === 'richtext' ? (
-                                                <Textarea placeholder={field.placeholder || '...'} {...formField} />
+                                                <Textarea placeholder={field.placeholder || '...'} {...formField} value={formField.value as string} />
                                             ) : field.type === 'file' || field.type === 'image' ? (
                                                 <FileUploadField
                                                     fieldName={field.name}
                                                     fieldLabel={field.label}
                                                     fieldType={field.type}
-                                                    value={formField.value || ''}
+                                                    value={(formField.value as string) || ''}
                                                     onChange={formField.onChange}
                                                 />
                                             ) : field.type === 'date' ? (
-                                                <Input type="datetime-local" {...formField} />
+                                                <Input type="datetime-local" {...formField} value={formField.value as string} />
                                             ) : (
-                                                <Input {...formField} />
+                                                <Input {...formField} value={formField.value as string} />
                                             )}
                                         </FormControl>
                                         <FormMessage />

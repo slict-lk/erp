@@ -12,7 +12,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, Users, FileText, Calendar, BarChart3, Settings,
   Zap, Globe, Factory, Building2, Mail, MessageSquare, BookOpen, GraduationCap, Home,
   CreditCard, Phone, Store, Hotel, UtensilsCrossed, Heart, Wrench, CheckSquare, ArrowRight,
-  ShieldCheck, Sparkles, CloudCog, Menu, X, ChevronRight, Play, Briefcase, Code, LifeBuoy, Youtube
+  ShieldCheck, Sparkles, CloudCog, Menu, X, ChevronRight, Play, Briefcase, Code, LifeBuoy
 } from 'lucide-react';
 
 // --- Data & Constants ---
@@ -764,8 +764,7 @@ function Navbar() {
               exit={{ opacity: 0, y: 20 }}
               transition={{
                 duration: 0.45,
-                ease: [0.16, 1, 0.3, 1],
-                exit: { duration: 0.25, ease: [0.4, 0, 1, 1] }
+                ease: [0.16, 1, 0.3, 1]
               }}
               className="fixed inset-0 z-40 lg:hidden"
             >

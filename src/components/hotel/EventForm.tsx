@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import type { Resolver } from "react-hook-form";
 import * as z from "zod";
 import { format } from "date-fns";
 import { Loader2, Trash, CalendarIcon } from "lucide-react";
@@ -35,7 +36,7 @@ const formSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
     description: z.string().optional(),
     location: z.string().optional(),
-    startDate: z.date({ required_error: "Start date is required." }),
+    startDate: z.date({ error: "Start date is required." }),
     endDate: z.date().optional(),
     capacity: z.coerce.number().min(0).optional(),
     images: z.array(z.string()).optional(),
@@ -51,7 +52,7 @@ export function EventForm({ initialData }: EventFormProps) {
     const [loading, setLoading] = useState(false);
 
     const form = useForm<z.infer<typeof formSchema>>({
-        resolver: zodResolver(formSchema),
+        resolver: zodResolver(formSchema) as Resolver<z.infer<typeof formSchema>>,
         defaultValues: initialData ? {
             ...initialData,
             startDate: new Date(initialData.startDate),
@@ -177,11 +178,10 @@ export function EventForm({ initialData }: EventFormProps) {
                                                 <Calendar
                                                     mode="single"
                                                     selected={field.value}
-                                                    onSelect={field.onChange}
+                                                    onSelect={(date) => field.onChange(date)}
                                                     disabled={(date) =>
                                                         date < new Date()
                                                     }
-                                                    initialFocus
                                                 />
                                             </PopoverContent>
                                         </Popover>
@@ -218,11 +218,10 @@ export function EventForm({ initialData }: EventFormProps) {
                                                 <Calendar
                                                     mode="single"
                                                     selected={field.value}
-                                                    onSelect={field.onChange}
+                                                    onSelect={(date) => field.onChange(date)}
                                                     disabled={(date) =>
                                                         date < new Date()
                                                     }
-                                                    initialFocus
                                                 />
                                             </PopoverContent>
                                         </Popover>

@@ -14,7 +14,7 @@ import { AVAILABLE_MODULES, MODULE_CATEGORIES, generateDefaultModulePermissions,
 import { convertPermissionsToModulePermissions } from '@/lib/rbac';
 
 // Dynamically generate permissions schema
-const permissionsSchema = z.record(z.boolean());
+const permissionsSchema = z.record(z.string(), z.boolean());
 
 const userSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -24,7 +24,7 @@ const userSchema = z.object({
   department: z.string().optional(),
   isActive: z.boolean(),
   // Allow dynamic keys for permissions
-  permissions: z.record(z.any()),
+  permissions: z.record(z.string(), z.any()),
   roleId: z.string().optional(),
 });
 

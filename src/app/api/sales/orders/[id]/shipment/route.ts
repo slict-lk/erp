@@ -46,7 +46,7 @@ export async function POST(
         return NextResponse.json({ data: { success: true } });
     } catch (error: any) {
         if (error instanceof z.ZodError) {
-            return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+            return NextResponse.json({ error: 'Validation failed', details: error.issues }, { status: 400 });
         }
         const status = error?.message?.includes('Forbidden') ? 403 : 500;
         console.error('Error recording shipment:', error);

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  Facebook,
+  ThumbsUp,
   MessageCircle,
   ShoppingBag,
   Truck,
@@ -46,7 +46,7 @@ interface IntegrationListProps {
 const PLATFORM_CONFIG = {
   FACEBOOK_MARKETPLACE: {
     name: 'Facebook Marketplace',
-    icon: Facebook,
+    icon: ThumbsUp,
     color: 'bg-blue-100 text-blue-800',
     description: 'Sync products and manage listings',
   },

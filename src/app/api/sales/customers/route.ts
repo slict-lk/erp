@@ -24,8 +24,8 @@ const customerCreateSchema = z.object({
 }).passthrough();
 
 const listQuerySchema = z.object({
-  page: z.string().transform(Number).default('1'),
-  limit: z.string().transform(Number).default('10'),
+  page: z.string().default('1').transform(Number),
+  limit: z.string().default('10').transform(Number),
   search: z.string().optional().nullable(),
   type: z.string().optional().nullable(),
 });
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Validation failed', details: error.issues }, { status: 400 });
     }
     console.error('Failed to create customer:', error);
     return NextResponse.json({ error: 'Failed to create customer' }, { status: 500 });

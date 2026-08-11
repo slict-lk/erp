@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return errorResponse('Validation failed', 400, error.errors);
+      return errorResponse('Validation failed', 400, error.issues);
     }
     return errorResponse('Failed to create neighborhood insights', 500, error);
   }
@@ -132,7 +132,7 @@ export async function PUT(request: NextRequest) {
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return errorResponse('Validation failed', 400, error.errors);
+      return errorResponse('Validation failed', 400, error.issues);
     }
     if (error instanceof Error && 'code' in error && error.code === 'P2025') {
       return errorResponse('Neighborhood insights not found', 404);

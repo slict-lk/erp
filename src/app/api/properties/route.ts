@@ -242,7 +242,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return errorResponse('Invalid search parameters', 400, error.errors);
+      return errorResponse('Invalid search parameters', 400, error.issues);
     }
 
     return errorResponse('Failed to fetch properties', 500, error);
@@ -318,7 +318,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return errorResponse('Validation failed', 400, error.errors);
+      return errorResponse('Validation failed', 400, error.issues);
     }
 
     if (error instanceof Prisma.PrismaClientKnownRequestError) {

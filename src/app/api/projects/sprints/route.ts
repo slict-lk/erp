@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     const { user } = await requireTenantContext({ moduleId: 'projects', action: 'create' });
     return NextResponse.json({ data: await createSprint(await resolveProjectActor(user), sprintCreateSchema.parse(await request.json())) }, { status: 201 });
   } catch (error: any) {
-    if (error instanceof ZodError) return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 });
+    if (error instanceof ZodError) return NextResponse.json({ error: 'Validation failed', details: error.issues }, { status: 400 });
     return NextResponse.json({ error: error.message || 'Failed to create sprint' }, { status: /not found/i.test(error.message) ? 404 : 500 });
   }
 }

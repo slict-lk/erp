@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { Resolver } from 'react-hook-form';
 import { Wrench, Grid, List, Search, Save, Loader2, Check } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -37,7 +38,7 @@ export function AutomotivePartForm({ vehicles = [] }: AutomotivePartFormProps) {
     ]);
 
     const form = useForm<AutomotivePartFormValues>({
-        resolver: zodResolver(automotivePartSchema),
+        resolver: zodResolver(automotivePartSchema) as Resolver<AutomotivePartFormValues>,
         defaultValues: {
             partType: 'SPARE_PART',
             condition: 'NEW',
