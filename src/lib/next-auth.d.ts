@@ -50,7 +50,7 @@ declare module 'next-auth/jwt' {
   interface JWT {
     id: string;
     tenantId: string;
-    tenant: string;
+    tenant?: string | null;
     role: string | null;
     isSuperAdmin: boolean;
     enabledModuleIds: string[];

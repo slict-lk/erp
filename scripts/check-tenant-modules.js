@@ -40,52 +40,56 @@ const pool = new pg.Pool({
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-async function syncHotelPermissions() {
-    console.log('🔄 Syncing hotel module permissions for all ADMIN users...\n');
+async function checkTenantModules() {
+    const email = 'info.muba@gmail.com';
+    
+    console.log(`🔍 Checking tenant modules for user: ${email}\n`);
 
-    // Find all admin users
-    const users = await prisma.user.findMany({
-        where: {
-            role: 'ADMIN'
-        },
+    const user = await prisma.user.findUnique({
+        where: { email },
         select: {
             id: true,
             email: true,
             name: true,
+            role: true,
             tenantId: true,
             modulePermissions: true,
-            role: true
+            tenant: {
+                select: {
+                    id: true,
+                    name: true,
+                    enabledModules: true
+                }
+            }
         }
     });
 
-    console.log(`Found ${users.length} admin users.\n`);
-
-    for (const user of users) {
-        const currentPermissions = user.modulePermissions || {};
-
-        // Check if hotel permission is missing or disabled
-        if (!currentPermissions.hotel || !currentPermissions.hotel.enabled) {
-            console.log(`📝 Updating: ${user.email}`);
-
-            const updatedPermissions = {
-                ...currentPermissions,
-                hotel: { enabled: true, read: true, write: true, view: true, create: true, edit: true, delete: true }
-            };
-
-            await prisma.user.update({
-                where: { id: user.id },
-                data: { modulePermissions: updatedPermissions }
-            });
-
-            console.log(`   ✅ Added hotel permissions`);
-        } else {
-            console.log(`⏭️  Skipping: ${user.email} (already has hotel permissions)`);
-        }
+    if (!user) {
+        console.log('❌ User not found');
+        return;
     }
 
-    console.log('\n✅ Done!');
+    console.log('User Info:');
+    console.log('  Name:', user.name);
+    console.log('  Role:', user.role);
+    console.log('  Tenant ID:', user.tenantId);
+    console.log('  Tenant Name:', user.tenant.name);
+    
+    console.log('\nTenant Modules:');
+    console.log('  Enabled Modules:', user.tenant.enabledModules);
+    
+    console.log('\nUser Module Permissions:');
+    const permissions = user.modulePermissions || {};
+    
+    if (permissions.hotel) {
+        console.log('  Hotel Module:');
+        console.log('    Enabled:', permissions.hotel.enabled);
+        console.log('    View:', permissions.hotel.view);
+    } else {
+        console.log('  Hotel Module: ❌ NOT DEFINED');
+    }
 }
 
-syncHotelPermissions()
+checkTenantModules()
     .catch(console.error)
     .finally(() => prisma.$disconnect());

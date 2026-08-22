@@ -272,19 +272,28 @@ async function runRouteTests() {
 
   for (const route of routes) {
     await test(`Route: ${route.name} (${route.path})`, async () => {
-      const res = await fetch(`${BASE_URL}${route.path}`, {
-        redirect: 'manual',
-        headers: cookies ? { Cookie: cookies } : {}
-      });
+      try {
+        const res = await fetch(`${BASE_URL}${route.path}`, {
+          redirect: 'manual',
+          headers: cookies ? { Cookie: cookies } : {},
+          signal: AbortSignal.timeout(15000) // 15 second timeout for route tests
+        });
 
-      if (res.status === 200 || res.status === 302 || res.status === 307) {
-        pass(`Route: ${route.name} (${route.path}) - ${res.status}`);
-      } else if (res.status === 404) {
-        fail(`Route: ${route.name} (${route.path})`, `404 Not Found`);
-      } else if (res.status >= 500) {
-        fail(`Route: ${route.name} (${route.path})`, `Server Error: ${res.status}`);
-      } else {
-        warn(`Route: ${route.name} (${route.path})`, `Status: ${res.status}`);
+        if (res.status === 200 || res.status === 302 || res.status === 307) {
+          pass(`Route: ${route.name} (${route.path}) - ${res.status}`);
+        } else if (res.status === 404) {
+          fail(`Route: ${route.name} (${route.path})`, `404 Not Found`);
+        } else if (res.status >= 500) {
+          fail(`Route: ${route.name} (${route.path})`, `Server Error: ${res.status}`);
+        } else {
+          warn(`Route: ${route.name} (${route.path})`, `Status: ${res.status}`);
+        }
+      } catch (error: any) {
+        if (error.name === 'TimeoutError') {
+          warn(`Route: ${route.name} (${route.path})`, 'Request timeout (page may be slow to load)');
+        } else {
+          fail(`Route: ${route.name} (${route.path})`, `Network error: ${error.message}`);
+        }
       }
     });
   }

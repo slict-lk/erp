@@ -89,10 +89,9 @@ export async function POST(request: NextRequest) {
       .webp({ quality: 80 })
       .toBuffer();
 
-    const base64Logo = `data:image/webp;base64,${processed.toString('base64')}`;
     await prisma.tenant.update({
       where: { id: user.tenantId },
-      data: { logo: base64Logo },
+      data: { logo: new Uint8Array(processed) },
     });
 
     return NextResponse.json({ success: true });

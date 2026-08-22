@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { X, Printer, FileText, Building2, Mail, Phone, MapPin, Calendar, Hash, User, CreditCard } from "lucide-react";
@@ -70,7 +70,29 @@ interface QuotationViewProps {
 
 export function QuotationView({ quotation, open, onClose, company }: QuotationViewProps) {
   const [printing, setPrinting] = useState(false);
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
+
+  // Fetch the company logo as a data URL when dialog opens
+  useEffect(() => {
+    if (!open || !company?.logo) {
+      setLogoDataUrl(null);
+      return;
+    }
+    let cancelled = false;
+    fetch('/api/settings/company/logo')
+      .then(async (res) => {
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (!cancelled) setLogoDataUrl(reader.result as string);
+        };
+        reader.readAsDataURL(blob);
+      })
+      .catch(() => setLogoDataUrl(null));
+    return () => { cancelled = true; };
+  }, [open, company?.logo]);
 
   if (!quotation) return null;
 
@@ -112,7 +134,9 @@ export function QuotationView({ quotation, open, onClose, company }: QuotationVi
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; color: #1a1a1a; }
             .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1a1a1a; padding-bottom: 24px; margin-bottom: 24px; }
             .company { display: flex; gap: 16px; }
-            .logo { width: 64px; height: 64px; border-radius: 8px; background: #2563eb; display: flex; align-items: center; justify-content: center; color: white; }
+            .logo { width: 120px; height: 60px; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+            .logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+            .logo svg { width: 32px; height: 32px; color: white; background: #2563eb; border-radius: 8px; padding: 12px; }
             .company-info h1 { font-size: 24px; font-weight: 700; }
             .company-info .tagline { font-size: 14px; color: #6b7280; }
             .company-info .contact { margin-top: 8px; font-size: 12px; color: #4b5563; line-height: 1.6; }
@@ -199,8 +223,12 @@ export function QuotationView({ quotation, open, onClose, company }: QuotationVi
         <div ref={printRef} className="bg-white p-8">
           {/* Header */}
           <div className="header">
-              <div className="company">
-              <div className="logo"><Building2 className="h-8 w-8" /></div>
+            <div className="company">
+              <div className="logo" style={{ width: '120px', height: '60px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: logoDataUrl ? 'transparent' : '#2563eb' }}>
+                {logoDataUrl
+                  ? <img src={logoDataUrl} alt="Company Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                  : <Building2 className="h-8 w-8 text-white" />}
+              </div>
               <div className="company-info">
                 <h1>{company?.companyName || "Company Name"}</h1>
                 <div className="contact">

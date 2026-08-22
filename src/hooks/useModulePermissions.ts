@@ -32,21 +32,32 @@ export function useModulePermissions() {
     // If tenantModules is populated, use it; otherwise fall back to user's enabledModuleIds
     const effectiveModuleIds = tenantModules.length > 0 ? tenantModules : userEnabledIds;
 
+    // Debug logging
+    console.log('🔍 useModulePermissions Debug:');
+    console.log('  tenantModules:', tenantModules);
+    console.log('  userEnabledIds:', userEnabledIds);
+    console.log('  effectiveModuleIds:', effectiveModuleIds);
+    console.log('  modulePermissions exists:', !!user?.modulePermissions);
+    console.log('  modulePermissions keys:', user?.modulePermissions ? Object.keys(user.modulePermissions) : 'none');
+
     if (user?.modulePermissions && Object.keys(user.modulePermissions).length > 0) {
-      // Filter modulePermissions to only include tenant-enabled modules
-      const filteredPermissions: Record<string, ModulePermission> = {};
-      for (const id of effectiveModuleIds) {
-        if (user.modulePermissions[id]) {
-          filteredPermissions[id] = user.modulePermissions[id];
+      // If tenant has module restrictions, filter permissions to only tenant-enabled modules
+      if (tenantModules.length > 0) {
+        const filteredPermissions: Record<string, ModulePermission> = {};
+        for (const id of tenantModules) {
+          if (user.modulePermissions[id]) {
+            filteredPermissions[id] = user.modulePermissions[id];
+          }
         }
+        console.log('  Using tenant-filtered permissions');
+        return filteredPermissions;
       }
-      if (tenantModules.length === 0) {
-        return user.modulePermissions as Record<string, ModulePermission>;
-      }
-      return filteredPermissions;
+      // No tenant restrictions — use user's own module permissions as-is
+      console.log('  Using user modulePermissions');
+      return user.modulePermissions as Record<string, ModulePermission>;
     }
 
-    // Use effective module IDs from tenant or user session
+    // Build permissions from effectiveModuleIds (tenant or user scope)
     const permissions: Record<string, ModulePermission> = {};
     effectiveModuleIds.forEach(id => {
       permissions[id] = {
@@ -58,6 +69,10 @@ export function useModulePermissions() {
       };
     });
 
+    console.log('  Built permissions from effectiveModuleIds');
+    console.log('  Final permissions keys:', Object.keys(permissions));
+    console.log('  Hotel in permissions:', !!permissions.hotel);
+
     return permissions;
   }, [user]);
 
@@ -68,7 +83,9 @@ export function useModulePermissions() {
     moduleId: string,
     action: 'view' | 'create' | 'edit' | 'delete' | 'export' | 'import' | 'approve'
   ): boolean => {
-    if (isAdmin) return true;
+    // Super admins bypass all permission checks
+    if (user?.isSuperAdmin) return true;
+    // Regular admins must have module enabled and specific permission
     return hasModulePermission(modulePermissions, moduleId, action);
   };
 

@@ -57,6 +57,7 @@ export const authOptions: NextAuthOptions = {
               employee: (user as any).employee,
               trialEnd: user.tenant?.trialEnd?.toISOString() || null,
               plan: user.tenant?.plan || 'starter',
+              tenantModules: (user.tenant as any)?.enabledModules || [],
             };
           }
         }
@@ -104,12 +105,13 @@ export const authOptions: NextAuthOptions = {
           employee: (user as any).employee,
           trialEnd: user.tenant?.trialEnd?.toISOString() || null,
           plan: user.tenant?.plan || 'starter',
+          tenantModules: (user.tenant as any)?.enabledModules || [],
         };
       },
     }),
   ],
   callbacks: {
-      async jwt({ token, user, trigger }) {
+    async jwt({ token, user, trigger }) {
       // On initial sign in, store user data in token
       if (user) {
         token.id = user.id;
@@ -123,8 +125,14 @@ export const authOptions: NextAuthOptions = {
         token.modulePermissions = undefined;
 
         token.tenantId = user.tenantId as string;
-        token.tenant = user.tenant;
-        token.tenantModules = (user.tenant as any)?.enabledModules || [];
+        token.tenant =
+          (user.tenant && typeof user.tenant === 'object' && 'name' in user.tenant
+            ? user.tenant.name
+            : user.tenant) as string | null;
+        // Populate tenantModules from the tenant's enabledModules field
+        token.tenantModules = (user as any).tenantModules
+          || (user.tenant && typeof user.tenant === 'object' ? (user.tenant as any).enabledModules : null)
+          || [];
         token.employee = user.employee;
         token.trialEnd = user.trialEnd || null;
         token.plan = user.plan || 'starter';
@@ -157,7 +165,7 @@ export const authOptions: NextAuthOptions = {
               isSuperAdmin: true,
               tenantId: true,
               modulePermissions: true,
-              userRole: true, // Fetch dynamic role
+              userRole: true,
               // @ts-ignore
               employee: true,
               tenant: {
@@ -166,6 +174,7 @@ export const authOptions: NextAuthOptions = {
                   companyName: true,
                   trialEnd: true,
                   plan: true,
+                  enabledModules: true,  // ← fetch tenant-level module list
                 }
               }
             }
@@ -189,6 +198,8 @@ export const authOptions: NextAuthOptions = {
 
             token.tenantId = dbUser.tenantId;
             token.tenant = dbUser.tenant?.name ?? dbUser.tenant?.companyName ?? 'Default';
+            // Refresh tenant-level enabled modules
+            token.tenantModules = (dbUser.tenant as any)?.enabledModules || token.tenantModules || [];
             token.employee = (dbUser as any).employee;
             token.trialEnd = dbUser.tenant?.trialEnd?.toISOString() || null;
             token.plan = dbUser.tenant?.plan || 'starter';

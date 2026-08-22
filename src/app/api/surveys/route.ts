@@ -7,16 +7,21 @@ export async function GET(req: NextRequest) {
   try {
     const tenantId = req.headers.get('x-tenant-id') || 'default-tenant';
     const { searchParams } = new URL(req.url);
-    const isActive = searchParams.get('isActive');
+    const status = searchParams.get('status');
 
     const where: any = { tenantId };
-    if (isActive !== null && isActive !== undefined) {
-      where.isActive = isActive === 'true';
+    if (status) {
+      where.status = status;
     }
 
     const surveys = await prisma.survey.findMany({
       where,
       orderBy: { createdAt: 'desc' },
+      include: {
+        _count: {
+          select: { responses: true }
+        }
+      }
     });
 
     return NextResponse.json(surveys);
@@ -36,7 +41,9 @@ export async function POST(req: NextRequest) {
         title: data.title,
         description: data.description,
         questions: data.questions || [],
-        isActive: data.isActive ?? true,
+        status: data.status ?? 'DRAFT',
+        startDate: data.startDate,
+        endDate: data.endDate,
         tenantId,
       },
     });

@@ -88,4 +88,12 @@ export const AVAILABLE_MODULES: ERPModule[] = [
     features: ["Table Management", "Kitchen Display", "Menu Builder", "Waitstaff Tracking"],
     price: 49.99,
   },
+  {
+    id: "hotel",
+    name: "Hotel Management",
+    description: "Complete hotel operations including room management, guest services, dining, and housekeeping.",
+    icon: "Building",
+    features: ["Room Management", "Guest Services", "Dining & Experiences", "Housekeeping", "Front Desk"],
+    price: 89.99,
+  },
 ];

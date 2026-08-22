@@ -98,6 +98,32 @@ export async function POST(req: Request) {
                 }
             }
             modulePermissions = filteredPermissions;
+        } else {
+            // If no modules specified, disable all modules by default
+            for (const [moduleId, permission] of Object.entries(modulePermissions)) {
+                modulePermissions[moduleId] = {
+                    ...(permission as any),
+                    enabled: false,
+                    view: false,
+                    create: false,
+                    edit: false,
+                    delete: false,
+                };
+            }
+            // Always enable core modules
+            const coreModules = ['dashboard', 'settings', 'users'];
+            coreModules.forEach(moduleId => {
+                if (modulePermissions[moduleId]) {
+                    modulePermissions[moduleId] = {
+                        ...(modulePermissions[moduleId] as any),
+                        enabled: true,
+                        view: true,
+                        create: true,
+                        edit: true,
+                        delete: true,
+                    };
+                }
+            });
         }
 
         // Create tenant and admin user in a transaction
