@@ -4,9 +4,8 @@ const withNextIntl = createNextIntlPlugin('./src/i18n.ts');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    // Disable standalone output for Vercel (serverless functions)
-    // Only use standalone for Docker/containerized deployments
-    output: process.env.VERCEL ? undefined : 'standalone',
+    // Disable standalone output - incompatible with Vercel serverless functions
+    // output: 'standalone', // Commented out for Vercel compatibility
     // Fix HTTP 431 "Request Header Fields Too Large" caused by large cookies in dev
     httpAgentOptions: {
         keepAlive: true,
