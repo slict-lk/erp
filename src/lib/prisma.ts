@@ -38,23 +38,32 @@ const createPrismaClient = () => {
     sslConfig.rejectUnauthorized = true;
   }
 
+  // Optimize pool configuration for serverless (Vercel)
+  const isServerless = process.env.VERCEL === '1' || !process.env.LOCAL_DEV;
+  const maxConnections = isServerless ? 1 : (process.env.NODE_ENV === 'development' ? 2 : 5);
+
   const pool =
     globalForPrisma.prismaPool ??
     new pg.Pool({
       connectionString: cleanedUrl,
-      // Keep the pool very small in the app server because Next.js can fan out
-      // a lot of concurrent auth/session and route requests in development.
-      max: process.env.NODE_ENV === 'development' ? 2 : 5,
-      idleTimeoutMillis: 30000,
+      // Serverless: use minimal connections; traditional: use more
+      max: maxConnections,
+      idleTimeoutMillis: isServerless ? 10000 : 30000,
       connectionTimeoutMillis: 15000,
+      statement_timeout: 30000, // 30s query timeout
       ssl: sslConfig,
     });
+
+  // Handle pool errors
+  pool.on('error', (error) => {
+    console.error('[Prisma Pool] Unexpected error on idle client:', error);
+  });
 
   globalForPrisma.prismaPool = pool;
 
   const adapter = new PrismaPg(pool);
 
-  console.log('[Prisma] Initializing client with pg adapter (Prisma 7)');
+  console.log(`[Prisma] Initializing client with pg adapter (Prisma 7) - Serverless: ${isServerless}`);
 
   const client = new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
